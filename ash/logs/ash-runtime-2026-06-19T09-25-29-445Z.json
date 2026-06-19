@@ -1,0 +1,200 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "corecheck",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "observedAt": "2026-06-19T09:25:29.231Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "?? ash/runtime/workflow.js"
+    ],
+    "latestCommit": "2b481c7",
+    "latestMessage": "Add Ash governance runtime",
+    "risk": "medium",
+    "observedAt": "2026-06-19T09:25:29.443Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "corecheck",
+        "signals": [
+          "corecheck"
+        ],
+        "observedAt": "2026-06-19T09:25:29.231Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "?? ash/runtime/workflow.js"
+        ],
+        "latestCommit": "2b481c7",
+        "latestMessage": "Add Ash governance runtime",
+        "risk": "medium",
+        "observedAt": "2026-06-19T09:25:29.443Z"
+      }
+    },
+    "input": "corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "domain": "general",
+    "importance": {
+      "level": "medium",
+      "score": 20
+    },
+    "decisionCandidate": false,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T09:25:29.443Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": false,
+    "reason": "low importance",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "general",
+    "accepted": false,
+    "reason": "low importance",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": false,
+      "memorySave": false,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": false,
+      "marketReview": false
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      }
+    ],
+    "topPriority": {
+      "domain": "development",
+      "priority": 80,
+      "reason": "repository has pending changes"
+    },
+    "recommendation": "Focus first on development: repository has pending changes",
+    "decidedAt": "2026-06-19T09:25:29.444Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level1",
+    "permission": {
+      "name": "auto_with_notification",
+      "autoExecute": true,
+      "requiresApproval": false,
+      "notifyAfter": true,
+      "examples": [
+        "small_refactor",
+        "minor_ui_fix",
+        "test_addition",
+        "low_risk_runtime_improvement",
+        "internal_cleanup"
+      ]
+    },
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "ownerOnly": false,
+    "reason": "Selected level1 for domain=general",
+    "decidedAt": "2026-06-19T09:25:29.444Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "general",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresExecutiveReview": false,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "general",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": false,
+      "requiresMemorySave": false,
+      "requiresExecutiveReview": false,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "workflow": {
+    "mode": "workflow-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "state": "auto_execute_with_notification",
+    "permissionLevel": "level1",
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "executableSteps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ],
+    "blockedSteps": [],
+    "message": "Automatic execution is allowed; notify after completion.",
+    "createdAt": "2026-06-19T09:25:29.444Z"
+  },
+  "createdAt": "2026-06-19T09:25:29.444Z"
+}

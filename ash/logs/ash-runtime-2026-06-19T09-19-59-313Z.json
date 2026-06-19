@@ -1,0 +1,185 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "finance cashflow salary capital allocation",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "finance cashflow salary capital allocation",
+    "signals": [
+      "finance-observation"
+    ],
+    "observedAt": "2026-06-19T09:19:59.103Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "?? ash/config/permissions.json",
+      "?? ash/logs/ash-runtime-2026-06-19T09-19-58-692Z.json",
+      "?? ash/logs/ash-runtime-2026-06-19T09-19-58-996Z.json",
+      "?? ash/runtime/governance.js"
+    ],
+    "latestCommit": "4b5c59b",
+    "latestMessage": "Add Ash executive runtime",
+    "risk": "medium",
+    "observedAt": "2026-06-19T09:19:59.312Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "finance cashflow salary capital allocation",
+        "signals": [
+          "finance-observation"
+        ],
+        "observedAt": "2026-06-19T09:19:59.103Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "?? ash/config/permissions.json",
+          "?? ash/logs/ash-runtime-2026-06-19T09-19-58-692Z.json",
+          "?? ash/logs/ash-runtime-2026-06-19T09-19-58-996Z.json",
+          "?? ash/runtime/governance.js"
+        ],
+        "latestCommit": "4b5c59b",
+        "latestMessage": "Add Ash executive runtime",
+        "risk": "medium",
+        "observedAt": "2026-06-19T09:19:59.312Z"
+      }
+    },
+    "input": "finance cashflow salary capital allocation",
+    "signals": [
+      "finance-observation"
+    ],
+    "domain": "finance",
+    "importance": {
+      "level": "high",
+      "score": 35
+    },
+    "decisionCandidate": true,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T09:19:59.312Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "requiresCoreCheck": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "finance",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "rules": {
+      "coreCheck": false,
+      "ashCoreSave": false,
+      "memorySave": false,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": true,
+      "marketReview": false,
+      "cashflowReview": true
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "finance",
+        "priority": 100,
+        "reason": "cashflow review required"
+      },
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      },
+      {
+        "domain": "executive",
+        "priority": 70,
+        "reason": "executive review required by policy"
+      }
+    ],
+    "topPriority": {
+      "domain": "finance",
+      "priority": 100,
+      "reason": "cashflow review required"
+    },
+    "recommendation": "Focus first on finance: cashflow review required",
+    "decidedAt": "2026-06-19T09:19:59.312Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level3",
+    "permission": {
+      "name": "owner_decision_required",
+      "autoExecute": false,
+      "requiresApproval": true,
+      "ownerOnly": true,
+      "examples": [
+        "company_policy",
+        "salary",
+        "capital_allocation",
+        "hiring",
+        "brand_change",
+        "major_product_direction",
+        "legal_financial_decision"
+      ]
+    },
+    "autoExecutable": false,
+    "requiresApproval": true,
+    "ownerOnly": true,
+    "reason": "Selected level3 for domain=finance",
+    "decidedAt": "2026-06-19T09:19:59.313Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "finance",
+    "requiresCoreCheck": false,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresExecutiveReview": true,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": true
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "finance",
+      "requiresCoreCheck": false,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": false,
+      "requiresMemorySave": false,
+      "requiresExecutiveReview": true,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": true
+    },
+    "steps": []
+  },
+  "createdAt": "2026-06-19T09:19:59.313Z"
+}

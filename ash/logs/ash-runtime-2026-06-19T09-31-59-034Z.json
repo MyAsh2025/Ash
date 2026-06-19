@@ -1,0 +1,318 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "architecture runtime save handover",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "architecture runtime save handover",
+    "signals": [
+      "runtime-change",
+      "architecture-change",
+      "save-required",
+      "handover-required"
+    ],
+    "observedAt": "2026-06-19T09:31:58.831Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "?? ash/agents/",
+      "?? ash/logs/ash-runtime-2026-06-19T09-31-58-085Z.json",
+      "?? ash/logs/ash-runtime-2026-06-19T09-31-58-404Z.json",
+      "?? ash/logs/ash-runtime-2026-06-19T09-31-58-736Z.json",
+      "?? ash/runtime/agent-selector.js"
+    ],
+    "latestCommit": "405fc9e",
+    "latestMessage": "Add Ash workflow runtime",
+    "risk": "medium",
+    "observedAt": "2026-06-19T09:31:59.032Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "architecture runtime save handover",
+        "signals": [
+          "runtime-change",
+          "architecture-change",
+          "save-required",
+          "handover-required"
+        ],
+        "observedAt": "2026-06-19T09:31:58.831Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "?? ash/agents/",
+          "?? ash/logs/ash-runtime-2026-06-19T09-31-58-085Z.json",
+          "?? ash/logs/ash-runtime-2026-06-19T09-31-58-404Z.json",
+          "?? ash/logs/ash-runtime-2026-06-19T09-31-58-736Z.json",
+          "?? ash/runtime/agent-selector.js"
+        ],
+        "latestCommit": "405fc9e",
+        "latestMessage": "Add Ash workflow runtime",
+        "risk": "medium",
+        "observedAt": "2026-06-19T09:31:59.032Z"
+      }
+    },
+    "input": "architecture runtime save handover",
+    "signals": [
+      "runtime-change",
+      "architecture-change",
+      "save-required",
+      "handover-required"
+    ],
+    "domain": "architecture",
+    "importance": {
+      "level": "critical",
+      "score": 110
+    },
+    "decisionCandidate": true,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T09:31:59.032Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresHandover": true,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "architecture",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": true,
+      "memorySave": true,
+      "checkpoint": false,
+      "handover": true,
+      "executiveReview": false,
+      "marketReview": false
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      },
+      {
+        "domain": "architecture",
+        "priority": 55,
+        "reason": "architecture or Ash_Core save required"
+      }
+    ],
+    "topPriority": {
+      "domain": "development",
+      "priority": 80,
+      "reason": "repository has pending changes"
+    },
+    "recommendation": "Focus first on development: repository has pending changes",
+    "decidedAt": "2026-06-19T09:31:59.032Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level2",
+    "permission": {
+      "name": "approval_required",
+      "autoExecute": false,
+      "requiresApproval": true,
+      "examples": [
+        "new_feature",
+        "api_change",
+        "database_change",
+        "pricing_change",
+        "release_candidate",
+        "advertising_change"
+      ]
+    },
+    "autoExecutable": false,
+    "requiresApproval": true,
+    "ownerOnly": false,
+    "reason": "Selected level2 for domain=architecture",
+    "decidedAt": "2026-06-19T09:31:59.033Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "architecture",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresExecutiveReview": false,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "architecture",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": true,
+      "requiresAshCoreSave": true,
+      "requiresMemorySave": true,
+      "requiresExecutiveReview": false,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "architecture runtime save handover",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "workflow": {
+    "mode": "workflow-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "state": "approval_required",
+    "permissionLevel": "level2",
+    "autoExecutable": false,
+    "requiresApproval": true,
+    "executableSteps": [],
+    "blockedSteps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "architecture runtime save handover",
+          "-RuntimeChange"
+        ]
+      }
+    ],
+    "message": "Approval required before execution.",
+    "createdAt": "2026-06-19T09:31:59.033Z"
+  },
+  "agentSelection": {
+    "mode": "agent-selector-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "selectedAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "architecture runtime save handover",
+        "allowed": false,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "blocked"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "architecture runtime save handover",
+        "allowed": false,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "blocked"
+      },
+      {
+        "agent": "save-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Classify and prepare Ash_Core, Memory, and handover saves.",
+        "task": "architecture runtime save handover",
+        "allowed": false,
+        "needsSave": true,
+        "actions": [
+          "classify_save_scope",
+          "prepare_ash_core_save",
+          "prepare_memory_save",
+          "prepare_handover"
+        ],
+        "status": "blocked_or_not_needed"
+      }
+    ],
+    "readyAgents": [],
+    "blockedAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "architecture runtime save handover",
+        "allowed": false,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "blocked"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "architecture runtime save handover",
+        "allowed": false,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "blocked"
+      },
+      {
+        "agent": "save-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Classify and prepare Ash_Core, Memory, and handover saves.",
+        "task": "architecture runtime save handover",
+        "allowed": false,
+        "needsSave": true,
+        "actions": [
+          "classify_save_scope",
+          "prepare_ash_core_save",
+          "prepare_memory_save",
+          "prepare_handover"
+        ],
+        "status": "blocked_or_not_needed"
+      }
+    ],
+    "selectedAt": "2026-06-19T09:31:59.034Z"
+  },
+  "createdAt": "2026-06-19T09:31:59.034Z"
+}

@@ -1,0 +1,66 @@
+{
+  "architecture": {
+    "coreCheck": true,
+    "ashCoreSave": true,
+    "memorySave": true,
+    "checkpoint": false,
+    "handover": true,
+    "executiveReview": false,
+    "marketReview": false
+  },
+  "development": {
+    "coreCheck": true,
+    "ashCoreSave": false,
+    "memorySave": false,
+    "checkpoint": true,
+    "handover": false,
+    "executiveReview": false,
+    "marketReview": false
+  },
+  "knowledge": {
+    "coreCheck": true,
+    "ashCoreSave": true,
+    "memorySave": false,
+    "checkpoint": false,
+    "handover": true,
+    "executiveReview": false,
+    "marketReview": false
+  },
+  "continuity": {
+    "coreCheck": true,
+    "ashCoreSave": false,
+    "memorySave": false,
+    "checkpoint": false,
+    "handover": true,
+    "executiveReview": false,
+    "marketReview": false
+  },
+  "market": {
+    "coreCheck": false,
+    "ashCoreSave": false,
+    "memorySave": false,
+    "checkpoint": false,
+    "handover": false,
+    "executiveReview": true,
+    "marketReview": true
+  },
+  "finance": {
+    "coreCheck": false,
+    "ashCoreSave": false,
+    "memorySave": false,
+    "checkpoint": false,
+    "handover": false,
+    "executiveReview": true,
+    "marketReview": false,
+    "cashflowReview": true
+  },
+  "general": {
+    "coreCheck": false,
+    "ashCoreSave": false,
+    "memorySave": false,
+    "checkpoint": false,
+    "handover": false,
+    "executiveReview": false,
+    "marketReview": false
+  }
+}

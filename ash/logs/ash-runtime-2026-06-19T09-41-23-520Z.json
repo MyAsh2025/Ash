@@ -1,0 +1,213 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "finance capital allocation",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "finance capital allocation",
+    "signals": [
+      "finance-observation"
+    ],
+    "observedAt": "2026-06-19T09:41:23.306Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "?? ash/logs/ash-runtime-2026-06-19T09-41-22-892Z.json",
+      "?? ash/logs/ash-runtime-2026-06-19T09-41-23-206Z.json",
+      "?? ash/runtime/agent-bus.js"
+    ],
+    "latestCommit": "a97c6d9",
+    "latestMessage": "Add Ash agent architecture",
+    "risk": "medium",
+    "observedAt": "2026-06-19T09:41:23.517Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "finance capital allocation",
+        "signals": [
+          "finance-observation"
+        ],
+        "observedAt": "2026-06-19T09:41:23.306Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "?? ash/logs/ash-runtime-2026-06-19T09-41-22-892Z.json",
+          "?? ash/logs/ash-runtime-2026-06-19T09-41-23-206Z.json",
+          "?? ash/runtime/agent-bus.js"
+        ],
+        "latestCommit": "a97c6d9",
+        "latestMessage": "Add Ash agent architecture",
+        "risk": "medium",
+        "observedAt": "2026-06-19T09:41:23.517Z"
+      }
+    },
+    "input": "finance capital allocation",
+    "signals": [
+      "finance-observation"
+    ],
+    "domain": "finance",
+    "importance": {
+      "level": "high",
+      "score": 35
+    },
+    "decisionCandidate": true,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T09:41:23.517Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "requiresCoreCheck": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "finance",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "rules": {
+      "coreCheck": false,
+      "ashCoreSave": false,
+      "memorySave": false,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": true,
+      "marketReview": false,
+      "cashflowReview": true
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "finance",
+        "priority": 100,
+        "reason": "cashflow review required"
+      },
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      },
+      {
+        "domain": "executive",
+        "priority": 70,
+        "reason": "executive review required by policy"
+      }
+    ],
+    "topPriority": {
+      "domain": "finance",
+      "priority": 100,
+      "reason": "cashflow review required"
+    },
+    "recommendation": "Focus first on finance: cashflow review required",
+    "decidedAt": "2026-06-19T09:41:23.519Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level3",
+    "permission": {
+      "name": "owner_decision_required",
+      "autoExecute": false,
+      "requiresApproval": true,
+      "ownerOnly": true,
+      "examples": [
+        "company_policy",
+        "salary",
+        "capital_allocation",
+        "hiring",
+        "brand_change",
+        "major_product_direction",
+        "legal_financial_decision"
+      ]
+    },
+    "autoExecutable": false,
+    "requiresApproval": true,
+    "ownerOnly": true,
+    "reason": "Selected level3 for domain=finance",
+    "decidedAt": "2026-06-19T09:41:23.519Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "finance",
+    "requiresCoreCheck": false,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresExecutiveReview": true,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": true
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "finance",
+      "requiresCoreCheck": false,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": false,
+      "requiresMemorySave": false,
+      "requiresExecutiveReview": true,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": true
+    },
+    "steps": []
+  },
+  "workflow": {
+    "mode": "workflow-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "state": "owner_decision_required",
+    "permissionLevel": "level3",
+    "autoExecutable": false,
+    "requiresApproval": true,
+    "executableSteps": [],
+    "blockedSteps": [],
+    "message": "Owner decision required before execution.",
+    "createdAt": "2026-06-19T09:41:23.519Z"
+  },
+  "agentSelection": {
+    "mode": "agent-selector-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "selectedAgents": [],
+    "readyAgents": [],
+    "blockedAgents": [],
+    "selectedAt": "2026-06-19T09:41:23.519Z"
+  },
+  "agentBus": {
+    "mode": "agent-bus-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "executedAgents": [],
+    "skippedAgents": [],
+    "results": [],
+    "blocked": true,
+    "reason": "Owner decision required before execution.",
+    "completedAt": "2026-06-19T09:41:23.519Z"
+  },
+  "createdAt": "2026-06-19T09:41:23.519Z"
+}

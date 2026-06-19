@@ -1,0 +1,51 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "corecheck runtime smoke test",
+  "dryRun": true,
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "input": "corecheck runtime smoke test",
+    "signals": [
+      "corecheck",
+      "runtime-change"
+    ],
+    "observedAt": "2026-06-19T08:14:17.927Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "primary": "architecture",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": true
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.1",
+      "primary": "architecture",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": true
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck runtime smoke test",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "createdAt": "2026-06-19T08:14:17.978Z"
+}

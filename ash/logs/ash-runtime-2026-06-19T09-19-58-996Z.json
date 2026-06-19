@@ -1,0 +1,180 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "market executive review",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "market executive review",
+    "signals": [
+      "market-observation"
+    ],
+    "observedAt": "2026-06-19T09:19:58.787Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "?? ash/config/permissions.json",
+      "?? ash/logs/ash-runtime-2026-06-19T09-19-58-692Z.json",
+      "?? ash/runtime/governance.js"
+    ],
+    "latestCommit": "4b5c59b",
+    "latestMessage": "Add Ash executive runtime",
+    "risk": "medium",
+    "observedAt": "2026-06-19T09:19:58.995Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "market executive review",
+        "signals": [
+          "market-observation"
+        ],
+        "observedAt": "2026-06-19T09:19:58.787Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "?? ash/config/permissions.json",
+          "?? ash/logs/ash-runtime-2026-06-19T09-19-58-692Z.json",
+          "?? ash/runtime/governance.js"
+        ],
+        "latestCommit": "4b5c59b",
+        "latestMessage": "Add Ash executive runtime",
+        "risk": "medium",
+        "observedAt": "2026-06-19T09:19:58.995Z"
+      }
+    },
+    "input": "market executive review",
+    "signals": [
+      "market-observation"
+    ],
+    "domain": "market",
+    "importance": {
+      "level": "medium",
+      "score": 30
+    },
+    "decisionCandidate": false,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T09:19:58.995Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": false,
+    "reason": "low importance",
+    "requiresCoreCheck": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "market",
+    "accepted": false,
+    "reason": "low importance",
+    "rules": {
+      "coreCheck": false,
+      "ashCoreSave": false,
+      "memorySave": false,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": true,
+      "marketReview": true
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      },
+      {
+        "domain": "executive",
+        "priority": 70,
+        "reason": "executive review required by policy"
+      },
+      {
+        "domain": "market",
+        "priority": 60,
+        "reason": "market review required by policy"
+      }
+    ],
+    "topPriority": {
+      "domain": "development",
+      "priority": 80,
+      "reason": "repository has pending changes"
+    },
+    "recommendation": "Focus first on development: repository has pending changes",
+    "decidedAt": "2026-06-19T09:19:58.996Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level2",
+    "permission": {
+      "name": "approval_required",
+      "autoExecute": false,
+      "requiresApproval": true,
+      "examples": [
+        "new_feature",
+        "api_change",
+        "database_change",
+        "pricing_change",
+        "release_candidate",
+        "advertising_change"
+      ]
+    },
+    "autoExecutable": false,
+    "requiresApproval": true,
+    "ownerOnly": false,
+    "reason": "Selected level2 for domain=market",
+    "decidedAt": "2026-06-19T09:19:58.996Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "market",
+    "requiresCoreCheck": false,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresExecutiveReview": true,
+    "requiresMarketReview": true,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "market",
+      "requiresCoreCheck": false,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": false,
+      "requiresMemorySave": false,
+      "requiresExecutiveReview": true,
+      "requiresMarketReview": true,
+      "requiresCashflowReview": false
+    },
+    "steps": []
+  },
+  "createdAt": "2026-06-19T09:19:58.996Z"
+}

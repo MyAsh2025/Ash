@@ -1,0 +1,57 @@
+{
+  "level0": {
+    "name": "fully_auto",
+    "autoExecute": true,
+    "requiresApproval": false,
+    "examples": [
+      "formatting",
+      "lint",
+      "tests",
+      "runtime_audit",
+      "logs",
+      "safe_backups",
+      "documentation_updates"
+    ]
+  },
+  "level1": {
+    "name": "auto_with_notification",
+    "autoExecute": true,
+    "requiresApproval": false,
+    "notifyAfter": true,
+    "examples": [
+      "small_refactor",
+      "minor_ui_fix",
+      "test_addition",
+      "low_risk_runtime_improvement",
+      "internal_cleanup"
+    ]
+  },
+  "level2": {
+    "name": "approval_required",
+    "autoExecute": false,
+    "requiresApproval": true,
+    "examples": [
+      "new_feature",
+      "api_change",
+      "database_change",
+      "pricing_change",
+      "release_candidate",
+      "advertising_change"
+    ]
+  },
+  "level3": {
+    "name": "owner_decision_required",
+    "autoExecute": false,
+    "requiresApproval": true,
+    "ownerOnly": true,
+    "examples": [
+      "company_policy",
+      "salary",
+      "capital_allocation",
+      "hiring",
+      "brand_change",
+      "major_product_direction",
+      "legal_financial_decision"
+    ]
+  }
+}

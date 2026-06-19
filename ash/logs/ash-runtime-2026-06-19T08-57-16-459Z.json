@@ -1,0 +1,175 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "market finance runtime executive test",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "market finance runtime executive test",
+    "signals": [
+      "runtime-change",
+      "market-observation",
+      "finance-observation"
+    ],
+    "observedAt": "2026-06-19T08:57:16.240Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "?? ash/runtime/executive.js"
+    ],
+    "latestCommit": "c4acd47",
+    "latestMessage": "Add Ash sensor architecture",
+    "risk": "medium",
+    "observedAt": "2026-06-19T08:57:16.458Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "market finance runtime executive test",
+        "signals": [
+          "runtime-change",
+          "market-observation",
+          "finance-observation"
+        ],
+        "observedAt": "2026-06-19T08:57:16.240Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "?? ash/runtime/executive.js"
+        ],
+        "latestCommit": "c4acd47",
+        "latestMessage": "Add Ash sensor architecture",
+        "risk": "medium",
+        "observedAt": "2026-06-19T08:57:16.458Z"
+      }
+    },
+    "input": "market finance runtime executive test",
+    "signals": [
+      "runtime-change",
+      "market-observation",
+      "finance-observation"
+    ],
+    "domain": "market",
+    "importance": {
+      "level": "critical",
+      "score": 85
+    },
+    "decisionCandidate": true,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T08:57:16.458Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "market",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": true,
+      "memorySave": true,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": true,
+      "marketReview": true
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      },
+      {
+        "domain": "executive",
+        "priority": 70,
+        "reason": "executive review required by policy"
+      },
+      {
+        "domain": "market",
+        "priority": 60,
+        "reason": "market review required by policy"
+      },
+      {
+        "domain": "architecture",
+        "priority": 55,
+        "reason": "architecture or Ash_Core save required"
+      }
+    ],
+    "topPriority": {
+      "domain": "development",
+      "priority": 80,
+      "reason": "repository has pending changes"
+    },
+    "recommendation": "Focus first on development: repository has pending changes",
+    "decidedAt": "2026-06-19T08:57:16.459Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "market",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresExecutiveReview": true,
+    "requiresMarketReview": true,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "market",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": true,
+      "requiresMemorySave": true,
+      "requiresExecutiveReview": true,
+      "requiresMarketReview": true,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "market finance runtime executive test",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "createdAt": "2026-06-19T08:57:16.459Z"
+}

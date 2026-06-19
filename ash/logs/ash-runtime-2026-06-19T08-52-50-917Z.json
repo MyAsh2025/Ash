@@ -1,0 +1,144 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "market runtime architecture sensor test",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "market runtime architecture sensor test",
+    "signals": [
+      "runtime-change",
+      "architecture-change",
+      "market-observation"
+    ],
+    "observedAt": "2026-06-19T08:52:50.702Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "M ash/runtime/observation.js",
+      "?? ash/sensors/"
+    ],
+    "latestCommit": "103ada3",
+    "latestMessage": "Add repository observation runtime",
+    "risk": "medium",
+    "observedAt": "2026-06-19T08:52:50.916Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "market runtime architecture sensor test",
+        "signals": [
+          "runtime-change",
+          "architecture-change",
+          "market-observation"
+        ],
+        "observedAt": "2026-06-19T08:52:50.702Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "M ash/runtime/observation.js",
+          "?? ash/sensors/"
+        ],
+        "latestCommit": "103ada3",
+        "latestMessage": "Add repository observation runtime",
+        "risk": "medium",
+        "observedAt": "2026-06-19T08:52:50.916Z"
+      }
+    },
+    "input": "market runtime architecture sensor test",
+    "signals": [
+      "runtime-change",
+      "architecture-change",
+      "market-observation"
+    ],
+    "domain": "market",
+    "importance": {
+      "level": "critical",
+      "score": 95
+    },
+    "decisionCandidate": true,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T08:52:50.917Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "market",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": true,
+      "memorySave": true,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": true,
+      "marketReview": true
+    }
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "market",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresExecutiveReview": true,
+    "requiresMarketReview": true,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "market",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": true,
+      "requiresMemorySave": true,
+      "requiresExecutiveReview": true,
+      "requiresMarketReview": true,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "market runtime architecture sensor test",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "createdAt": "2026-06-19T08:52:50.917Z"
+}

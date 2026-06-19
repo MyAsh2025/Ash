@@ -1,0 +1,11 @@
+{
+  "name": "ash-local-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Independent Ash local runtime service",
+  "main": "ash/index.js",
+  "scripts": {
+    "run": "node ash/index.js",
+    "dry": "node ash/index.js --dry-run"
+  }
+}

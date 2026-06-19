@@ -1,0 +1,187 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "small runtime cleanup corecheck",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "small runtime cleanup corecheck",
+    "signals": [
+      "corecheck",
+      "runtime-change"
+    ],
+    "observedAt": "2026-06-19T09:19:58.469Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "?? ash/config/permissions.json",
+      "?? ash/runtime/governance.js"
+    ],
+    "latestCommit": "4b5c59b",
+    "latestMessage": "Add Ash executive runtime",
+    "risk": "medium",
+    "observedAt": "2026-06-19T09:19:58.690Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "small runtime cleanup corecheck",
+        "signals": [
+          "corecheck",
+          "runtime-change"
+        ],
+        "observedAt": "2026-06-19T09:19:58.469Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "?? ash/config/permissions.json",
+          "?? ash/runtime/governance.js"
+        ],
+        "latestCommit": "4b5c59b",
+        "latestMessage": "Add Ash executive runtime",
+        "risk": "medium",
+        "observedAt": "2026-06-19T09:19:58.690Z"
+      }
+    },
+    "input": "small runtime cleanup corecheck",
+    "signals": [
+      "corecheck",
+      "runtime-change"
+    ],
+    "domain": "architecture",
+    "importance": {
+      "level": "high",
+      "score": 50
+    },
+    "decisionCandidate": true,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T09:19:58.690Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "architecture",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": true,
+      "memorySave": true,
+      "checkpoint": false,
+      "handover": true,
+      "executiveReview": false,
+      "marketReview": false
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      },
+      {
+        "domain": "architecture",
+        "priority": 55,
+        "reason": "architecture or Ash_Core save required"
+      }
+    ],
+    "topPriority": {
+      "domain": "development",
+      "priority": 80,
+      "reason": "repository has pending changes"
+    },
+    "recommendation": "Focus first on development: repository has pending changes",
+    "decidedAt": "2026-06-19T09:19:58.691Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level2",
+    "permission": {
+      "name": "approval_required",
+      "autoExecute": false,
+      "requiresApproval": true,
+      "examples": [
+        "new_feature",
+        "api_change",
+        "database_change",
+        "pricing_change",
+        "release_candidate",
+        "advertising_change"
+      ]
+    },
+    "autoExecutable": false,
+    "requiresApproval": true,
+    "ownerOnly": false,
+    "reason": "Selected level2 for domain=architecture",
+    "decidedAt": "2026-06-19T09:19:58.692Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "architecture",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresExecutiveReview": false,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "architecture",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": true,
+      "requiresAshCoreSave": true,
+      "requiresMemorySave": true,
+      "requiresExecutiveReview": false,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "small runtime cleanup corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "createdAt": "2026-06-19T09:19:58.692Z"
+}

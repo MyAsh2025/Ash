@@ -1,0 +1,73 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "corecheck runtime architecture save handover",
+  "dryRun": true,
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.2",
+    "input": "corecheck runtime architecture save handover",
+    "signals": [
+      "corecheck",
+      "runtime-change",
+      "architecture-change",
+      "save-required",
+      "handover-required"
+    ],
+    "domain": "architecture",
+    "importance": {
+      "level": "critical",
+      "score": 110
+    },
+    "decisionCandidate": true,
+    "observedAt": "2026-06-19T08:24:52.227Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": true,
+    "reason": "important runtime or architecture signal detected",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true,
+    "requiresHandover": true,
+    "requiresCheckpoint": false
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.2",
+    "primary": "architecture",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": true,
+    "requiresAshCoreSave": true,
+    "requiresMemorySave": true
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.2",
+      "primary": "architecture",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": true,
+      "requiresAshCoreSave": true,
+      "requiresMemorySave": true
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck runtime architecture save handover",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "createdAt": "2026-06-19T08:24:52.228Z"
+}
