@@ -1,0 +1,482 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "corecheck",
+  "dryRun": false,
+  "conversation": {
+    "type": "conversation",
+    "input": "corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "observedAt": "2026-06-19T10:29:43.334Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/index.js",
+      "M ash/runtime/agent-bus.js",
+      "?? ash/actions/",
+      "?? ash/logs/ash-runtime-2026-06-19T10-17-49-987Z.json"
+    ],
+    "latestCommit": "3f5fa97",
+    "latestMessage": "Initialize Ash local runtime project",
+    "risk": "medium",
+    "observedAt": "2026-06-19T10:29:43.542Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "corecheck",
+        "signals": [
+          "corecheck"
+        ],
+        "observedAt": "2026-06-19T10:29:43.334Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/index.js",
+          "M ash/runtime/agent-bus.js",
+          "?? ash/actions/",
+          "?? ash/logs/ash-runtime-2026-06-19T10-17-49-987Z.json"
+        ],
+        "latestCommit": "3f5fa97",
+        "latestMessage": "Initialize Ash local runtime project",
+        "risk": "medium",
+        "observedAt": "2026-06-19T10:29:43.542Z"
+      }
+    },
+    "input": "corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "domain": "general",
+    "importance": {
+      "level": "medium",
+      "score": 20
+    },
+    "decisionCandidate": false,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T10:29:43.542Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": false,
+    "reason": "low importance",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "general",
+    "accepted": false,
+    "reason": "low importance",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": false,
+      "memorySave": false,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": false,
+      "marketReview": false
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      }
+    ],
+    "topPriority": {
+      "domain": "development",
+      "priority": 80,
+      "reason": "repository has pending changes"
+    },
+    "recommendation": "Focus first on development: repository has pending changes",
+    "decidedAt": "2026-06-19T10:29:43.543Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level1",
+    "permission": {
+      "name": "auto_with_notification",
+      "autoExecute": true,
+      "requiresApproval": false,
+      "notifyAfter": true,
+      "examples": [
+        "small_refactor",
+        "minor_ui_fix",
+        "test_addition",
+        "low_risk_runtime_improvement",
+        "internal_cleanup"
+      ]
+    },
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "ownerOnly": false,
+    "reason": "Selected level1 for domain=general",
+    "decidedAt": "2026-06-19T10:29:43.543Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "general",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresExecutiveReview": false,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "general",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": false,
+      "requiresMemorySave": false,
+      "requiresExecutiveReview": false,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "workflow": {
+    "mode": "workflow-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "state": "auto_execute_with_notification",
+    "permissionLevel": "level1",
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "executableSteps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ],
+    "blockedSteps": [],
+    "message": "Automatic execution is allowed; notify after completion.",
+    "createdAt": "2026-06-19T10:29:43.544Z"
+  },
+  "agentSelection": {
+    "mode": "agent-selector-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "selectedAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "ready"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "ready"
+      }
+    ],
+    "readyAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "ready"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "ready"
+      }
+    ],
+    "blockedAgents": [],
+    "selectedAt": "2026-06-19T10:29:43.544Z"
+  },
+  "agentBus": {
+    "mode": "agent-bus-runtime",
+    "version": "ash-local-runtime-v0.2",
+    "executedAgents": [
+      {
+        "agent": "verification-agent",
+        "status": "executed",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "actionResults": [
+          {
+            "action": "node_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "runtime_corecheck",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "git_diff_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "audit_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          }
+        ],
+        "result": "Agent execution completed.",
+        "executedAt": "2026-06-19T10:29:44.394Z"
+      }
+    ],
+    "failedAgents": [
+      {
+        "agent": "development-agent",
+        "status": "failed",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "actionResults": [
+          {
+            "action": "inspect_repository",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:43.544Z"
+          },
+          {
+            "action": "prepare_patch_plan",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:43.544Z"
+          },
+          {
+            "action": "powershell",
+            "script": "C:\\Users\\Owner\\StudioProjects\\honne_fortune\\scripts\\runtime-corecheck.ps1",
+            "args": [
+              "-Intent",
+              "corecheck",
+              "-RuntimeChange"
+            ],
+            "status": 1,
+            "success": false,
+            "stdout": "=== Ash CoreCheck Runtime v2 ===\nIntent: corecheck\n\n---- Git status ----\n M ash/index.js\n M ash/runtime/agent-bus.js\n?? ash/actions/\n?? ash/logs/ash-runtime-2026-06-19T10-17-49-987Z.json\n[OK] Git status\n\n---- Node syntax check ----\n[FAIL] Node syntax check\nNode syntax check failed with exit code 1\n\n---- Save classification ----\nAsh_Core save check: REQUIRED when architecture/runtime/company direction changed.\nMemory save check: REQUIRED when long-term user preference or operating rule changed.\nHandover check: REQUIRED when session state or next-step continuity changed.\n[INFO] Manual classification still required in v2.0.\n\n=== CoreCheck Result: FAILED ===",
+            "stderr": "node:internal/modules/cjs/loader:1424\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module 'C:\\Users\\Owner\\StudioProjects\\Ash\\server\\index.js'\r\n    at node:internal/modules/cjs/loader:1421:15\r\n    at node:internal/main/check_syntax:33:20 {\r\n  code: 'MODULE_NOT_FOUND',\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.11.1",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "run_checkpoint_when_needed",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          }
+        ],
+        "result": "Agent execution failed.",
+        "executedAt": "2026-06-19T10:29:44.394Z"
+      }
+    ],
+    "skippedAgents": [],
+    "results": [
+      {
+        "agent": "development-agent",
+        "status": "failed",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "actionResults": [
+          {
+            "action": "inspect_repository",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:43.544Z"
+          },
+          {
+            "action": "prepare_patch_plan",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:43.544Z"
+          },
+          {
+            "action": "powershell",
+            "script": "C:\\Users\\Owner\\StudioProjects\\honne_fortune\\scripts\\runtime-corecheck.ps1",
+            "args": [
+              "-Intent",
+              "corecheck",
+              "-RuntimeChange"
+            ],
+            "status": 1,
+            "success": false,
+            "stdout": "=== Ash CoreCheck Runtime v2 ===\nIntent: corecheck\n\n---- Git status ----\n M ash/index.js\n M ash/runtime/agent-bus.js\n?? ash/actions/\n?? ash/logs/ash-runtime-2026-06-19T10-17-49-987Z.json\n[OK] Git status\n\n---- Node syntax check ----\n[FAIL] Node syntax check\nNode syntax check failed with exit code 1\n\n---- Save classification ----\nAsh_Core save check: REQUIRED when architecture/runtime/company direction changed.\nMemory save check: REQUIRED when long-term user preference or operating rule changed.\nHandover check: REQUIRED when session state or next-step continuity changed.\n[INFO] Manual classification still required in v2.0.\n\n=== CoreCheck Result: FAILED ===",
+            "stderr": "node:internal/modules/cjs/loader:1424\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module 'C:\\Users\\Owner\\StudioProjects\\Ash\\server\\index.js'\r\n    at node:internal/modules/cjs/loader:1421:15\r\n    at node:internal/main/check_syntax:33:20 {\r\n  code: 'MODULE_NOT_FOUND',\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.11.1",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "run_checkpoint_when_needed",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          }
+        ],
+        "result": "Agent execution failed.",
+        "executedAt": "2026-06-19T10:29:44.394Z"
+      },
+      {
+        "agent": "verification-agent",
+        "status": "executed",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "actionResults": [
+          {
+            "action": "node_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "runtime_corecheck",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "git_diff_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          },
+          {
+            "action": "audit_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:29:44.394Z"
+          }
+        ],
+        "result": "Agent execution completed.",
+        "executedAt": "2026-06-19T10:29:44.394Z"
+      }
+    ],
+    "success": false,
+    "completedAt": "2026-06-19T10:29:44.394Z"
+  },
+  "conversationHealth": {
+    "mode": "conversation-health-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "score": 75,
+    "recommendedAction": "continue",
+    "reasons": [
+      "repository has pending changes",
+      "many runtime logs in current session"
+    ],
+    "shouldPrepareHandover": false,
+    "evaluatedAt": "2026-06-19T10:29:44.394Z"
+  },
+  "handover": null,
+  "createdAt": "2026-06-19T10:29:44.394Z"
+}

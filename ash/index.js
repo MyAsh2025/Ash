@@ -47,7 +47,7 @@ function main() {
   const logCount = fs.readdirSync(logDir).filter((name) => name.endsWith(".json")).length;
 
   const agentBus = workflow.autoExecutable
-    ? runAgentBus(agentSelection)
+    ? runAgentBus(agentSelection, { task })
     : {
         mode: "agent-bus-runtime",
         version: "ash-local-runtime-v0.1",

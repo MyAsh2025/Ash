@@ -1,0 +1,329 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "corecheck",
+  "dryRun": true,
+  "conversation": {
+    "type": "conversation",
+    "input": "corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "observedAt": "2026-06-19T10:17:49.786Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": true,
+    "changedFiles": [],
+    "latestCommit": "3f5fa97",
+    "latestMessage": "Initialize Ash local runtime project",
+    "risk": "low",
+    "observedAt": "2026-06-19T10:17:49.983Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "corecheck",
+        "signals": [
+          "corecheck"
+        ],
+        "observedAt": "2026-06-19T10:17:49.786Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": true,
+        "changedFiles": [],
+        "latestCommit": "3f5fa97",
+        "latestMessage": "Initialize Ash local runtime project",
+        "risk": "low",
+        "observedAt": "2026-06-19T10:17:49.983Z"
+      }
+    },
+    "input": "corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "domain": "general",
+    "importance": {
+      "level": "low",
+      "score": 10
+    },
+    "decisionCandidate": false,
+    "repositoryRisk": "low",
+    "observedAt": "2026-06-19T10:17:49.983Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": false,
+    "reason": "low importance",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "general",
+    "accepted": false,
+    "reason": "low importance",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": false,
+      "memorySave": false,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": false,
+      "marketReview": false
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [],
+    "topPriority": {
+      "domain": "general",
+      "priority": 0,
+      "reason": "no priority detected"
+    },
+    "recommendation": "No executive action required",
+    "decidedAt": "2026-06-19T10:17:49.986Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level0",
+    "permission": {
+      "name": "fully_auto",
+      "autoExecute": true,
+      "requiresApproval": false,
+      "examples": [
+        "formatting",
+        "lint",
+        "tests",
+        "runtime_audit",
+        "logs",
+        "safe_backups",
+        "documentation_updates"
+      ]
+    },
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "ownerOnly": false,
+    "reason": "Selected level0 for domain=general",
+    "decidedAt": "2026-06-19T10:17:49.986Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "general",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresExecutiveReview": false,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "general",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": false,
+      "requiresMemorySave": false,
+      "requiresExecutiveReview": false,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "workflow": {
+    "mode": "workflow-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "state": "auto_execute",
+    "permissionLevel": "level0",
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "executableSteps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ],
+    "blockedSteps": [],
+    "message": "Fully automatic execution is allowed.",
+    "createdAt": "2026-06-19T10:17:49.986Z"
+  },
+  "agentSelection": {
+    "mode": "agent-selector-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "selectedAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "ready"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "ready"
+      }
+    ],
+    "readyAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "ready"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "corecheck",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "ready"
+      }
+    ],
+    "blockedAgents": [],
+    "selectedAt": "2026-06-19T10:17:49.986Z"
+  },
+  "agentBus": {
+    "mode": "agent-bus-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "executedAgents": [
+      {
+        "agent": "development-agent",
+        "status": "executed_simulated",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "result": "Agent execution simulated successfully.",
+        "executedAt": "2026-06-19T10:17:49.987Z"
+      },
+      {
+        "agent": "verification-agent",
+        "status": "executed_simulated",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "result": "Agent execution simulated successfully.",
+        "executedAt": "2026-06-19T10:17:49.987Z"
+      }
+    ],
+    "skippedAgents": [],
+    "results": [
+      {
+        "agent": "development-agent",
+        "status": "executed_simulated",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "result": "Agent execution simulated successfully.",
+        "executedAt": "2026-06-19T10:17:49.987Z"
+      },
+      {
+        "agent": "verification-agent",
+        "status": "executed_simulated",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "result": "Agent execution simulated successfully.",
+        "executedAt": "2026-06-19T10:17:49.987Z"
+      }
+    ],
+    "completedAt": "2026-06-19T10:17:49.987Z"
+  },
+  "conversationHealth": {
+    "mode": "conversation-health-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "score": 90,
+    "recommendedAction": "continue",
+    "reasons": [
+      "many runtime logs in current session"
+    ],
+    "shouldPrepareHandover": false,
+    "evaluatedAt": "2026-06-19T10:17:49.987Z"
+  },
+  "handover": null,
+  "createdAt": "2026-06-19T10:17:49.987Z"
+}
