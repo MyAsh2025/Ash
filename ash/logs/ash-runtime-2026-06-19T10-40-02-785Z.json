@@ -1,0 +1,517 @@
+{
+  "mode": "ash-local-runtime",
+  "version": "v0.1",
+  "task": "honne fortune corecheck",
+  "dryRun": true,
+  "projectContext": {
+    "mode": "project-context-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "project": {
+      "id": "honne_fortune",
+      "name": "Honne Fortune",
+      "path": "C:\\Users\\Owner\\StudioProjects\\honne_fortune",
+      "type": "node-server",
+      "branch": "master",
+      "managed": true,
+      "scripts": {
+        "corecheck": "scripts\\runtime-corecheck.ps1",
+        "checkpoint": "scripts\\runtime-checkpoint.ps1"
+      }
+    },
+    "registryVersion": "ash-project-registry-v0.1",
+    "resolvedAt": "2026-06-19T10:40:01.503Z"
+  },
+  "conversation": {
+    "type": "conversation",
+    "input": "honne fortune corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "observedAt": "2026-06-19T10:40:01.504Z"
+  },
+  "repository": {
+    "type": "repository",
+    "branch": "master",
+    "clean": false,
+    "changedFiles": [
+      "M ash/actions/action-runtime.js",
+      "M ash/index.js",
+      "?? ash/config/projects.json",
+      "?? ash/runtime/project-context.js"
+    ],
+    "latestCommit": "99eafa1",
+    "latestMessage": "Add Ash action runtime corecheck execution",
+    "risk": "medium",
+    "observedAt": "2026-06-19T10:40:01.706Z"
+  },
+  "observation": {
+    "mode": "observation-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "sensors": {
+      "conversation": {
+        "type": "conversation",
+        "input": "honne fortune corecheck",
+        "signals": [
+          "corecheck"
+        ],
+        "observedAt": "2026-06-19T10:40:01.504Z"
+      },
+      "repository": {
+        "type": "repository",
+        "branch": "master",
+        "clean": false,
+        "changedFiles": [
+          "M ash/actions/action-runtime.js",
+          "M ash/index.js",
+          "?? ash/config/projects.json",
+          "?? ash/runtime/project-context.js"
+        ],
+        "latestCommit": "99eafa1",
+        "latestMessage": "Add Ash action runtime corecheck execution",
+        "risk": "medium",
+        "observedAt": "2026-06-19T10:40:01.706Z"
+      }
+    },
+    "input": "honne fortune corecheck",
+    "signals": [
+      "corecheck"
+    ],
+    "domain": "general",
+    "importance": {
+      "level": "medium",
+      "score": 20
+    },
+    "decisionCandidate": false,
+    "repositoryRisk": "medium",
+    "observedAt": "2026-06-19T10:40:01.706Z"
+  },
+  "decision": {
+    "mode": "decision-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "accepted": false,
+    "reason": "low importance",
+    "requiresCoreCheck": true,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresHandover": false,
+    "requiresCheckpoint": false
+  },
+  "policy": {
+    "mode": "policy-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "domain": "general",
+    "accepted": false,
+    "reason": "low importance",
+    "rules": {
+      "coreCheck": true,
+      "ashCoreSave": false,
+      "memorySave": false,
+      "checkpoint": false,
+      "handover": false,
+      "executiveReview": false,
+      "marketReview": false
+    }
+  },
+  "executive": {
+    "mode": "executive-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "priorities": [
+      {
+        "domain": "development",
+        "priority": 80,
+        "reason": "repository has pending changes"
+      }
+    ],
+    "topPriority": {
+      "domain": "development",
+      "priority": 80,
+      "reason": "repository has pending changes"
+    },
+    "recommendation": "Focus first on development: repository has pending changes",
+    "decidedAt": "2026-06-19T10:40:01.707Z"
+  },
+  "governance": {
+    "mode": "governance-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "level": "level1",
+    "permission": {
+      "name": "auto_with_notification",
+      "autoExecute": true,
+      "requiresApproval": false,
+      "notifyAfter": true,
+      "examples": [
+        "small_refactor",
+        "minor_ui_fix",
+        "test_addition",
+        "low_risk_runtime_improvement",
+        "internal_cleanup"
+      ]
+    },
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "ownerOnly": false,
+    "reason": "Selected level1 for domain=general",
+    "decidedAt": "2026-06-19T10:40:01.707Z"
+  },
+  "intent": {
+    "mode": "intent-runtime",
+    "version": "ash-local-runtime-v0.3",
+    "primary": "general",
+    "requiresCoreCheck": true,
+    "requiresCheckpoint": false,
+    "requiresHandover": false,
+    "requiresAshCoreSave": false,
+    "requiresMemorySave": false,
+    "requiresExecutiveReview": false,
+    "requiresMarketReview": false,
+    "requiresCashflowReview": false
+  },
+  "plan": {
+    "mode": "planning-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "intent": {
+      "mode": "intent-runtime",
+      "version": "ash-local-runtime-v0.3",
+      "primary": "general",
+      "requiresCoreCheck": true,
+      "requiresCheckpoint": false,
+      "requiresHandover": false,
+      "requiresAshCoreSave": false,
+      "requiresMemorySave": false,
+      "requiresExecutiveReview": false,
+      "requiresMarketReview": false,
+      "requiresCashflowReview": false
+    },
+    "steps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "honne fortune corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ]
+  },
+  "workflow": {
+    "mode": "workflow-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "state": "auto_execute_with_notification",
+    "permissionLevel": "level1",
+    "autoExecutable": true,
+    "requiresApproval": false,
+    "executableSteps": [
+      {
+        "type": "powershell",
+        "name": "corecheck",
+        "script": ".\\scripts\\runtime-corecheck.ps1",
+        "args": [
+          "-Intent",
+          "honne fortune corecheck",
+          "-RuntimeChange"
+        ]
+      }
+    ],
+    "blockedSteps": [],
+    "message": "Automatic execution is allowed; notify after completion.",
+    "createdAt": "2026-06-19T10:40:01.707Z"
+  },
+  "agentSelection": {
+    "mode": "agent-selector-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "selectedAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "honne fortune corecheck",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "ready"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "honne fortune corecheck",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "ready"
+      }
+    ],
+    "readyAgents": [
+      {
+        "agent": "development-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Handle low-risk development execution tasks.",
+        "task": "honne fortune corecheck",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "status": "ready"
+      },
+      {
+        "agent": "verification-agent",
+        "version": "ash-agent-v0.1",
+        "purpose": "Verify syntax, runtime checks, audit keys, and repository safety.",
+        "task": "honne fortune corecheck",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "status": "ready"
+      }
+    ],
+    "blockedAgents": [],
+    "selectedAt": "2026-06-19T10:40:01.708Z"
+  },
+  "agentBus": {
+    "mode": "agent-bus-runtime",
+    "version": "ash-local-runtime-v0.2",
+    "executedAgents": [
+      {
+        "agent": "development-agent",
+        "status": "executed",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "actionResults": [
+          {
+            "action": "inspect_repository",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:01.708Z"
+          },
+          {
+            "action": "prepare_patch_plan",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:01.708Z"
+          },
+          {
+            "action": "powershell",
+            "cwd": "C:\\Users\\Owner\\StudioProjects\\honne_fortune",
+            "script": "C:\\Users\\Owner\\StudioProjects\\honne_fortune\\scripts\\runtime-corecheck.ps1",
+            "args": [
+              "-Intent",
+              "honne fortune corecheck",
+              "-RuntimeChange"
+            ],
+            "status": 0,
+            "success": true,
+            "stdout": "=== Ash CoreCheck Runtime v2 ===\nIntent: honne fortune corecheck\n\n---- Git status ----\n[OK] Git status\n\n---- Node syntax check ----\n[OK] Node syntax check\n\n---- Save classification ----\nAsh_Core save check: REQUIRED when architecture/runtime/company direction changed.\nMemory save check: REQUIRED when long-term user preference or operating rule changed.\nHandover check: REQUIRED when session state or next-step continuity changed.\n[INFO] Manual classification still required in v2.0.\n\n=== CoreCheck Result: OK ===",
+            "stderr": "",
+            "executedAt": "2026-06-19T10:40:02.267Z"
+          },
+          {
+            "action": "run_checkpoint_when_needed",
+            "success": true,
+            "skipped": true,
+            "result": "Checkpoint action is not bound yet.",
+            "executedAt": "2026-06-19T10:40:02.268Z"
+          }
+        ],
+        "result": "Agent execution completed.",
+        "executedAt": "2026-06-19T10:40:02.268Z"
+      },
+      {
+        "agent": "verification-agent",
+        "status": "executed",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "actionResults": [
+          {
+            "action": "node_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:02.268Z"
+          },
+          {
+            "action": "powershell",
+            "cwd": "C:\\Users\\Owner\\StudioProjects\\honne_fortune",
+            "script": "C:\\Users\\Owner\\StudioProjects\\honne_fortune\\scripts\\runtime-corecheck.ps1",
+            "args": [
+              "-Intent",
+              "honne fortune corecheck",
+              "-RuntimeChange"
+            ],
+            "status": 0,
+            "success": true,
+            "stdout": "=== Ash CoreCheck Runtime v2 ===\nIntent: honne fortune corecheck\n\n---- Git status ----\n[OK] Git status\n\n---- Node syntax check ----\n[OK] Node syntax check\n\n---- Save classification ----\nAsh_Core save check: REQUIRED when architecture/runtime/company direction changed.\nMemory save check: REQUIRED when long-term user preference or operating rule changed.\nHandover check: REQUIRED when session state or next-step continuity changed.\n[INFO] Manual classification still required in v2.0.\n\n=== CoreCheck Result: OK ===",
+            "stderr": "",
+            "executedAt": "2026-06-19T10:40:02.784Z"
+          },
+          {
+            "action": "git_diff_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:02.784Z"
+          },
+          {
+            "action": "audit_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:02.784Z"
+          }
+        ],
+        "result": "Agent execution completed.",
+        "executedAt": "2026-06-19T10:40:02.784Z"
+      }
+    ],
+    "failedAgents": [],
+    "skippedAgents": [],
+    "results": [
+      {
+        "agent": "development-agent",
+        "status": "executed",
+        "allowed": true,
+        "actions": [
+          "inspect_repository",
+          "prepare_patch_plan",
+          "run_corecheck",
+          "run_checkpoint_when_needed"
+        ],
+        "actionResults": [
+          {
+            "action": "inspect_repository",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:01.708Z"
+          },
+          {
+            "action": "prepare_patch_plan",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:01.708Z"
+          },
+          {
+            "action": "powershell",
+            "cwd": "C:\\Users\\Owner\\StudioProjects\\honne_fortune",
+            "script": "C:\\Users\\Owner\\StudioProjects\\honne_fortune\\scripts\\runtime-corecheck.ps1",
+            "args": [
+              "-Intent",
+              "honne fortune corecheck",
+              "-RuntimeChange"
+            ],
+            "status": 0,
+            "success": true,
+            "stdout": "=== Ash CoreCheck Runtime v2 ===\nIntent: honne fortune corecheck\n\n---- Git status ----\n[OK] Git status\n\n---- Node syntax check ----\n[OK] Node syntax check\n\n---- Save classification ----\nAsh_Core save check: REQUIRED when architecture/runtime/company direction changed.\nMemory save check: REQUIRED when long-term user preference or operating rule changed.\nHandover check: REQUIRED when session state or next-step continuity changed.\n[INFO] Manual classification still required in v2.0.\n\n=== CoreCheck Result: OK ===",
+            "stderr": "",
+            "executedAt": "2026-06-19T10:40:02.267Z"
+          },
+          {
+            "action": "run_checkpoint_when_needed",
+            "success": true,
+            "skipped": true,
+            "result": "Checkpoint action is not bound yet.",
+            "executedAt": "2026-06-19T10:40:02.268Z"
+          }
+        ],
+        "result": "Agent execution completed.",
+        "executedAt": "2026-06-19T10:40:02.268Z"
+      },
+      {
+        "agent": "verification-agent",
+        "status": "executed",
+        "allowed": true,
+        "actions": [
+          "node_check",
+          "runtime_corecheck",
+          "git_diff_check",
+          "audit_check"
+        ],
+        "actionResults": [
+          {
+            "action": "node_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:02.268Z"
+          },
+          {
+            "action": "powershell",
+            "cwd": "C:\\Users\\Owner\\StudioProjects\\honne_fortune",
+            "script": "C:\\Users\\Owner\\StudioProjects\\honne_fortune\\scripts\\runtime-corecheck.ps1",
+            "args": [
+              "-Intent",
+              "honne fortune corecheck",
+              "-RuntimeChange"
+            ],
+            "status": 0,
+            "success": true,
+            "stdout": "=== Ash CoreCheck Runtime v2 ===\nIntent: honne fortune corecheck\n\n---- Git status ----\n[OK] Git status\n\n---- Node syntax check ----\n[OK] Node syntax check\n\n---- Save classification ----\nAsh_Core save check: REQUIRED when architecture/runtime/company direction changed.\nMemory save check: REQUIRED when long-term user preference or operating rule changed.\nHandover check: REQUIRED when session state or next-step continuity changed.\n[INFO] Manual classification still required in v2.0.\n\n=== CoreCheck Result: OK ===",
+            "stderr": "",
+            "executedAt": "2026-06-19T10:40:02.784Z"
+          },
+          {
+            "action": "git_diff_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:02.784Z"
+          },
+          {
+            "action": "audit_check",
+            "success": true,
+            "simulated": true,
+            "result": "No concrete action binding yet.",
+            "executedAt": "2026-06-19T10:40:02.784Z"
+          }
+        ],
+        "result": "Agent execution completed.",
+        "executedAt": "2026-06-19T10:40:02.784Z"
+      }
+    ],
+    "success": true,
+    "completedAt": "2026-06-19T10:40:02.784Z"
+  },
+  "conversationHealth": {
+    "mode": "conversation-health-runtime",
+    "version": "ash-local-runtime-v0.1",
+    "score": 75,
+    "recommendedAction": "continue",
+    "reasons": [
+      "repository has pending changes",
+      "many runtime logs in current session"
+    ],
+    "shouldPrepareHandover": false,
+    "evaluatedAt": "2026-06-19T10:40:02.785Z"
+  },
+  "handover": null,
+  "createdAt": "2026-06-19T10:40:02.785Z"
+}

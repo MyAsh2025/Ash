@@ -1,0 +1,34 @@
+{
+  "version": "ash-project-registry-v0.1",
+  "defaultProject": "honne_fortune",
+  "projects": [
+    {
+      "id": "ash",
+      "name": "Ash",
+      "path": "C:\\Users\\Owner\\StudioProjects\\Ash",
+      "type": "node",
+      "branch": "master",
+      "managed": true
+    },
+    {
+      "id": "ash_core",
+      "name": "Ash_Core",
+      "path": "C:\\Users\\Owner\\StudioProjects\\Ash_Core",
+      "type": "core",
+      "branch": "master",
+      "managed": true
+    },
+    {
+      "id": "honne_fortune",
+      "name": "Honne Fortune",
+      "path": "C:\\Users\\Owner\\StudioProjects\\honne_fortune",
+      "type": "node-server",
+      "branch": "master",
+      "managed": true,
+      "scripts": {
+        "corecheck": "scripts\\runtime-corecheck.ps1",
+        "checkpoint": "scripts\\runtime-checkpoint.ps1"
+      }
+    }
+  ]
+}

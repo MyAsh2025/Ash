@@ -13,6 +13,7 @@ const { buildPlan } = require("./runtime/planner");
 const { buildWorkflow } = require("./runtime/workflow");
 const { selectAgents } = require("./runtime/agent-selector");
 const { runAgentBus } = require("./runtime/agent-bus");
+const { resolveProject } = require("./runtime/project-context");
 const { evaluateConversationHealth } = require("./runtime/conversation-health");
 const { writeHandover } = require("./runtime/handover");
 const { executePlan } = require("./runtime/executor");
@@ -31,6 +32,7 @@ function main() {
   console.log(`Task: ${task}`);
   console.log(`DryRun: ${dryRun}`);
 
+  const projectContext = resolveProject(task);
   const conversation = observeConversation(task);
   const repository = observeRepository();
   const observation = mergeObservations({ conversation, repository });
@@ -47,7 +49,7 @@ function main() {
   const logCount = fs.readdirSync(logDir).filter((name) => name.endsWith(".json")).length;
 
   const agentBus = workflow.autoExecutable
-    ? runAgentBus(agentSelection, { task })
+    ? runAgentBus(agentSelection, { task, projectContext })
     : {
         mode: "agent-bus-runtime",
         version: "ash-local-runtime-v0.1",
@@ -86,6 +88,7 @@ function main() {
     version: "v0.1",
     task,
     dryRun,
+    projectContext,
     conversation,
     repository,
     observation,
@@ -109,6 +112,9 @@ function main() {
   );
 
   fs.writeFileSync(logPath, JSON.stringify(runtimeResult, null, 2), "utf8");
+
+  console.log("== Project Context ==");
+  console.log(JSON.stringify(projectContext, null, 2));
 
   console.log("== Observation ==");
   console.log(JSON.stringify(observation, null, 2));
