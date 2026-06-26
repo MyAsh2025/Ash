@@ -1,5 +1,27 @@
+const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+
+function resolveExistingScript(projectPath, configuredScript, fallbackNames = []) {
+  const candidates = [];
+
+  if (configuredScript) {
+    candidates.push(path.join(projectPath, configuredScript));
+  }
+
+  for (const name of fallbackNames) {
+    candidates.push(path.join(projectPath, name));
+    candidates.push(path.join(projectPath, "scripts", name));
+  }
+
+  const found = candidates.find((candidate) => fs.existsSync(candidate));
+
+  return {
+    script: found || candidates[0],
+    found: Boolean(found),
+    candidates
+  };
+}
 
 function runPowerShellScript(script, args = [], cwd = process.cwd()) {
   const result = spawnSync("powershell", [
@@ -29,16 +51,30 @@ function runPowerShellScript(script, args = [], cwd = process.cwd()) {
 }
 
 function runAction(action, context = {}) {
-  const project = context.projectContext?.project || {};
-  const projectPath = project.path || process.cwd();
+  const project = context.projectContext?.project || context.project || {};
+  const projectPath = project.path || context.projectPath || process.cwd();
 
   if (action === "run_corecheck" || action === "runtime_corecheck") {
-    const script = project.scripts?.corecheck
-      ? path.join(projectPath, project.scripts.corecheck)
-      : path.join(projectPath, "scripts", "runtime-corecheck.ps1");
+    const resolved = resolveExistingScript(
+      projectPath,
+      project.scripts?.corecheck,
+      ["runtime-corecheck.ps1"]
+    );
+
+    if (!resolved.found) {
+      return {
+        action,
+        success: false,
+        cwd: projectPath,
+        script: resolved.script,
+        error: "CoreCheck script not found.",
+        candidates: resolved.candidates,
+        executedAt: new Date().toISOString()
+      };
+    }
 
     return runPowerShellScript(
-      script,
+      resolved.script,
       [
         "-Intent",
         context.task || "ash action runtime",
@@ -49,13 +85,48 @@ function runAction(action, context = {}) {
   }
 
   if (action === "run_checkpoint_when_needed") {
-    return {
-      action,
-      success: true,
-      skipped: true,
-      result: "Checkpoint action is not bound yet.",
-      executedAt: new Date().toISOString()
-    };
+    const commitMessage = context.commitMessage || context.checkpoint?.commitMessage;
+    const expectedAuditKey = context.expectedAuditKey || context.checkpoint?.expectedAuditKey;
+
+    if (!commitMessage || !expectedAuditKey) {
+      return {
+        action,
+        success: true,
+        skipped: true,
+        reason: "Checkpoint requires commitMessage and expectedAuditKey.",
+        cwd: projectPath,
+        executedAt: new Date().toISOString()
+      };
+    }
+
+    const resolved = resolveExistingScript(
+      projectPath,
+      project.scripts?.checkpoint,
+      ["runtime-checkpoint.ps1"]
+    );
+
+    if (!resolved.found) {
+      return {
+        action,
+        success: false,
+        cwd: projectPath,
+        script: resolved.script,
+        error: "Checkpoint script not found.",
+        candidates: resolved.candidates,
+        executedAt: new Date().toISOString()
+      };
+    }
+
+    return runPowerShellScript(
+      resolved.script,
+      [
+        "-CommitMessage",
+        commitMessage,
+        "-ExpectedAuditKey",
+        expectedAuditKey
+      ],
+      projectPath
+    );
   }
 
   return {
@@ -67,4 +138,5 @@ function runAction(action, context = {}) {
   };
 }
 
-module.exports = { runAction };
+module.exports = { runAction, resolveExistingScript };
+

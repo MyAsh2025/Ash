@@ -3,11 +3,30 @@ const { buildVerificationAgentTask } = require("../agents/verification");
 const { buildCheckpointAgentTask } = require("../agents/checkpoint");
 const { buildSaveAgentTask } = require("../agents/save");
 
-function selectAgents({ task, intent, workflow }) {
+function includesAgent(coordinator, agentName) {
+  const preferred = coordinator?.preferredAgents || [];
+  return preferred.includes(agentName);
+}
+
+function selectAgents({ task, intent, workflow, coordinator = null }) {
   const agents = [];
 
-  if (intent?.requiresCoreCheck || intent?.requiresCheckpoint || workflow?.autoExecutable) {
+  const wantsDevelopment =
+    includesAgent(coordinator, "development-agent") ||
+    intent?.requiresCoreCheck ||
+    intent?.requiresCheckpoint ||
+    workflow?.autoExecutable;
+
+  const wantsVerification =
+    includesAgent(coordinator, "verification-agent") ||
+    intent?.requiresCoreCheck ||
+    workflow?.autoExecutable;
+
+  if (wantsDevelopment) {
     agents.push(buildDevelopmentAgentTask({ task, intent, workflow }));
+  }
+
+  if (wantsVerification) {
     agents.push(buildVerificationAgentTask({ task, workflow }));
   }
 
@@ -25,7 +44,8 @@ function selectAgents({ task, intent, workflow }) {
 
   return {
     mode: "agent-selector-runtime",
-    version: "ash-local-runtime-v0.1",
+    version: "ash-local-runtime-v0.2-coordinator-aware",
+    coordinator,
     selectedAgents: agents,
     readyAgents: agents.filter((agent) => agent.status === "ready"),
     blockedAgents: agents.filter((agent) => agent.status !== "ready"),

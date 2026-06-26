@@ -11,6 +11,8 @@ const { makeExecutiveDecision } = require("./runtime/executive");
 const { applyGovernance } = require("./runtime/governance");
 const { buildPlan } = require("./runtime/planner");
 const { buildWorkflow } = require("./runtime/workflow");
+const { coordinateManagers } = require("./runtime/coordinator");
+const { buildTasksFromCoordinator } = require("./runtime/task-runtime");
 const { selectAgents } = require("./runtime/agent-selector");
 const { runAgentBus } = require("./runtime/agent-bus");
 const { resolveProject } = require("./runtime/project-context");
@@ -43,7 +45,9 @@ function main() {
   const intent = classifyIntent(observation, decision, policy);
   const plan = buildPlan(intent, task);
   const workflow = buildWorkflow({ governance, plan });
-  const agentSelection = selectAgents({ task, intent, workflow });
+  const coordinator = coordinateManagers({ task, intent, workflow, repository });
+  const taskRuntime = buildTasksFromCoordinator({ task, coordinator, intent, workflow });
+  const agentSelection = selectAgents({ task, intent, workflow, coordinator, taskRuntime });
   const logDir = path.join(process.cwd(), "ash", "logs");
   fs.mkdirSync(logDir, { recursive: true });
   const logCount = fs.readdirSync(logDir).filter((name) => name.endsWith(".json")).length;
@@ -99,6 +103,8 @@ function main() {
     intent,
     plan,
     workflow,
+    coordinator,
+    taskRuntime,
     agentSelection,
     agentBus,
     conversationHealth,
@@ -143,6 +149,12 @@ function main() {
   console.log("== Workflow ==");
   console.log(JSON.stringify(workflow, null, 2));
 
+  console.log("== Coordinator ==");
+  console.log(JSON.stringify(coordinator, null, 2));
+
+  console.log("== Task Runtime ==");
+  console.log(JSON.stringify(taskRuntime, null, 2));
+
   console.log("== Agent Selection ==");
   console.log(JSON.stringify(agentSelection, null, 2));
 
@@ -175,4 +187,6 @@ function main() {
 }
 
 main();
+
+
 

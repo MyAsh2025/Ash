@@ -1,0 +1,5 @@
+# Ash runtime logs
+ash/logs/*.json
+
+# Temporary backup files
+**/*.backup.*.js
