@@ -13,6 +13,7 @@ const { buildPlan } = require("./runtime/planner");
 const { buildWorkflow } = require("./runtime/workflow");
 const { coordinateManagers } = require("./runtime/coordinator");
 const { buildTasksFromCoordinator } = require("./runtime/task-runtime");
+const { buildExecutionPlan } = require("./runtime/execution-plan");
 const { selectAgents } = require("./runtime/agent-selector");
 const { runAgentBus } = require("./runtime/agent-bus");
 const { resolveProject } = require("./runtime/project-context");
@@ -47,7 +48,8 @@ function main() {
   const workflow = buildWorkflow({ governance, plan });
   const coordinator = coordinateManagers({ task, intent, workflow, repository });
   const taskRuntime = buildTasksFromCoordinator({ task, coordinator, intent, workflow });
-  const agentSelection = selectAgents({ task, intent, workflow, coordinator, taskRuntime });
+  const executionPlan = buildExecutionPlan({ taskRuntime, workflow });
+  const agentSelection = selectAgents({ task, intent, workflow, coordinator, taskRuntime, executionPlan });
   const logDir = path.join(process.cwd(), "ash", "logs");
   fs.mkdirSync(logDir, { recursive: true });
   const logCount = fs.readdirSync(logDir).filter((name) => name.endsWith(".json")).length;
@@ -105,6 +107,7 @@ function main() {
     workflow,
     coordinator,
     taskRuntime,
+    executionPlan,
     agentSelection,
     agentBus,
     conversationHealth,
@@ -155,6 +158,9 @@ function main() {
   console.log("== Task Runtime ==");
   console.log(JSON.stringify(taskRuntime, null, 2));
 
+  console.log("== Execution Plan ==");
+  console.log(JSON.stringify(executionPlan, null, 2));
+
   console.log("== Agent Selection ==");
   console.log(JSON.stringify(agentSelection, null, 2));
 
@@ -174,8 +180,9 @@ function main() {
   if (!dryRun) {
     if (workflow.autoExecutable) {
       executePlan({
-        ...plan,
-        steps: workflow.executableSteps
+        task,
+        executionPlan,
+        projectContext
       });
     } else {
       console.log("== Execution blocked by Governance ==");
@@ -187,6 +194,8 @@ function main() {
 }
 
 main();
+
+
 
 
 
