@@ -3,6 +3,7 @@ const { spawnSync } = require("child_process");
 const { resolveProject } = require("./project-context");
 const { runAction } = require("../actions/action-runtime");
 const { resolveDependencies } = require("./dependency-resolver");
+const { applyFailurePolicy } = require("./failure-policy");
 
 function resolveExecutionContext(plan = {}, context = {}) {
   const task =
@@ -137,6 +138,8 @@ function executePlan(plan, context = {}) {
   const results = [...(context.executionResults || [])];
   const executedStepIds = new Set(results.map((result) => result.stepId).filter(Boolean));
   const loopHistory = [];
+  const failureDecisions = [];
+  let stoppedByFailure = false;
   let iteration = 0;
 
   while (true) {
@@ -169,21 +172,33 @@ function executePlan(plan, context = {}) {
     for (const step of readySteps) {
       console.log(`== Execute: ${step.name || step.action || step.type} ==`);
 
+      let result = null;
+
       if (step.type === "powershell") {
-        const result = runPowerShellStep(step, executionContext);
-        results.push(result);
-        if (result.stepId) executedStepIds.add(result.stepId);
-        continue;
+        result = runPowerShellStep(step, executionContext);
+      } else if (step.type === "action" || step.action) {
+        result = runActionStep(step, executionContext);
+      } else {
+        throw new Error(`Unknown step type: ${step.type}`);
       }
 
-      if (step.type === "action" || step.action) {
-        const result = runActionStep(step, executionContext);
-        results.push(result);
-        if (result.stepId) executedStepIds.add(result.stepId);
-        continue;
+      results.push(result);
+      if (result.stepId) executedStepIds.add(result.stepId);
+
+      const failureDecision = applyFailurePolicy({ result, step });
+      failureDecisions.push(failureDecision);
+
+      if (failureDecision.policy === "stop") {
+        stoppedByFailure = true;
+        dependencyResolution = currentResolution;
+        break;
       }
 
-      throw new Error(`Unknown step type: ${step.type}`);
+      continue;
+    }
+
+    if (stoppedByFailure) {
+      break;
     }
 
     if (iteration > normalizedSteps.length + 1) {
@@ -195,18 +210,21 @@ function executePlan(plan, context = {}) {
 
   return {
     mode: "executor-runtime",
-    version: "ash-local-runtime-v0.6-execution-loop",
-    success: dependencyResolution.blockedSteps.length === 0,
+    version: "ash-local-runtime-v0.7-failure-policy",
+    success: !stoppedByFailure && dependencyResolution.blockedSteps.length === 0,
+    stoppedByFailure,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
     loopHistory,
+    failureDecisions,
     results,
     executedAt: new Date().toISOString()
   };
 }
 
 module.exports = { executePlan, resolveExecutionContext, normalizeSteps };
+
 
 
 
