@@ -3,7 +3,7 @@
 const { executeExecutiveTask } = require("./executive-runtime");
 const { buildGoalProgressRuntime } = require("./goal-progress-runtime");
 const { generateNextTask } = require("./task-generator-runtime");
-const { buildExecutionQueue } = require("./execution-queue-runtime");
+const { runDevelopmentPipeline } = require("./development-pipeline-runtime");
 
 function runExecutionCycle({
   task = "",
@@ -33,9 +33,10 @@ function runExecutionCycle({
       execution: executive.execution
     });
 
-    const executionQueue = buildExecutionQueue({
+    const developmentPipeline = runDevelopmentPipeline({
       generatedTask,
-      source: "execution-cycle"
+      context,
+      dryRun: true
     });
 
     cycles.push({
@@ -44,7 +45,7 @@ function runExecutionCycle({
       executive,
       goalProgress,
       generatedTask,
-      executionQueue,
+      developmentPipeline,
       decision: executive.decision,
       continueExecution: executive.continueExecution
     });
@@ -93,5 +94,4 @@ function runExecutionCycle({
 module.exports = {
   runExecutionCycle
 };
-
 
