@@ -5,6 +5,7 @@ const {
   createCapabilityRegistry,
   runCapability
 } = require("./capability-registry");
+const { classifyCapabilityResult } = require("./capability-result");
 
 function dispatchAction(step = {}, context = {}) {
   const action = step.action || "unknown";
@@ -39,6 +40,12 @@ function dispatchAction(step = {}, context = {}) {
     input
   );
 
+  const classification = classifyCapabilityResult({
+    action,
+    executableCapability: resolved.executableCapability,
+    dispatchResult: result
+  });
+
   return {
     mode: "capability-dispatcher-runtime",
     version: "ash-local-runtime-v0.1",
@@ -47,6 +54,7 @@ function dispatchAction(step = {}, context = {}) {
     capability: resolved.capability,
     executableCapability: resolved.executableCapability,
     dispatched: true,
+    classification,
     result,
     dispatchedAt: new Date().toISOString()
   };
@@ -55,3 +63,4 @@ function dispatchAction(step = {}, context = {}) {
 module.exports = {
   dispatchAction
 };
+
