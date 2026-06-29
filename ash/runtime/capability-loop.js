@@ -2,6 +2,7 @@
 
 const { dispatchAction } = require("./capability-dispatcher");
 const { expandNextAction } = require("./capability-next-action");
+const { resolveProject } = require("./project-context");
 
 function createLoopStep(action, input = {}) {
   return {
@@ -11,11 +12,26 @@ function createLoopStep(action, input = {}) {
 }
 
 function runCapabilityLoop({
+  task = "",
   initialAction = "minimal_core_gate",
   initialInput = {},
   context = {},
   maxSteps = 8
 } = {}) {
+  const projectContext =
+    context.projectContext ||
+    (task ? resolveProject(task) : null);
+
+  const project = context.project || projectContext?.project || null;
+  const projectPath = context.projectPath || project?.path || null;
+
+  const executionContext = {
+    ...context,
+    projectContext,
+    project,
+    projectPath
+  };
+
   const steps = [];
   const queue = [
     createLoopStep(initialAction, initialInput)
@@ -23,7 +39,7 @@ function runCapabilityLoop({
 
   while (queue.length > 0 && steps.length < maxSteps) {
     const step = queue.shift();
-    const dispatchResult = dispatchAction(step, context);
+    const dispatchResult = dispatchAction(step, executionContext);
     const classification = dispatchResult.classification || null;
     const nextAction = classification?.nextAction || "stop";
     const expansion = expandNextAction(nextAction, {
@@ -42,7 +58,7 @@ function runCapabilityLoop({
     if (!dispatchResult.success) {
       return {
         mode: "capability-loop-runtime",
-        version: "ash-local-runtime-v0.2-next-action-expansion",
+        version: "ash-local-runtime-v0.3-project-context",
         success: false,
         stopped: true,
         stopReason: "dispatch_failed",
@@ -56,7 +72,7 @@ function runCapabilityLoop({
     if (nextAction === "stop") {
       return {
         mode: "capability-loop-runtime",
-        version: "ash-local-runtime-v0.2-next-action-expansion",
+        version: "ash-local-runtime-v0.3-project-context",
         success: false,
         stopped: true,
         stopReason: "stop",
@@ -70,7 +86,7 @@ function runCapabilityLoop({
     if (nextAction === "continue" && queue.length === 0) {
       return {
         mode: "capability-loop-runtime",
-        version: "ash-local-runtime-v0.2-next-action-expansion",
+        version: "ash-local-runtime-v0.3-project-context",
         success: true,
         stopped: true,
         stopReason: "continue",
@@ -91,7 +107,7 @@ function runCapabilityLoop({
     if (queue.length === 0) {
       return {
         mode: "capability-loop-runtime",
-        version: "ash-local-runtime-v0.2-next-action-expansion",
+        version: "ash-local-runtime-v0.3-project-context",
         success: true,
         stopped: true,
         stopReason: nextAction,
@@ -106,7 +122,7 @@ function runCapabilityLoop({
 
   return {
     mode: "capability-loop-runtime",
-    version: "ash-local-runtime-v0.2-next-action-expansion",
+    version: "ash-local-runtime-v0.3-project-context",
     success: false,
     stopped: true,
     stopReason: "max_steps_reached",
@@ -119,3 +135,5 @@ function runCapabilityLoop({
 module.exports = {
   runCapabilityLoop
 };
+
+
