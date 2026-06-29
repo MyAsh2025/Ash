@@ -1,6 +1,7 @@
 "use strict";
 
 const { resolveCapabilityForAction } = require("./capability-resolver");
+const { executeRegisteredAction } = require("./executor-registry");
 const {
   createCapabilityRegistry,
   runCapability
@@ -12,15 +13,33 @@ function dispatchAction(step = {}, context = {}) {
   const resolved = resolveCapabilityForAction(action);
 
   if (!resolved.executableCapability) {
+    const registeredResult = executeRegisteredAction(step, context);
+
+    if (!registeredResult?.skipped) {
+      return {
+        mode: "capability-dispatcher-runtime",
+        version: "ash-local-runtime-v0.2-registered-fallback",
+        success: Boolean(registeredResult.success),
+        action,
+        capability: resolved.capability,
+        executableCapability: null,
+        dispatched: true,
+        route: "registered-executor",
+        result: registeredResult,
+        dispatchedAt: new Date().toISOString()
+      };
+    }
+
     return {
       mode: "capability-dispatcher-runtime",
-      version: "ash-local-runtime-v0.1",
+      version: "ash-local-runtime-v0.2-registered-fallback",
       success: false,
       action,
       capability: resolved.capability,
       executableCapability: null,
       dispatched: false,
-      reason: "No executable capability mapped for action."
+      route: "unresolved",
+      reason: "No executable capability or registered executor mapped for action."
     };
   }
 
@@ -63,4 +82,5 @@ function dispatchAction(step = {}, context = {}) {
 module.exports = {
   dispatchAction
 };
+
 
