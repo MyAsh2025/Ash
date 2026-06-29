@@ -33,6 +33,31 @@ function classifyCapabilityResult({
     };
   }
 
+  if (
+    executableCapability === null &&
+    dispatchResult?.route === "registered-executor"
+  ) {
+    const registeredResult = dispatchResult.result || {};
+    const success = Boolean(registeredResult.success);
+
+    return {
+      mode: "capability-result-runtime",
+      version: "ash-local-runtime-v0.2-registered-executor",
+      action,
+      executableCapability,
+      success,
+      classification: success
+        ? "registered_executor_success"
+        : "registered_executor_failed",
+      nextAction: success ? "continue" : "stop",
+      reason: success
+        ? "Registered executor completed successfully."
+        : registeredResult.reason || "Registered executor failed.",
+      registeredAction: registeredResult.action || action,
+      executor: registeredResult.executor || null
+    };
+  }
+
   if (executableCapability === "verify_patch") {
     if (innerResult?.fileChecksPassed === false) {
       return {
@@ -124,3 +149,4 @@ function classifyCapabilityResult({
 module.exports = {
   classifyCapabilityResult
 };
+

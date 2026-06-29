@@ -16,15 +16,26 @@ function dispatchAction(step = {}, context = {}) {
     const registeredResult = executeRegisteredAction(step, context);
 
     if (!registeredResult?.skipped) {
+      const classification = classifyCapabilityResult({
+        action,
+        executableCapability: null,
+        dispatchResult: {
+          success: Boolean(registeredResult.success),
+          route: "registered-executor",
+          result: registeredResult
+        }
+      });
+
       return {
         mode: "capability-dispatcher-runtime",
-        version: "ash-local-runtime-v0.2-registered-fallback",
+        version: "ash-local-runtime-v0.3-registered-classification",
         success: Boolean(registeredResult.success),
         action,
         capability: resolved.capability,
         executableCapability: null,
         dispatched: true,
         route: "registered-executor",
+        classification,
         result: registeredResult,
         dispatchedAt: new Date().toISOString()
       };
@@ -82,5 +93,6 @@ function dispatchAction(step = {}, context = {}) {
 module.exports = {
   dispatchAction
 };
+
 
 
