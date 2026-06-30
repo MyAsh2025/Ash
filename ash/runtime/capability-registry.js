@@ -5,6 +5,7 @@ const { applySafePatch } = require("../capabilities/apply-safe-patch");
 const { verifyPatch } = require("../capabilities/verify-patch");
 const { repairPatch } = require("../capabilities/repair-patch");
 const { evaluateMinimalCoreGate } = require("../capabilities/core-gate");
+const { runDevelopmentPipelineCapability } = require("../capabilities/development-pipeline");
 
 function createCapabilityRegistry() {
   const capabilities = {
@@ -47,6 +48,14 @@ function createCapabilityRegistry() {
       risk: "low",
       description: "Evaluate minimal core gate requirements for autonomous development.",
       run: evaluateMinimalCoreGate
+    },
+    development_pipeline: {
+      capability: "development_pipeline",
+      domain: "development",
+      implemented: true,
+      risk: "medium",
+      description: "Run the development pipeline through dry-run patch application.",
+      run: runDevelopmentPipelineCapability
     }
   };
 
@@ -95,3 +104,4 @@ module.exports = {
   resolveCapability,
   runCapability
 };
+

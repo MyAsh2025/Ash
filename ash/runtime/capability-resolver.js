@@ -60,6 +60,12 @@ const capabilityMap = {
     preferredAgent: "verification-agent",
     fallbackAgents: ["development-agent"]
   },
+  development_pipeline: {
+    capability: "development_pipeline",
+    executableCapability: "development_pipeline",
+    preferredAgent: "development-agent",
+    fallbackAgents: ["verification-agent"]
+  },
   run_corecheck: {
     capability: "runtime_verification",
     preferredAgent: "verification-agent",
@@ -140,6 +146,7 @@ module.exports = {
   resolveCapabilityForAction,
   enrichStepWithCapability
 };
+
 
 
 
