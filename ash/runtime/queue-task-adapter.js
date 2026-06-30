@@ -28,6 +28,8 @@ function adaptQueueItemForExecution({
   const adapter = resolveExecutionAdapter(step);
   const patchPlanner = buildPatchPlanner({
     task: item.task,
+    targetFile: item.targetFile || null,
+    work: item.work || [],
     executionPolicy: {
       plannedActions: ["prepare_patch_plan"]
     },
@@ -50,3 +52,4 @@ function adaptQueueItemForExecution({
 module.exports = {
   adaptQueueItemForExecution
 };
+

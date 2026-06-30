@@ -24,6 +24,8 @@ function buildExecutionQueue({
     status: "waiting",
     source,
     reason: nextTask.reason || null,
+    targetFile: nextTask.file || nextTask.targetFile || null,
+    work: Array.isArray(nextTask.work) ? nextTask.work : [],
     createdAt: new Date().toISOString()
   };
 
@@ -41,3 +43,4 @@ module.exports = {
   buildExecutionQueue,
   normalizeAction
 };
+
