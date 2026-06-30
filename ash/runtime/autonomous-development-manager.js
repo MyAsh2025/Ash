@@ -35,7 +35,24 @@ function runAutonomousDevelopmentManager({
       };
     }
 
-    const discoveredTask = taskDiscovery.task;
+    const hasExplicitUserTask =
+      task &&
+      task.trim() &&
+      task.trim() !== "autonomous development" &&
+      task.trim() !== "run fully autonomous Ash development";
+
+    const explicitUserTask = hasExplicitUserTask
+      ? {
+          task: task.trim(),
+          priority: "critical",
+          source: "user-explicit-task",
+          file: null,
+          work: ["self-evolution", "priority"],
+          reason: "Explicit user task takes priority over repository observation."
+        }
+      : null;
+
+    const discoveredTask = explicitUserTask || taskDiscovery.task;
 
     const capabilityLoop = runCapabilityLoop({
       task: discoveredTask.task || task,
@@ -103,3 +120,4 @@ function runAutonomousDevelopmentManager({
 module.exports = {
   runAutonomousDevelopmentManager
 };
+

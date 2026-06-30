@@ -11,11 +11,12 @@ function getArg(name, fallback = null) {
 }
 
 const maxCycles = Number(getArg("--cycles", "1"));
+const requestedTask = getArg("--task", "run fully autonomous Ash development");
 const dryRun = process.argv.includes("--dry-run");
 const allowApply = process.argv.includes("--apply");
 
 const result = runAutonomousDevelopmentManager({
-  task: "run fully autonomous Ash development",
+  task: requestedTask,
   context: {
     projectPath: process.cwd(),
     dryRun: dryRun || !allowApply
@@ -43,6 +44,7 @@ console.log(JSON.stringify({
   success: result.success,
   stopReason: result.stopReason,
   cycles: result.cycles?.length || 0,
+  requestedTask,
   selectedTask: firstCycle?.selectedTask || null,
   capabilityLoop: firstCycle?.capabilityLoop?.success || null,
   pipelineSuccess: pipeline?.success || null,
@@ -57,3 +59,5 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
+
