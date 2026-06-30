@@ -2,6 +2,7 @@
 
 const { resolveExecutionAdapter } = require("./execution-adapter");
 const { buildPatchPlanner } = require("./patch-planner");
+const { buildImplementationPlanner } = require("./implementation-planner");
 
 function adaptQueueItemForExecution({
   item = null,
@@ -26,6 +27,12 @@ function adaptQueueItemForExecution({
   };
 
   const adapter = resolveExecutionAdapter(step);
+  const implementationPlanner = buildImplementationPlanner({
+    task: item.task,
+    targetFile: item.targetFile || null,
+    work: item.work || []
+  });
+
   const patchPlanner = buildPatchPlanner({
     task: item.task,
     targetFile: item.targetFile || null,
@@ -43,6 +50,7 @@ function adaptQueueItemForExecution({
     item,
     step,
     adapter,
+    implementationPlanner,
     patchPlanner,
     readyForPatchPlanning: Boolean(patchPlanner.planReady),
     adaptedAt: new Date().toISOString()
@@ -52,4 +60,5 @@ function adaptQueueItemForExecution({
 module.exports = {
   adaptQueueItemForExecution
 };
+
 
