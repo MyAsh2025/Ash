@@ -122,7 +122,7 @@ function classifyCapabilityResult({
       executableCapability,
       success: true,
       classification: innerResult?.triggered ? "core_gate_triggered" : "core_gate_clear",
-      nextAction: innerResult?.triggered ? "corecheck_or_save_gate" : "continue",
+      nextAction: innerResult?.triggered ? "corecheck_or_save_gate" : "run_development_pipeline",
       required,
       reason: innerResult?.triggered
         ? "Minimal Core Gate requires follow-up."
@@ -149,4 +149,5 @@ function classifyCapabilityResult({
 module.exports = {
   classifyCapabilityResult
 };
+
 

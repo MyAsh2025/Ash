@@ -3,6 +3,7 @@
 const nextActionMap = {
   continue: [],
   stop: [],
+  run_development_pipeline: ["development_pipeline"],
   repair_patch: ["repair_patch"],
   verify_patch: ["verify_patch"],
   corecheck_or_save_gate: [
@@ -32,3 +33,4 @@ module.exports = {
   expandNextAction,
   nextActionMap
 };
+
