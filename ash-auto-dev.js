@@ -5,6 +5,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 const { runAutonomousDevelopmentManager } = require("./ash/runtime/autonomous-development-manager");
 const { classifyIntent } = require("./ash/runtime/intent-runtime");
+const { routeCommand } = require("./ash/runtime/command-router");
 
 function getArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -18,6 +19,7 @@ const dryRun = process.argv.includes("--dry-run");
 const allowApply = process.argv.includes("--apply");
 
 const intentResult = classifyIntent(requestedTask);
+const commandRoute = routeCommand(intentResult);
 
 if (intentResult.intent === "corecheck") {
   const { runCoreCheck } = require("./ash/runtime/corecheck-runtime");
@@ -35,7 +37,8 @@ if (intentResult.intent === "corecheck") {
 
   console.log(JSON.stringify({
     mode: "ash-auto-dev-runner",
-    route: "corecheck-only",
+    route: commandRoute.route,
+    commandRoute,
     success: coreCheck.success,
     requestedTask,
     intent: intentResult.intent,
@@ -52,7 +55,8 @@ if (intentResult.intent === "corecheck") {
 if (intentResult.reportOnly && !/repository inventory only/i.test(requestedTask)) {
   console.log(JSON.stringify({
     mode: "ash-auto-dev-runner",
-    route: "intent-report-only",
+    route: commandRoute.route,
+    commandRoute,
     success: true,
     requestedTask,
     intent: intentResult.intent,
@@ -179,6 +183,7 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
 
 
 
