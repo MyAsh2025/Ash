@@ -2,7 +2,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 const { runAutonomousDevelopmentManager } = require("./ash/runtime/autonomous-development-manager");
+const { classifyIntent } = require("./ash/runtime/intent-runtime");
 
 function getArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -14,6 +16,94 @@ const maxCycles = Number(getArg("--cycles", "1"));
 const requestedTask = getArg("--task", "run fully autonomous Ash development");
 const dryRun = process.argv.includes("--dry-run");
 const allowApply = process.argv.includes("--apply");
+
+const intentResult = classifyIntent(requestedTask);
+
+if (intentResult.reportOnly && !/repository inventory only/i.test(requestedTask)) {
+  console.log(JSON.stringify({
+    mode: "ash-auto-dev-runner",
+    route: "intent-report-only",
+    success: true,
+    requestedTask,
+    intent: intentResult.intent,
+    patchAllowed: false,
+    applied: false,
+    reportOnly: true,
+    note: "Intent Runtime stopped before patch planning.",
+    ranAt: new Date().toISOString()
+  }, null, 2));
+  process.exit(0);
+}
+
+function classifyRepositoryEntry(line) {
+  const file = line.slice(3).trim();
+  const status = line.slice(0, 2).trim();
+
+  let classification = "necessary";
+  let recommendation = "KEEP";
+
+  if (
+    file.includes(".backup") ||
+    file.includes(".broken") ||
+    file.includes(".sandbox") ||
+    file.endsWith(".diff.txt")
+  ) {
+    classification = "temporary";
+    recommendation = "ARCHIVE";
+  } else if (
+    file.includes("handover-") ||
+    file.includes("save-drafts") ||
+    file.includes("runtime-state")
+  ) {
+    classification = "temporary";
+    recommendation = "REVIEW";
+  } else if (
+    file.includes("ash-ui-server.js") ||
+    file.includes("ash-window.ps1") ||
+    file.includes("repository-manager.js") ||
+    file.includes("agent-selector.js") ||
+    file.includes("code-generator.js") ||
+    file.includes("patch-apply-engine.js") ||
+    file.includes("patch-planner.js") ||
+    file.includes("task-runtime.js")
+  ) {
+    classification = "self-evolution";
+    recommendation = "REVIEW_FOR_COMMIT";
+  }
+
+  return {
+    status,
+    file,
+    classification,
+    recommendation
+  };
+}
+
+if (/repository inventory only/i.test(requestedTask)) {
+  const statusShort = execFileSync("git", ["status", "--short"], {
+    cwd: process.cwd(),
+    encoding: "utf8"
+  });
+
+  const entries = statusShort
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(classifyRepositoryEntry);
+
+  const report = {
+    mode: "ash-auto-dev-runner",
+    route: "repository-inventory-only",
+    success: true,
+    requestedTask,
+    modifiedOrUntrackedCount: entries.length,
+    entries,
+    note: "Inventory route completed without patch planning or file modification.",
+    ranAt: new Date().toISOString()
+  };
+
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(0);
+}
 
 const result = runAutonomousDevelopmentManager({
   task: requestedTask,
@@ -59,5 +149,7 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
+
 
 
