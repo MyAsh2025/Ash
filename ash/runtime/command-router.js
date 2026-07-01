@@ -3,6 +3,17 @@
 function routeCommand(intentResult = {}) {
   const intent = intentResult.intent || "planning";
 
+  if (intent === "git") {
+    return {
+      mode: "command-router",
+      version: "ash-local-runtime-v0.1",
+      route: "git-only",
+      patchAllowed: false,
+      reportOnly: false,
+      stopBeforeDevelopmentPipeline: true
+    };
+  }
+
   if (intent === "corecheck") {
     return {
       mode: "command-router",
@@ -38,3 +49,4 @@ function routeCommand(intentResult = {}) {
 module.exports = {
   routeCommand
 };
+

@@ -15,12 +15,12 @@ function detectIntent(task = "") {
     return "corecheck";
   }
 
-  if (/(verify|verification|test|check|検証|テスト)/.test(text)) {
-    return "verification";
-  }
-
   if (/(git|commit|push|checkpoint)/.test(text)) {
     return "git";
+  }
+
+  if (/(verify|verification|test|check|検証|テスト)/.test(text)) {
+    return "verification";
   }
 
   if (/(handover|引継ぎ|引き継ぎ)/.test(text)) {
@@ -62,4 +62,5 @@ module.exports = {
   classifyIntent,
   detectIntent
 };
+
 

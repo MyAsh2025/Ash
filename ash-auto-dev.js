@@ -21,6 +21,38 @@ const allowApply = process.argv.includes("--apply");
 const intentResult = classifyIntent(requestedTask);
 const commandRoute = routeCommand(intentResult);
 
+if (intentResult.intent === "git") {
+  const statusShort = execFileSync("git", ["status", "--short"], {
+    cwd: process.cwd(),
+    encoding: "utf8"
+  });
+
+  const latestCommit = execFileSync("git", ["log", "-1", "--oneline"], {
+    cwd: process.cwd(),
+    encoding: "utf8"
+  }).trim();
+
+  console.log(JSON.stringify({
+    mode: "ash-auto-dev-runner",
+    route: "git-only",
+    commandRoute,
+    success: true,
+    requestedTask,
+    intent: intentResult.intent,
+    patchAllowed: false,
+    applied: false,
+    git: {
+      clean: statusShort.trim().length === 0,
+      latestCommit,
+      statusShort
+    },
+    note: "Git route completed without patch planning.",
+    ranAt: new Date().toISOString()
+  }, null, 2));
+
+  process.exit(0);
+}
+
 if (intentResult.intent === "corecheck") {
   const { runCoreCheck } = require("./ash/runtime/corecheck-runtime");
 
@@ -183,6 +215,7 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
 
 
 
