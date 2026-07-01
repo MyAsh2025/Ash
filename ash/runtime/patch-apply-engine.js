@@ -25,7 +25,9 @@ function applyOperationToText(text, operation) {
 
   if (text.includes(generatedCode.trim())) {
     return {
-      success: false,
+      success: true,
+      skipped: true,
+      alreadyImplemented: true,
       text,
       reason: "Generated code already exists."
     };
@@ -44,6 +46,14 @@ function applyOperationToText(text, operation) {
       success: true,
       text: text.replace(anchor, `${anchor}\n${generatedCode}`),
       reason: "Inserted generated code after anchor."
+    };
+  }
+
+  if (operation.operation === "replace") {
+    return {
+      success: true,
+      text: text.replace(anchor, generatedCode),
+      reason: "Replaced anchor with generated code."
     };
   }
 
@@ -113,8 +123,10 @@ function applyValidatedPatch({
     results.push({
       file: targetFile,
       success: true,
+      skipped: applied.skipped === true,
+      alreadyImplemented: applied.alreadyImplemented === true,
       dryRun,
-      backupPath: dryRun ? null : backupPath,
+      backupPath: dryRun || applied.skipped === true ? null : backupPath,
       changed: beforeText !== applied.text,
       reason: applied.reason
     });
@@ -128,13 +140,15 @@ function applyValidatedPatch({
     mode: "patch-apply-engine-runtime",
     version: "ash-local-runtime-v0.1",
     success,
-    applied: success && !dryRun,
+    applied: success && !dryRun && results.some((result) => result.changed === true),
     dryRun,
     results,
     reason: success
       ? dryRun
         ? "Validated patch can be applied."
-        : "Validated patch applied successfully."
+        : results.every((result) => result.alreadyImplemented === true)
+          ? "Validated patch already implemented."
+          : "Validated patch applied successfully."
       : "One or more patch operations failed.",
     appliedAt: new Date().toISOString()
   };
@@ -144,3 +158,5 @@ module.exports = {
   applyValidatedPatch,
   applyOperationToText
 };
+
+
