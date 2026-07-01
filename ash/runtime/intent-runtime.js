@@ -3,6 +3,10 @@
 function detectIntent(task = "") {
   const text = String(task || "").toLowerCase();
 
+  if (/(self evolution|self-evolution|自己進化|pc ash)/.test(text)) {
+    return "self_evolution";
+  }
+
   if (/(inventory|inspect|investigate|調査|確認|棚卸し)/.test(text)) {
     return "investigation";
   }
@@ -29,10 +33,6 @@ function detectIntent(task = "") {
 
   if (/(resume|再開)/.test(text)) {
     return "resume";
-  }
-
-  if (/(self evolution|self-evolution|自己進化|pc ash)/.test(text)) {
-    return "self_evolution";
   }
 
   if (/(implement|create|add|modify|fix|実装|作成|追加|修正)/.test(text)) {
@@ -62,5 +62,6 @@ module.exports = {
   classifyIntent,
   detectIntent
 };
+
 
 
