@@ -19,6 +19,36 @@ const allowApply = process.argv.includes("--apply");
 
 const intentResult = classifyIntent(requestedTask);
 
+if (intentResult.intent === "corecheck") {
+  const { runCoreCheck } = require("./ash/runtime/corecheck-runtime");
+
+  const coreCheck = runCoreCheck({
+    files: [
+      "./ash-auto-dev.js",
+      "./ash/runtime/intent-runtime.js",
+      "./ash/runtime/autonomous-development-manager.js",
+      "./ash/runtime/development-pipeline-runtime.js",
+      "./ash/runtime/capability-loop.js",
+      "./ash/capabilities/development-pipeline.js"
+    ]
+  });
+
+  console.log(JSON.stringify({
+    mode: "ash-auto-dev-runner",
+    route: "corecheck-only",
+    success: coreCheck.success,
+    requestedTask,
+    intent: intentResult.intent,
+    patchAllowed: false,
+    applied: false,
+    coreCheck,
+    note: "CoreCheck route completed without patch planning.",
+    ranAt: new Date().toISOString()
+  }, null, 2));
+
+  process.exit(coreCheck.success ? 0 : 1);
+}
+
 if (intentResult.reportOnly && !/repository inventory only/i.test(requestedTask)) {
   console.log(JSON.stringify({
     mode: "ash-auto-dev-runner",
@@ -149,6 +179,7 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
 
 
 
