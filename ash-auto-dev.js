@@ -6,6 +6,7 @@ const { execFileSync } = require("child_process");
 const { runAutonomousDevelopmentManager } = require("./ash/runtime/autonomous-development-manager");
 const { classifyIntent } = require("./ash/runtime/intent-runtime");
 const { routeCommand } = require("./ash/runtime/command-router");
+const { executeCommandRoute } = require("./ash/runtime/command-route-executor");
 
 function getArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -20,6 +21,17 @@ const allowApply = process.argv.includes("--apply");
 
 const intentResult = classifyIntent(requestedTask);
 const commandRoute = routeCommand(intentResult);
+
+const commandRouteExecution = executeCommandRoute({
+  requestedTask,
+  intentResult,
+  commandRoute
+});
+
+if (commandRouteExecution.handled) {
+  console.log(JSON.stringify(commandRouteExecution.output, null, 2));
+  process.exit(commandRouteExecution.exitCode);
+}
 
 if (intentResult.intent === "git") {
   const statusShort = execFileSync("git", ["status", "--short"], {
@@ -215,6 +227,7 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
 
 
 
