@@ -36,35 +36,16 @@ function buildGeneratedCodeForOperation(operation) {
     };
   }
 
-  if (operation.file !== "ash/runtime/patch-planner.js") {
-    return {
-      generatedCode: "",
-      missingReason: `No generator strategy registered for ${operation.file}.`
-    };
-  }
-
-  if (operation.operation !== "insert-before") {
-    return {
-      generatedCode: "",
-      missingReason: `Unsupported operation ${operation.operation} for ash/runtime/patch-planner.js.`
-    };
-  }
-
-  if (operation.anchorPattern !== "module.exports") {
-    return {
-      generatedCode: "",
-      missingReason: `Unsupported anchor ${operation.anchorPattern} for ash/runtime/patch-planner.js.`
-    };
-  }
-
   return {
     generatedCode: [
-      "function describePatchPlannerExtensionPoint() {",
+      "function describeGeneratedImplementation() {",
       "  return {",
-      "    mode: \"patch-planner-extension-point\",",
+      "    mode: \"generated-implementation-diagnostic\",",
       "    version: \"ash-local-runtime-v0.1\",",
-      "    purpose: \"Expose a verified extension point for repository-discovered implementation work.\",",
-      "    ready: true",
+      `    targetFile: \"${operation.file}\",`,
+      `    operation: \"${operation.operation}\",`,
+      `    anchorPattern: \"${operation.anchorPattern}\",`,
+      "    generated: true",
       "  };",
       "}",
       ""

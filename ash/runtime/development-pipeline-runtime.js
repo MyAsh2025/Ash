@@ -1,5 +1,20 @@
 "use strict";
 
+function getPipelineFailure(stages = []) {
+  const failed = stages.find((stage) => stage.failed === true);
+
+  if (!failed) {
+    return {
+      failureStage: null,
+      errorMessage: null
+    };
+  }
+
+  return {
+    failureStage: failed.name,
+    errorMessage: failed.reason || "Pipeline stage failed."
+  };
+}
 const { buildExecutionQueue } = require("./execution-queue-runtime");
 const { adaptQueueItemForExecution } = require("./queue-task-adapter");
 const { buildTargetLocator } = require("./target-locator");
@@ -63,6 +78,58 @@ function runDevelopmentPipeline({
     dryRun
   });
 
+  const pipelineFailure = getPipelineFailure([
+    {
+      name: "execution-queue",
+      failed: !executionQueue,
+      reason: "Execution queue was not created."
+    },
+    {
+      name: "queue-task-adapter",
+      failed: queueTaskAdapter.success !== true,
+      reason: queueTaskAdapter.reason
+    },
+    {
+      name: "patch-planner",
+      failed: patchPlanner.planReady !== true,
+      reason: patchPlanner.reason
+    },
+    {
+      name: "target-locator",
+      failed: targetLocator.located !== true,
+      reason: targetLocator.reason
+    },
+    {
+      name: "edit-planner",
+      failed: editPlanner.planReady !== true,
+      reason: editPlanner.reason
+    },
+    {
+      name: "patch-generator",
+      failed: patchGenerator.success !== true,
+      reason: patchGenerator.reason
+    },
+    {
+      name: "code-generator",
+      failed: codeGenerator.success !== true,
+      reason:
+        codeGenerator.operations?.find((operation) => operation.payload?.missingReason)?.payload?.missingReason ||
+        codeGenerator.reason
+    },
+    {
+      name: "patch-validator",
+      failed: patchValidator.success !== true,
+      reason: patchValidator.reason
+    },
+    {
+      name: "patch-apply-engine",
+      failed: patchApplyEngine.success !== true,
+      reason:
+        patchApplyEngine.results?.find((result) => result.missingReason)?.missingReason ||
+        patchApplyEngine.reason
+    }
+  ]);
+
   const success =
     Boolean(executionQueue) &&
     queueTaskAdapter.success === true &&
@@ -88,9 +155,11 @@ function runDevelopmentPipeline({
     codeGenerator,
     patchValidator,
     patchApplyEngine,
+    failureStage: pipelineFailure.failureStage,
+    errorMessage: pipelineFailure.errorMessage,
     reason: success
       ? "Development pipeline completed through patch apply engine."
-      : "Development pipeline did not complete successfully.",
+      : pipelineFailure.errorMessage || "Development pipeline did not complete successfully.",
     ranAt: new Date().toISOString()
   };
 }
@@ -98,3 +167,4 @@ function runDevelopmentPipeline({
 module.exports = {
   runDevelopmentPipeline
 };
+

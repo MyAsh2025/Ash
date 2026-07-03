@@ -41,6 +41,7 @@ function extractCapabilityFailure(capabilityLoop = null) {
 
   return {
     failureStage:
+      pipelineResult?.failureStage ||
       pipelineResult?.mode ||
       failedStep?.action ||
       "capability-loop",
