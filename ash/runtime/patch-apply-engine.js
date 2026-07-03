@@ -19,7 +19,8 @@ function applyOperationToText(text, operation) {
     return {
       success: false,
       text,
-      reason: "Generated code is empty."
+      reason: operation.payload?.missingReason || "Generated code is empty.",
+      missingReason: operation.payload?.missingReason || null
     };
   }
 
@@ -108,7 +109,8 @@ function applyValidatedPatch({
       results.push({
         file: targetFile,
         success: false,
-        reason: applied.reason
+        reason: applied.reason,
+        missingReason: applied.missingReason || null
       });
       continue;
     }
@@ -158,5 +160,4 @@ module.exports = {
   applyValidatedPatch,
   applyOperationToText
 };
-
 

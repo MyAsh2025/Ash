@@ -3,12 +3,12 @@
 function detectIntent(task = "") {
   const text = String(task || "").toLowerCase();
 
-  if (/^\s*resume\b/i.test(task) || /(resume|再開)/.test(text)) {
-    return "resume";
-  }
-
   if (/^\s*implementation\b/i.test(task) || /(implementation|implement|create|add|modify|fix|実装|作成|追加|修正)/.test(text)) {
     return "implementation";
+  }
+
+  if (/^\s*resume\b/i.test(task) || /^(resume|再開)\b/i.test(String(task || "").trim())) {
+    return "resume";
   }
 
   if (/(self evolution|self-evolution|自己進化|pc ash)/.test(text)) {
