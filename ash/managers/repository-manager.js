@@ -1,18 +1,36 @@
-function buildRepositoryManagerTask({ task, repository }) {
-  const active = repository?.clean === false;
+function buildRepositoryAssessment(repository = {}) {
+  const clean = repository.clean !== false;
+
+  return {
+    clean,
+    commitRequired: !clean,
+    pushRequired: false,
+    checkpointRequired: !clean,
+    coreCheckRequired: !clean,
+    ashCoreSyncRequired: false,
+    repositoryHealth: clean ? "healthy" : "dirty",
+    recommendation: clean
+      ? "Repository is synchronized."
+      : "Repository requires verification before checkpoint."
+  };
+}
+
+function buildRepositoryManagerTask({ repository }) {
+  const assessment = buildRepositoryAssessment(repository);
 
   return {
     manager: "repository-manager",
-    version: "ash-manager-v0.1",
+    version: "ash-manager-v0.2",
     domain: "repository",
-    active,
-    priority: active ? 70 : 20,
-    reason: active
-      ? "Repository has pending changes and should be tracked."
-      : "Repository is clean.",
+    active: !assessment.clean,
+    priority: assessment.clean ? 20 : 70,
+    assessment,
     preferredAgents: [],
     decidedAt: new Date().toISOString()
   };
 }
 
-module.exports = { buildRepositoryManagerTask };
+module.exports = {
+  buildRepositoryAssessment,
+  buildRepositoryManagerTask
+};
