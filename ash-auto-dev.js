@@ -211,6 +211,9 @@ console.log(JSON.stringify({
   mode: "ash-auto-dev-runner",
   success: result.success,
   stopReason: result.stopReason,
+  failureStage: result.failureStage || null,
+  errorMessage: result.errorMessage || null,
+  failedAction: result.failedAction || null,
   cycles: result.cycles?.length || 0,
   requestedTask,
   selectedTask: firstCycle?.selectedTask || null,
@@ -227,11 +230,4 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
-
-
-
-
-
-
-
 

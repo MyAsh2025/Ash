@@ -27,6 +27,31 @@ const { discoverTaskFromRepository } = require("./task-discovery-runtime");
 const { runCapabilityLoop } = require("./capability-loop");
 const { runCoreCheck } = require("./corecheck-runtime");
 
+function extractCapabilityFailure(capabilityLoop = null) {
+  const failedStep = [...(capabilityLoop?.steps || [])]
+    .reverse()
+    .find((step) =>
+      step?.classification?.success === false ||
+      step?.dispatchResult?.classification?.success === false ||
+      step?.dispatchResult?.result?.result?.success === false
+    );
+
+  const pipelineResult = failedStep?.dispatchResult?.result?.result || null;
+  const classification = failedStep?.classification || failedStep?.dispatchResult?.classification || null;
+
+  return {
+    failureStage:
+      pipelineResult?.mode ||
+      failedStep?.action ||
+      "capability-loop",
+    errorMessage:
+      pipelineResult?.reason ||
+      classification?.reason ||
+      capabilityLoop?.stopReason ||
+      "Capability loop failed.",
+    failedAction: failedStep?.action || null
+  };
+}
 function runAutonomousDevelopmentManager({
   task = "autonomous development",
   context = {},
@@ -119,6 +144,10 @@ function runAutonomousDevelopmentManager({
     });
 
     if (!capabilityLoop.success || !coreCheck.success) {
+      const capabilityFailure = !capabilityLoop.success
+        ? extractCapabilityFailure(capabilityLoop)
+        : null;
+
       return {
         mode: "autonomous-development-manager-runtime",
         version: "ash-local-runtime-v0.1",
@@ -127,6 +156,9 @@ function runAutonomousDevelopmentManager({
         stopReason: !capabilityLoop.success
           ? "capability_loop_failed"
           : "corecheck_failed",
+        failureStage: capabilityFailure?.failureStage || null,
+        errorMessage: capabilityFailure?.errorMessage || null,
+        failedAction: capabilityFailure?.failedAction || null,
         cycles,
         ranAt: new Date().toISOString()
       };
