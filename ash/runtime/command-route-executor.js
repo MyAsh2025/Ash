@@ -1,6 +1,6 @@
 "use strict";
 
-const { execFileSync } = require("child_process");
+const { execFileSync, spawnSync } = require("child_process");
 const { runCoreCheck } = require("./corecheck-runtime");
 
 function runGitOnly({ requestedTask, commandRoute }) {
@@ -88,7 +88,89 @@ function runReportOnly({ requestedTask, intentResult, commandRoute }) {
   };
 }
 
+
+function hasUnsafeShellCharacters(command) {
+  return /[;&|<>`]/.test(command);
+}
+
+function isLocalReadVerifyCommand(command) {
+  const trimmed = String(command || "").trim();
+
+  if (!trimmed || trimmed.includes("\n") || hasUnsafeShellCharacters(trimmed)) {
+    return false;
+  }
+
+  return (
+    /^Get-Content\s+/i.test(trimmed) ||
+    /^Select-String\s+/i.test(trimmed) ||
+    /^git\s+status\b/i.test(trimmed) ||
+    /^git\s+diff\b/i.test(trimmed) ||
+    /^node\s+--check\s+/i.test(trimmed)
+  );
+}
+
+function executeLocalReadVerifyCommand(command) {
+  const trimmed = String(command || "").trim();
+
+  let result;
+
+  if (/^(Get-Content|Select-String)\s+/i.test(trimmed)) {
+    result = spawnSync(
+      "powershell.exe",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", trimmed],
+      { cwd: process.cwd(), encoding: "utf8" }
+    );
+  } else {
+    const parts = trimmed.split(/\s+/);
+    result = spawnSync(parts[0], parts.slice(1), {
+      cwd: process.cwd(),
+      encoding: "utf8"
+    });
+  }
+
+  const exitCode = typeof result.status === "number" ? result.status : 1;
+
+  return {
+    handled: true,
+    exitCode,
+    output: {
+      mode: "command-route-executor",
+      route: "local-read-verify",
+      success: exitCode === 0,
+      requestedTask: command,
+      patchAllowed: false,
+      applied: false,
+      stdout: result.stdout || "",
+      stderr: result.stderr || "",
+      exitCode,
+      note: "Executed allowlisted local read/verify command without patching.",
+      ranAt: new Date().toISOString()
+    }
+  };
+}
 function executeCommandRoute({ requestedTask, intentResult, commandRoute }) {
+  if (isLocalReadVerifyCommand(requestedTask)) {
+    return executeLocalReadVerifyCommand(requestedTask);
+  }
+
+  if (/do not patch/i.test(String(requestedTask || ""))) {
+    return {
+      handled: true,
+      exitCode: 0,
+      output: {
+        mode: "command-route-executor",
+        route: "no-patch-report",
+        success: true,
+        requestedTask,
+        intent: intentResult?.intent || null,
+        patchAllowed: false,
+        applied: false,
+        reportOnly: true,
+        note: "Stopped because request explicitly contains do not patch.",
+        ranAt: new Date().toISOString()
+      }
+    };
+  }
   if (!commandRoute || commandRoute.route === "development-pipeline") {
     return { handled: false };
   }
