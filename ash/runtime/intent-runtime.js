@@ -3,7 +3,11 @@
 function detectIntent(task = "") {
   const text = String(task || "").toLowerCase();
 
-  if (/^\s*implementation\b/i.test(task) || /(implementation|implement|create|add|modify|fix|実装|作成|追加|修正)/.test(text)) {
+  if (
+    /^\s*implementation\b/i.test(task) ||
+    /(implementation|implement|create|add|modify|fix|実装|作成|追加|修正)/.test(text) ||
+    /(autonomous ash development|fully autonomous ash development|run fully autonomous ash development)/.test(text)
+  ) {
     return "implementation";
   }
 
@@ -62,4 +66,5 @@ module.exports = {
   classifyIntent,
   detectIntent
 };
+
 
