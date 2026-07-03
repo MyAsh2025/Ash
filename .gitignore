@@ -3,3 +3,12 @@ ash/logs/*.json
 
 # Temporary backup files
 **/*.backup.*.js
+
+# Ash local generated files
+*.backup.*
+*.broken.*
+ash/runtime-state/
+ash/save-drafts/
+ash/capabilities/.sandbox/
+untracked.txt
+ersOwnerStudioProjectsAsh
