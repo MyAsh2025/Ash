@@ -105,6 +105,10 @@ function executeCommandRoute({ requestedTask, intentResult, commandRoute }) {
     return runReportOnly({ requestedTask, intentResult, commandRoute });
   }
 
+  if (commandRoute.route === "resume-only") {
+    return runReportOnly({ requestedTask, intentResult, commandRoute });
+  }
+
   if (commandRoute.route === "handover-only") {
     return runReportOnly({ requestedTask, intentResult, commandRoute });
   }
@@ -129,3 +133,4 @@ function executeCommandRoute({ requestedTask, intentResult, commandRoute }) {
 module.exports = {
   executeCommandRoute
 };
+

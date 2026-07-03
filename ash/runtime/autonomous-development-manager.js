@@ -1,5 +1,27 @@
 "use strict";
 
+function extractExplicitTargetFile(task = "") {
+  const text = String(task || "");
+  const lines = text.split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+
+    const inlineTarget = line.match(/^target(?:\s+file)?\s*:\s*(.+)$/i);
+    if (inlineTarget && inlineTarget[1]) {
+      const candidate = inlineTarget[1].trim().replace(/^[-*]\s*/, "");
+      if (/\.(js|json|md|ps1|txt)$/i.test(candidate)) return candidate;
+    }
+
+    if (/^target(?:\s+file)?\s*:?\s*$/i.test(line) && lines[i + 1]) {
+      const candidate = lines[i + 1].trim().replace(/^[-*]\s*/, "");
+      if (/\.(js|json|md|ps1|txt)$/i.test(candidate)) return candidate;
+    }
+  }
+
+  const pathMatch = text.match(/\b(ash[\/\\][A-Za-z0-9._\/\\-]+\.(?:js|json|md|ps1|txt))\b/i);
+  return pathMatch ? pathMatch[1].replace(/\\/g, "/") : null;
+}
 const { observeRepository } = require("./repository-observation-runtime");
 const { discoverTaskFromRepository } = require("./task-discovery-runtime");
 const { runCapabilityLoop } = require("./capability-loop");
@@ -41,14 +63,19 @@ function runAutonomousDevelopmentManager({
       task.trim() !== "autonomous development" &&
       task.trim() !== "run fully autonomous Ash development";
 
+    const explicitTargetFile = hasExplicitUserTask ? extractExplicitTargetFile(task) : null;
+
     const explicitUserTask = hasExplicitUserTask
       ? {
           task: task.trim(),
           priority: "critical",
           source: "user-explicit-task",
-          file: null,
+          file: explicitTargetFile,
+          targetFile: explicitTargetFile,
           work: ["self-evolution", "priority"],
-          reason: "Explicit user task takes priority over repository observation."
+          reason: explicitTargetFile
+            ? `Explicit user task targets ${explicitTargetFile}.`
+            : "Explicit user task takes priority over repository observation."
         }
       : null;
 

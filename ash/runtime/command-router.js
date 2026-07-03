@@ -3,6 +3,17 @@
 function routeCommand(intentResult = {}) {
   const intent = intentResult.intent || "planning";
 
+  if (intent === "resume") {
+    return {
+      mode: "command-router",
+      version: "ash-local-runtime-v0.1",
+      route: "resume-only",
+      patchAllowed: false,
+      reportOnly: true,
+      stopBeforeDevelopmentPipeline: true
+    };
+  }
+
   if (intent === "handover") {
     return {
       mode: "command-router",
@@ -60,5 +71,4 @@ function routeCommand(intentResult = {}) {
 module.exports = {
   routeCommand
 };
-
 

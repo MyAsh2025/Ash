@@ -3,27 +3,27 @@
 function detectIntent(task = "") {
   const text = String(task || "").toLowerCase();
 
+  if (/^\s*resume\b/i.test(task) || /(resume|再開)/.test(text)) {
+    return "resume";
+  }
+
+  if (/^\s*implementation\b/i.test(task) || /(implementation|implement|create|add|modify|fix|実装|作成|追加|修正)/.test(text)) {
+    return "implementation";
+  }
+
   if (/(self evolution|self-evolution|自己進化|pc ash)/.test(text)) {
     return "self_evolution";
-  }
-
-  if (/(inventory|inspect|investigate|調査|確認|棚卸し)/.test(text)) {
-    return "investigation";
-  }
-
-  if (/(plan|planning|計画|設計)/.test(text)) {
-    return "planning";
   }
 
   if (/(corecheck|core check)/.test(text)) {
     return "corecheck";
   }
 
-  if (/(git|commit|push|checkpoint)/.test(text)) {
+  if (/(git|commit|push|checkpoint|保存)/.test(text)) {
     return "git";
   }
 
-  if (/(verify|verification|test|check|検証|テスト)/.test(text)) {
+  if (/(verify|verification|test|検証|テスト)/.test(text)) {
     return "verification";
   }
 
@@ -31,12 +31,12 @@ function detectIntent(task = "") {
     return "handover";
   }
 
-  if (/(resume|再開)/.test(text)) {
-    return "resume";
+  if (/(inventory|inspect|investigate|check|調査|確認|棚卸し)/.test(text)) {
+    return "investigation";
   }
 
-  if (/(implement|create|add|modify|fix|実装|作成|追加|修正)/.test(text)) {
-    return "implementation";
+  if (/(plan|planning|計画|設計)/.test(text)) {
+    return "planning";
   }
 
   return "planning";
@@ -62,6 +62,4 @@ module.exports = {
   classifyIntent,
   detectIntent
 };
-
-
 
