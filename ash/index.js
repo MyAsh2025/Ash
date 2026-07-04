@@ -50,7 +50,7 @@ function main() {
   const workflow = buildWorkflow({ governance, plan });
   const coordinator = coordinateManagers({ task, intent, workflow, repository });
   const taskRuntime = buildTasksFromCoordinator({ task, coordinator, intent, workflow });
-  const executionPlan = buildExecutionPlan({ taskRuntime, workflow });
+  const executionPlan = buildExecutionPlan({ taskRuntime, workflow, bootstrap });
   const agentSelection = selectAgents({ task, intent, workflow, coordinator, taskRuntime, executionPlan });
   const logDir = path.join(process.cwd(), "ash", "logs");
   fs.mkdirSync(logDir, { recursive: true });

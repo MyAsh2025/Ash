@@ -58,6 +58,12 @@ function resolveDependencies(action) {
   return [];
 }
 
+function extractCoreContext(bootstrap) {
+  return bootstrap?.ashCore?.coreContext ||
+    bootstrap?.startupGate?.ashCore?.coreContext ||
+    null;
+}
+
 function buildStep(task, action, index) {
   const phase = resolvePhase(action, task.manager);
 
@@ -97,8 +103,9 @@ function groupStepsByPhase(steps) {
     .filter((phaseGroup) => phaseGroup.stepCount > 0);
 }
 
-function buildExecutionPlan({ taskRuntime, workflow }) {
+function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
   const tasks = taskRuntime?.tasks || [];
+  const coreContext = extractCoreContext(bootstrap);
 
   const steps = [];
 
@@ -129,12 +136,15 @@ function buildExecutionPlan({ taskRuntime, workflow }) {
 
   return {
     mode: "execution-plan-runtime",
-    version: "ash-local-runtime-v0.2-phase-dependency",
+    version: "ash-local-runtime-v0.4-core-context-aware",
     tasks: tasks.length,
     phases,
     steps,
     executable: Boolean(workflow?.autoExecutable),
     dependencyMode: "action-name",
+    coreContextAware: Boolean(coreContext?.available),
+    coreCheckRules: coreContext?.coreCheckRules || null,
+    developmentPrinciples: coreContext?.developmentPrinciples || null,
     builtAt: new Date().toISOString()
   };
 }
@@ -143,5 +153,6 @@ module.exports = {
   buildExecutionPlan,
   resolvePhase,
   resolveDependencies,
-  groupStepsByPhase
+  groupStepsByPhase,
+  extractCoreContext
 };
