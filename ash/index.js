@@ -20,6 +20,7 @@ const { resolveProject } = require("./runtime/project-context");
 const { evaluateConversationHealth } = require("./runtime/conversation-health");
 const { writeHandover } = require("./runtime/handover");
 const { executePlan } = require("./runtime/executor");
+const { buildBootstrapContext } = require("./runtime/bootstrap-runtime");
 
 function getArgValue(name, fallback = "") {
   const index = process.argv.indexOf(name);
@@ -38,6 +39,7 @@ function main() {
   const projectContext = resolveProject(task);
   const conversation = observeConversation(task);
   const repository = observeRepository();
+  const bootstrap = buildBootstrapContext({ task, projectContext, repository, dryRun });
   const observation = mergeObservations({ conversation, repository });
   const decision = makeDecision(observation);
   const policy = applyPolicy(observation, decision);
@@ -78,6 +80,7 @@ function main() {
         task,
         observation,
         repository,
+        bootstrap,
         decision,
         policy,
         executive,
@@ -97,6 +100,7 @@ function main() {
     projectContext,
     conversation,
     repository,
+    bootstrap,
     observation,
     decision,
     policy,
@@ -194,6 +198,7 @@ function main() {
 }
 
 main();
+
 
 
 

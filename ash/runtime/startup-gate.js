@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { loadAshCore } = require("./ash-core-connector");
 
 function listRecentLogs(logDir, limit = 5) {
   if (!fs.existsSync(logDir)) {
@@ -31,6 +32,7 @@ function runStartupGate({ task, projectContext, repository, dryRun }) {
   const recentLogs = listRecentLogs(logDir);
 
   const repositoryState = classifyRepositoryState(repository);
+  const ashCore = loadAshCore();
 
   const coreCheckRequired =
     repositoryState !== "completed" ||
@@ -54,6 +56,7 @@ function runStartupGate({ task, projectContext, repository, dryRun }) {
     task,
     dryRun,
     projectPath: projectContext?.projectPath || null,
+    ashCore,
     repositoryState,
     stateClassification: {
       completed: repositoryState === "completed",
@@ -82,3 +85,4 @@ module.exports = {
   runStartupGate,
   classifyRepositoryState
 };
+
