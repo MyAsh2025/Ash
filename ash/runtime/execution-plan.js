@@ -1,3 +1,4 @@
+const { evaluateRules } = require("./rule-evaluator");
 function resolvePhase(action, manager) {
   if (
     action === "node_check" ||
@@ -105,7 +106,7 @@ function groupStepsByPhase(steps) {
 
 function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
   const tasks = taskRuntime?.tasks || [];
-  const coreContext = extractCoreContext(bootstrap);
+  const ruleEvaluation = evaluateRules({ bootstrap, workflow, taskRuntime });
 
   const steps = [];
 
@@ -142,9 +143,8 @@ function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
     steps,
     executable: Boolean(workflow?.autoExecutable),
     dependencyMode: "action-name",
-    coreContextAware: Boolean(coreContext?.available),
-    coreCheckRules: coreContext?.coreCheckRules || null,
-    developmentPrinciples: coreContext?.developmentPrinciples || null,
+    coreContextAware: Boolean(ruleEvaluation.coreContextAware),
+    ruleEvaluation,
     builtAt: new Date().toISOString()
   };
 }
