@@ -41,10 +41,10 @@ function main() {
   const repository = observeRepository();
   const bootstrap = buildBootstrapContext({ task, projectContext, repository, dryRun });
   const observation = mergeObservations({ conversation, repository });
-  const decision = makeDecision(observation);
-  const policy = applyPolicy(observation, decision);
+  const decision = makeDecision({ observation, bootstrap });
+  const policy = applyPolicy({ observation, decision, bootstrap });
   const executive = makeExecutiveDecision({ observation, policy, repository });
-  const governance = applyGovernance({ observation, policy, executive });
+  const governance = applyGovernance({ observation, policy, executive, bootstrap });
   const intent = classifyIntent(observation, decision, policy);
   const plan = buildPlan(intent, task);
   const workflow = buildWorkflow({ governance, plan });

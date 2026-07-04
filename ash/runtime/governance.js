@@ -57,19 +57,32 @@ function inferPermissionLevel({ observation, policy, executive }) {
   return "level0";
 }
 
-function applyGovernance({ observation, policy, executive }) {
+function normalizeGovernanceInput(input) {
+  return {
+    observation: input?.observation || null,
+    policy: input?.policy || null,
+    executive: input?.executive || null,
+    bootstrap: input?.bootstrap || null
+  };
+}
+
+function applyGovernance(input) {
+  const { observation, policy, executive, bootstrap } = normalizeGovernanceInput(input);
   const permissions = loadPermissions();
   const level = inferPermissionLevel({ observation, policy, executive });
   const permission = permissions[level] || permissions.level2;
+  const ashCore = bootstrap?.ashCore || bootstrap?.startupGate?.ashCore || null;
 
   return {
     mode: "governance-runtime",
-    version: "ash-local-runtime-v0.1",
+    version: "ash-local-runtime-v0.2-bootstrap-aware",
     level,
     permission,
     autoExecutable: Boolean(permission.autoExecute),
     requiresApproval: Boolean(permission.requiresApproval),
     ownerOnly: Boolean(permission.ownerOnly),
+    ashCoreAware: Boolean(ashCore?.exists),
+    ashCorePath: ashCore?.ashCorePath || null,
     reason: `Selected ${level} for domain=${observation?.domain || "general"}`,
     decidedAt: new Date().toISOString()
   };

@@ -1,10 +1,26 @@
-function makeDecision(observation) {
+function normalizeDecisionInput(input) {
+  if (input && input.observation) {
+    return {
+      observation: input.observation,
+      bootstrap: input.bootstrap || null
+    };
+  }
+
+  return {
+    observation: input,
+    bootstrap: null
+  };
+}
+
+function makeDecision(input) {
+  const { observation, bootstrap } = normalizeDecisionInput(input);
   const signals = observation?.signals || [];
   const importance = observation?.importance || { level: "low", score: 0 };
+  const ashCore = bootstrap?.ashCore || bootstrap?.startupGate?.ashCore || null;
 
   const decision = {
     mode: "decision-runtime",
-    version: "ash-local-runtime-v0.1",
+    version: "ash-local-runtime-v0.2-bootstrap-aware",
     accepted: false,
     reason: "low importance",
     requiresCoreCheck: false,
@@ -12,6 +28,8 @@ function makeDecision(observation) {
     requiresMemorySave: false,
     requiresHandover: false,
     requiresCheckpoint: false,
+    ashCoreAware: Boolean(ashCore?.exists),
+    ashCorePath: ashCore?.ashCorePath || null
   };
 
   if (importance.score >= 35) {
