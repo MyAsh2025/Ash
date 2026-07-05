@@ -4,6 +4,7 @@ const { resolveProject } = require("./project-context");
 const { runAction } = require("../actions/action-runtime");
 const { resolveDependencies } = require("./dependency-resolver");
 const { applyFailurePolicy } = require("./failure-policy");
+const { evaluateRules } = require("./rule-evaluator");
 
 function resolveExecutionContext(plan = {}, context = {}) {
   const task =
@@ -120,6 +121,9 @@ function normalizeSteps(plan = {}) {
 }
 
 function executePlan(plan, context = {}) {
+  const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
+  const executionRules = ruleEvaluation.execution || {};
+  const planningRules = ruleEvaluation.planning || {};
   const executionContext = resolveExecutionContext(plan, context);
   const normalizedSteps = normalizeSteps(plan);
   let dependencyResolution = resolveDependencies(
@@ -213,6 +217,10 @@ function executePlan(plan, context = {}) {
     version: "ash-local-runtime-v0.7-failure-policy",
     success: !stoppedByFailure && dependencyResolution.blockedSteps.length === 0,
     stoppedByFailure,
+    ruleEvaluatorAware: true,
+    coreContextAware: ruleEvaluation.coreContextAware,
+    executionRules,
+    planningRules,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -224,6 +232,7 @@ function executePlan(plan, context = {}) {
 }
 
 module.exports = { executePlan, resolveExecutionContext, normalizeSteps };
+
 
 
 
