@@ -1,4 +1,8 @@
-function buildPatchPlanner({ task, targetFile = null, work = [], executionPolicy, companyPlanner }) {
+const { evaluateRules } = require("./rule-evaluator");
+
+function buildPatchPlanner({ task, targetFile = null, work = [], executionPolicy, companyPlanner, bootstrap = null }) {
+  const evaluatedRules = evaluateRules({ bootstrap });
+  const planningRules = evaluatedRules.planning || {};
   const plannedActions = executionPolicy?.plannedActions || companyPlanner?.plannedActions || [];
   const repositoryTargetFile = targetFile || null;
   const repositoryWork = Array.isArray(work) ? work : [];
@@ -14,6 +18,9 @@ function buildPatchPlanner({ task, targetFile = null, work = [], executionPolicy
     version: "ash-local-runtime-v0.1",
     task,
     needsPatchPlanning,
+    ruleEvaluatorAware: true,
+    coreContextAware: evaluatedRules.coreContextAware,
+    planningRules,
     targetProject: "ash",
     targetFiles: needsPatchPlanning
       ? [
@@ -53,4 +60,6 @@ function buildPatchPlanner({ task, targetFile = null, work = [], executionPolicy
 module.exports = {
   buildPatchPlanner
 };
+
+
 
