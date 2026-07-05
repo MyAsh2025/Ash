@@ -1,6 +1,7 @@
 "use strict";
 
 const { resolveProject } = require("./project-context");
+const { evaluateRules } = require("./rule-evaluator");
 
 function inferIntent(task = "") {
   const text = String(task || "").toLowerCase();
@@ -26,6 +27,8 @@ function planTask({
   task = "",
   context = {}
 } = {}) {
+  const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
+  const planningRules = ruleEvaluation.planning || {};
   const intent = inferIntent(task);
   const projectContext =
     context.projectContext ||
@@ -58,6 +61,9 @@ function planTask({
     version: "ash-local-runtime-v0.1",
     task,
     intent,
+    ruleEvaluatorAware: true,
+    coreContextAware: ruleEvaluation.coreContextAware,
+    planningRules,
     projectContext,
     steps,
     plannedAt: new Date().toISOString()
@@ -68,4 +74,5 @@ module.exports = {
   inferIntent,
   planTask
 };
+
 
