@@ -32,6 +32,9 @@ function executeTask({
     version: "ash-local-runtime-v0.1",
     task,
     success: Boolean(reflection.success),
+    ruleEvaluatorAware: Boolean(plan.ruleEvaluatorAware),
+    coreContextAware: Boolean(plan.coreContextAware),
+    planningRules: plan.planningRules || {},
     plan,
     loop,
     reflection,
@@ -42,3 +45,4 @@ function executeTask({
 module.exports = {
   executeTask
 };
+
