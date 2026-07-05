@@ -7,6 +7,7 @@ const { runAutonomousDevelopmentManager } = require("./ash/runtime/autonomous-de
 const { classifyIntent } = require("./ash/runtime/intent-runtime");
 const { routeCommand } = require("./ash/runtime/command-router");
 const { executeCommandRoute } = require("./ash/runtime/command-route-executor");
+const { buildBootstrapContext } = require("./ash/runtime/bootstrap-runtime");
 
 function getArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -183,11 +184,21 @@ if (/repository inventory only/i.test(requestedTask)) {
   process.exit(0);
 }
 
+const bootstrap = buildBootstrapContext({
+  task: requestedTask,
+  projectContext: {
+    projectPath: process.cwd()
+  },
+  repository: {},
+  dryRun: dryRun || !allowApply
+});
+
 const result = runAutonomousDevelopmentManager({
   task: requestedTask,
   context: {
     projectPath: process.cwd(),
-    dryRun: dryRun || !allowApply
+    dryRun: dryRun || !allowApply,
+    bootstrap
   },
   maxCycles,
   dryRun: dryRun || !allowApply
@@ -230,4 +241,5 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
 

@@ -8,6 +8,7 @@ function adaptQueueItemForExecution({
   item = null,
   context = {}
 } = {}) {
+  const bootstrap = context.bootstrap || null;
   if (!item) {
     return {
       mode: "queue-task-adapter-runtime",
@@ -40,7 +41,8 @@ function adaptQueueItemForExecution({
     executionPolicy: {
       plannedActions: ["prepare_patch_plan"]
     },
-    companyPlanner: null
+    companyPlanner: null,
+    bootstrap
   });
 
   return {
@@ -60,5 +62,6 @@ function adaptQueueItemForExecution({
 module.exports = {
   adaptQueueItemForExecution
 };
+
 
 
