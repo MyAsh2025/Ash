@@ -224,36 +224,52 @@ function resolveCorePreconditions(context = {}) {
 
 function resolveRulePrecondition(ruleName, corePreconditions = {}) {
   const ruleMap = {
-    coreCheckBeforePatch: {
-      precondition: "coreCheckCompleted",
-      satisfied: corePreconditions.coreCheckCompleted === true
-    },
-    coreCheckBeforeGit: {
-      precondition: "coreCheckCompleted",
-      satisfied: corePreconditions.coreCheckCompleted === true
-    },
-    coreCheckBeforeCheckpoint: {
-      precondition: "coreCheckCompleted",
-      satisfied: corePreconditions.coreCheckCompleted === true
-    },
-    coreCheckBeforeHandover: {
-      precondition: "coreCheckCompleted",
-      satisfied: corePreconditions.coreCheckCompleted === true
-    }
+    coreCheckBeforePatch: [
+      {
+        precondition: "coreCheckCompleted",
+        satisfied: corePreconditions.coreCheckCompleted === true
+      }
+    ],
+    coreCheckBeforeGit: [
+      {
+        precondition: "coreCheckCompleted",
+        satisfied: corePreconditions.coreCheckCompleted === true
+      },
+      {
+        precondition: "gitClean",
+        satisfied: corePreconditions.gitClean === true
+      }
+    ],
+    coreCheckBeforeCheckpoint: [
+      {
+        precondition: "coreCheckCompleted",
+        satisfied: corePreconditions.coreCheckCompleted === true
+      }
+    ],
+    coreCheckBeforeHandover: [
+      {
+        precondition: "coreCheckCompleted",
+        satisfied: corePreconditions.coreCheckCompleted === true
+      }
+    ]
   };
 
-  return ruleMap[ruleName] || {
-    precondition: "unknown",
-    satisfied: false
-  };
+  return ruleMap[ruleName] || [
+    {
+      precondition: "unknown",
+      satisfied: false
+    }
+  ];
 }
 
 function attachPreconditionDiagnostics(coreRuleGate = {}, corePreconditions = {}) {
   const diagnostics = (coreRuleGate.guardedActions || []).map((entry) => {
-    const checks = entry.requiredRules.map((ruleName) => ({
-      ruleName,
-      ...resolveRulePrecondition(ruleName, corePreconditions)
-    }));
+    const checks = entry.requiredRules.flatMap((ruleName) =>
+      resolveRulePrecondition(ruleName, corePreconditions).map((check) => ({
+        ruleName,
+        ...check
+      }))
+    );
 
     return {
       ...entry,
