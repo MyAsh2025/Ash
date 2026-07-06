@@ -434,6 +434,57 @@ function rebuildPreconditionStateAfterGitCheck(
     preconditionDiagnostics
   };
 }
+function shouldAttemptAutoCheckpoint(enforcementDecision = {}, context = {}) {
+  return (
+    context.autoCheckpoint === true &&
+    enforcementDecision.shouldBlock === true &&
+    (enforcementDecision.diagnostic?.missing || []).includes("checkpointExists") &&
+    Boolean(context.commitMessage || context.checkpoint?.commitMessage) &&
+    Boolean(context.expectedAuditKey || context.checkpoint?.expectedAuditKey)
+  );
+}
+
+function runAutoCheckpoint(context = {}) {
+  const checkpointResult = runAction("run_checkpoint_when_needed", context);
+
+  return {
+    mode: "executor-auto-checkpoint",
+    version: "executor-auto-checkpoint-v0.1-guarded",
+    attempted: true,
+    success: checkpointResult.success === true && checkpointResult.skipped !== true,
+    checkpointResult,
+    checkedAt: new Date().toISOString()
+  };
+}
+
+function rebuildPreconditionStateAfterCheckpoint(
+  context = {},
+  coreRuleGate = {},
+  autoCheckpointResult = null
+) {
+  const nextContext = {
+    ...context,
+    checkpointResult:
+      autoCheckpointResult?.success === true
+        ? {
+            success: true,
+            checkpointExists: true,
+            result: autoCheckpointResult.checkpointResult
+          }
+        : autoCheckpointResult?.checkpointResult || context.checkpointResult || null
+  };
+
+  const corePreconditions = resolveCorePreconditions(nextContext);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
+
+  return {
+    corePreconditions,
+    preconditionDiagnostics
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -467,6 +518,7 @@ function executePlan(plan, context = {}) {
   const enforcementDecisions = [];
   const autoCoreCheckResults = [];
   const autoGitCheckResults = [];
+  const autoCheckpointResults = [];
   let stoppedByFailure = false;
   let iteration = 0;
 
@@ -534,6 +586,29 @@ function executePlan(plan, context = {}) {
           context,
           coreRuleGate,
           autoGitCheckResult
+        );
+
+        corePreconditions = rebuiltPreconditionState.corePreconditions;
+        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
+
+        enforcementDecision = shouldBlockStepForPreconditions(
+          step,
+          preconditionDiagnostics,
+          enforcementPolicy
+        );
+      }
+
+      if (shouldAttemptAutoCheckpoint(enforcementDecision, context)) {
+        const autoCheckpointResult = runAutoCheckpoint({
+          ...executionContext,
+          ...context
+        });
+        autoCheckpointResults.push(autoCheckpointResult);
+
+        const rebuiltPreconditionState = rebuildPreconditionStateAfterCheckpoint(
+          context,
+          coreRuleGate,
+          autoCheckpointResult
         );
 
         corePreconditions = rebuiltPreconditionState.corePreconditions;
@@ -619,6 +694,7 @@ function executePlan(plan, context = {}) {
     enforcementDecisions,
     autoCoreCheckResults,
     autoGitCheckResults,
+    autoCheckpointResults,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -644,6 +720,9 @@ module.exports = {
   rebuildPreconditionStateAfterCoreCheck,
   shouldAttemptAutoGitCheck,
   runAutoGitCheck,
-  rebuildPreconditionStateAfterGitCheck
+  rebuildPreconditionStateAfterGitCheck,
+  shouldAttemptAutoCheckpoint,
+  runAutoCheckpoint,
+  rebuildPreconditionStateAfterCheckpoint
 };
 
