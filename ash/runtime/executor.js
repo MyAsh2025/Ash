@@ -7,6 +7,7 @@ const { applyFailurePolicy } = require("./failure-policy");
 const { evaluateRules } = require("./rule-evaluator");
 const { runCoreCheck, runGitDiffCheck } = require("./corecheck-runtime");
 const { executeRegisteredAction, resolveExecutor } = require("./executor-registry");
+const { resolveRequiredRulesForAction } = require("./action-classification");
 
 function resolveExecutionContext(plan = {}, context = {}) {
   const task =
@@ -1002,6 +1003,7 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
 
 
 
