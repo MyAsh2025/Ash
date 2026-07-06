@@ -1,22 +1,7 @@
-function mapOperationalStepToActions(step) {
-  const map = {
-    load_previous_runtime_state: ["inspect_repository"],
-    classify_resume_state: ["inspect_repository"],
-    inspect_repository: ["inspect_repository"],
-    runtime_corecheck: ["runtime_corecheck"],
-    git_diff_check: ["git_diff_check"],
-    save_verification: [
-      "classify_save_scope",
-      "prepare_ash_core_save",
-      "prepare_memory_save"
-    ],
-    shutdown_verification: [],
-    prepare_handover: ["prepare_handover"],
-    prepare_patch_plan: ["prepare_patch_plan"],
-    run_checkpoint_when_needed: ["run_checkpoint_when_needed"]
-  };
+const { resolveActionsForOperationalStep } = require("./task-action-policy");
 
-  return map[step] || [];
+function mapOperationalStepToActions(step) {
+  return resolveActionsForOperationalStep(step);
 }
 
 function mapOperationalStepToAction(step) {
@@ -272,6 +257,7 @@ module.exports = {
   mergeTasksByAction,
   findManager
 };
+
 
 
 
