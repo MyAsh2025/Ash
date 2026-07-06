@@ -137,7 +137,8 @@ function classifyCoreRuleRequirement(step = {}, executionRules = {}) {
   if (
     actionName.includes("patch") ||
     actionName.includes("edit") ||
-    actionName.includes("apply")
+    actionName.includes("apply") ||
+    actionName === "development_pipeline"
   ) {
     requiredRules.push("coreCheckBeforePatch");
   }
@@ -1001,6 +1002,7 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
 
 
 
