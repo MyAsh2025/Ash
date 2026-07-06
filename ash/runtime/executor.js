@@ -190,6 +190,72 @@ function buildCoreRuleGate(steps = [], executionRules = {}) {
     missingPreconditions
   };
 }
+function resolveCorePreconditions(context = {}) {
+  const preconditions = context.corePreconditions || {};
+
+  return {
+    coreCheckCompleted: preconditions.coreCheckCompleted === true,
+    gitClean: preconditions.gitClean ?? "unknown",
+    checkpointExists: preconditions.checkpointExists ?? "unknown",
+    handoverPrepared: preconditions.handoverPrepared === true
+  };
+}
+
+function resolveRulePrecondition(ruleName, corePreconditions = {}) {
+  const ruleMap = {
+    coreCheckBeforePatch: {
+      precondition: "coreCheckCompleted",
+      satisfied: corePreconditions.coreCheckCompleted === true
+    },
+    coreCheckBeforeGit: {
+      precondition: "coreCheckCompleted",
+      satisfied: corePreconditions.coreCheckCompleted === true
+    },
+    coreCheckBeforeCheckpoint: {
+      precondition: "coreCheckCompleted",
+      satisfied: corePreconditions.coreCheckCompleted === true
+    },
+    coreCheckBeforeHandover: {
+      precondition: "coreCheckCompleted",
+      satisfied: corePreconditions.coreCheckCompleted === true
+    }
+  };
+
+  return ruleMap[ruleName] || {
+    precondition: "unknown",
+    satisfied: false
+  };
+}
+
+function attachPreconditionDiagnostics(coreRuleGate = {}, corePreconditions = {}) {
+  const diagnostics = (coreRuleGate.guardedActions || []).map((entry) => {
+    const checks = entry.requiredRules.map((ruleName) => ({
+      ruleName,
+      ...resolveRulePrecondition(ruleName, corePreconditions)
+    }));
+
+    return {
+      ...entry,
+      status: checks.every((check) => check.satisfied)
+        ? "preconditions-satisfied"
+        : "preconditions-missing",
+      diagnosticOnly: true,
+      enforced: false,
+      checks,
+      missing: checks
+        .filter((check) => !check.satisfied)
+        .map((check) => check.precondition)
+    };
+  });
+
+  return {
+    mode: "executor-precondition-resolver",
+    version: "executor-precondition-resolver-v0.1-diagnostic",
+    diagnosticOnly: true,
+    enforced: false,
+    diagnostics
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -197,6 +263,11 @@ function executePlan(plan, context = {}) {
   const executionContext = resolveExecutionContext(plan, context);
   const normalizedSteps = normalizeSteps(plan);
   const coreRuleGate = buildCoreRuleGate(normalizedSteps, executionRules);
+  const corePreconditions = resolveCorePreconditions(context);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
   let dependencyResolution = resolveDependencies(
     { steps: normalizedSteps },
     context.executionResults || []
@@ -295,6 +366,8 @@ function executePlan(plan, context = {}) {
     coreRuleGate,
     guardedActions: coreRuleGate.guardedActions,
     missingPreconditions: coreRuleGate.missingPreconditions,
+    corePreconditions,
+    preconditionDiagnostics,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -310,6 +383,8 @@ module.exports = {
   resolveExecutionContext,
   normalizeSteps,
   buildCoreRuleGate,
-  classifyCoreRuleRequirement
+  classifyCoreRuleRequirement,
+  resolveCorePreconditions,
+  attachPreconditionDiagnostics
 };
 
