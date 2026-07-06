@@ -9,14 +9,16 @@ const {
 const { classifyCapabilityResult } = require("./capability-result");
 
 function resolveExecutorPlanPolicy(context = {}) {
+  const disabled = context.disableExecutorPlan === true;
+
   return {
     mode: "executor-plan-policy",
-    version: "executor-plan-policy-v0.1-default-option",
-    enabled:
-      context.useExecutorPlan === true ||
-      context.defaultExecutorPlan === true,
+    version: "executor-plan-policy-v0.2-standard-route",
+    enabled: !disabled,
     explicitOptIn: context.useExecutorPlan === true,
-    defaultEnabled: context.defaultExecutorPlan === true
+    defaultEnabled: context.defaultExecutorPlan === true,
+    standardRoute: !disabled,
+    disabled
   };
 }
 
@@ -172,6 +174,7 @@ module.exports = {
   shouldRouteThroughExecutorPlan,
   runExecutorPlanRoute
 };
+
 
 
 
