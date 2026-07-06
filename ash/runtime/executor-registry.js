@@ -5,6 +5,7 @@ const { runAuditCheck } = require("./executors/audit-executor");
 const { runPreparePatchPlan } = require("./executors/prepare-patch-executor");
 const { classifySaveScope, prepareHandoverSave, prepareAshCoreSave, prepareMemorySave } = require("./executors/save-executor");
 const { runPlanExecutor } = require("./executors/plan-executor");
+const { runDevelopmentPipelineExecutor } = require("./executors/development-pipeline-executor");
 
 const registry = {
   node_check: runNodeCheck,
@@ -19,7 +20,8 @@ const registry = {
   prepare_handover: prepareHandoverSave,
   prepare_ash_core_save: prepareAshCoreSave,
   prepare_memory_save: prepareMemorySave,
-  execute_plan: runPlanExecutor
+  execute_plan: runPlanExecutor,
+  development_pipeline: runDevelopmentPipelineExecutor
 };
 
 function resolveExecutor(action) {
@@ -56,6 +58,7 @@ module.exports = {
   resolveExecutor,
   registry
 };
+
 
 
 
