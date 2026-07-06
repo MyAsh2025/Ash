@@ -276,6 +276,48 @@ function attachPreconditionDiagnostics(coreRuleGate = {}, corePreconditions = {}
     diagnostics
   };
 }
+function resolveEnforcementPolicy(context = {}) {
+  return {
+    mode: "executor-enforcement-policy",
+    version: "executor-enforcement-policy-v0.1-guarded",
+    enforceCoreRuleGate: context.enforceCoreRuleGate === true,
+    diagnosticOnly: context.enforceCoreRuleGate !== true
+  };
+}
+
+function findStepPreconditionDiagnostic(step = {}, preconditionDiagnostics = {}) {
+  const action = step.action || step.name || step.type || null;
+  const stepId = step.stepId || null;
+
+  return (preconditionDiagnostics.diagnostics || []).find((diagnostic) => {
+    if (stepId && diagnostic.stepId === stepId) {
+      return true;
+    }
+
+    return action && diagnostic.action === action;
+  }) || null;
+}
+
+function shouldBlockStepForPreconditions(
+  step = {},
+  preconditionDiagnostics = {},
+  enforcementPolicy = {}
+) {
+  const diagnostic = findStepPreconditionDiagnostic(step, preconditionDiagnostics);
+  const shouldBlock =
+    enforcementPolicy.enforceCoreRuleGate === true &&
+    diagnostic?.status === "preconditions-missing";
+
+  return {
+    mode: "executor-enforcement-decision",
+    version: "executor-enforcement-decision-v0.1-guarded",
+    action: step.action || step.name || step.type || null,
+    stepId: step.stepId || null,
+    enforced: enforcementPolicy.enforceCoreRuleGate === true,
+    shouldBlock,
+    diagnostic
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -288,6 +330,7 @@ function executePlan(plan, context = {}) {
     coreRuleGate,
     corePreconditions
   );
+  const enforcementPolicy = resolveEnforcementPolicy(context);
   let dependencyResolution = resolveDependencies(
     { steps: normalizedSteps },
     context.executionResults || []
@@ -305,6 +348,7 @@ function executePlan(plan, context = {}) {
   const executedStepIds = new Set(results.map((result) => result.stepId).filter(Boolean));
   const loopHistory = [];
   const failureDecisions = [];
+  const enforcementDecisions = [];
   let stoppedByFailure = false;
   let iteration = 0;
 
@@ -337,6 +381,30 @@ function executePlan(plan, context = {}) {
 
     for (const step of readySteps) {
       console.log(`== Execute: ${step.name || step.action || step.type} ==`);
+
+      const enforcementDecision = shouldBlockStepForPreconditions(
+        step,
+        preconditionDiagnostics,
+        enforcementPolicy
+      );
+      enforcementDecisions.push(enforcementDecision);
+
+      if (enforcementDecision.shouldBlock) {
+        const blockedResult = {
+          action: step.action || step.name || step.type || null,
+          originalAction: step.action || step.name || step.type || null,
+          stepId: step.stepId || null,
+          success: false,
+          blocked: true,
+          reason: "Executor core rule gate blocked step because preconditions are missing.",
+          enforcementDecision
+        };
+
+        results.push(blockedResult);
+        stoppedByFailure = true;
+        dependencyResolution = currentResolution;
+        break;
+      }
 
       let result = null;
 
@@ -388,6 +456,8 @@ function executePlan(plan, context = {}) {
     missingPreconditions: coreRuleGate.missingPreconditions,
     corePreconditions,
     preconditionDiagnostics,
+    enforcementPolicy,
+    enforcementDecisions,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -405,6 +475,8 @@ module.exports = {
   buildCoreRuleGate,
   classifyCoreRuleRequirement,
   resolveCorePreconditions,
-  attachPreconditionDiagnostics
+  attachPreconditionDiagnostics,
+  resolveEnforcementPolicy,
+  shouldBlockStepForPreconditions
 };
 
