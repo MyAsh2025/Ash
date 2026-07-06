@@ -1,3 +1,5 @@
+const { buildRuntimeState } = require("./save-verification-runtime");
+
 function buildShutdownRuntime({
   task,
   projectContext,
@@ -8,26 +10,16 @@ function buildShutdownRuntime({
   saveVerification,
   handover
 }) {
-  const completedActions = queueExecution?.queueState?.completedActions || [];
+  const runtimeState = buildRuntimeState(queueExecution, handover);
 
-  const coreCheckCompleted =
-    completedActions.includes("runtime_corecheck") ||
-    completedActions.includes("run_corecheck");
-
-  const gitDiffChecked =
-    completedActions.includes("git_diff_check");
-
-  const checkpointAttempted =
-    completedActions.includes("run_checkpoint_when_needed");
-
-  const ashCoreSavePrepared =
-    completedActions.includes("prepare_ash_core_save");
-
-  const memorySavePrepared =
-    completedActions.includes("prepare_memory_save");
-
-  const handoverPrepared =
-    Boolean(handover?.prepared);
+  const {
+    coreCheckCompleted,
+    gitDiffChecked,
+    checkpointAttempted,
+    ashCoreSavePrepared,
+    memorySavePrepared,
+    handoverPrepared
+  } = runtimeState;
 
   const shutdownRequired =
     Boolean(saveVerification?.saveRequired) ||
@@ -64,7 +56,7 @@ function buildShutdownRuntime({
 
   return {
     mode: "shutdown-runtime",
-    version: "ash-local-runtime-v0.1",
+    version: "ash-local-runtime-v0.2-shared-runtime-state",
     task,
     project: projectContext?.project?.id || null,
     projectPath: projectContext?.project?.path || projectContext?.projectPath || null,
@@ -78,6 +70,7 @@ function buildShutdownRuntime({
       memorySavePrepared,
       handoverPrepared
     },
+    runtimeState,
     requirements: {
       ashCoreSaveRequired: Boolean(saveVerification?.requirements?.ashCoreSaveRequired),
       memorySaveRequired: Boolean(saveVerification?.requirements?.memorySaveRequired),
@@ -105,5 +98,3 @@ function buildShutdownRuntime({
 module.exports = {
   buildShutdownRuntime
 };
-
-

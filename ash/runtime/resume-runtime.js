@@ -1,14 +1,20 @@
+const { buildRuntimeState } = require("./save-verification-runtime");
+
 function hasCompletedOperationalCycle(previousLatest = {}) {
-  const completedActions = previousLatest.completedActions || [];
+  const runtimeState = buildRuntimeState({
+    queueState: {
+      completedActions: previousLatest.completedActions || []
+    }
+  });
 
   return Boolean(
     previousLatest.shutdownCompleted === true &&
     previousLatest.saveCompleted === true &&
-    completedActions.includes("runtime_corecheck") &&
-    completedActions.includes("git_diff_check") &&
-    completedActions.includes("run_checkpoint_when_needed") &&
-    completedActions.includes("prepare_ash_core_save") &&
-    completedActions.includes("prepare_memory_save")
+    runtimeState.coreCheckCompleted &&
+    runtimeState.gitDiffChecked &&
+    runtimeState.checkpointAttempted &&
+    runtimeState.ashCoreSavePrepared &&
+    runtimeState.memorySavePrepared
   );
 }
 
@@ -71,7 +77,7 @@ function buildResumeRuntime({
 
   return {
     mode: "resume-runtime",
-    version: "ash-local-runtime-v0.3-persistent-state-priority",
+    version: "ash-local-runtime-v0.4-shared-runtime-state",
     task,
     project: projectContext?.project?.id || null,
     projectPath: projectContext?.project?.path || projectContext?.projectPath || null,

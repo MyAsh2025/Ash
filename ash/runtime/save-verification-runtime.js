@@ -1,3 +1,26 @@
+function buildRuntimeState(queueExecution = {}, handover = {}) {
+  const completedActions =
+    queueExecution?.queueState?.completedActions || [];
+
+  return {
+    completedActions,
+    coreCheckCompleted:
+      completedActions.includes("runtime_corecheck") ||
+      completedActions.includes("run_corecheck"),
+    gitDiffChecked:
+      completedActions.includes("git_diff_check"),
+    checkpointAttempted:
+      completedActions.includes("run_checkpoint_when_needed"),
+    ashCoreSavePrepared:
+      completedActions.includes("prepare_ash_core_save"),
+    memorySavePrepared:
+      completedActions.includes("prepare_memory_save"),
+    handoverPrepared:
+      completedActions.includes("prepare_handover") ||
+      Boolean(handover?.prepared)
+  };
+}
+
 function buildSaveVerificationRuntime({
   task,
   projectContext,
@@ -8,6 +31,17 @@ function buildSaveVerificationRuntime({
   conversationHealth,
   handover
 }) {
+  const runtimeState = buildRuntimeState(queueExecution, handover);
+
+  const {
+    coreCheckCompleted,
+    gitDiffChecked,
+    checkpointAttempted,
+    ashCoreSavePrepared,
+    memorySavePrepared,
+    handoverPrepared
+  } = runtimeState;
+
   const repositoryDirty =
     repository?.clean === false ||
     startupGate?.repositoryState === "implemented-but-uncommitted" ||
@@ -18,30 +52,8 @@ function buildSaveVerificationRuntime({
     String(task || "").toLowerCase().includes("architecture") ||
     Boolean(startupGate?.gates?.coreCheckRequired);
 
-  const coreCheckCompleted =
-    queueExecution?.queueState?.completedActions?.includes("runtime_corecheck") ||
-    queueExecution?.queueState?.completedActions?.includes("run_corecheck");
-
-  const gitDiffChecked =
-    queueExecution?.queueState?.completedActions?.includes("git_diff_check");
-
   const handoverRequired =
     Boolean(conversationHealth?.shouldPrepareHandover);
-
-  const completedActions = queueExecution?.queueState?.completedActions || [];
-
-  const ashCoreSavePrepared =
-    completedActions.includes("prepare_ash_core_save");
-
-  const memorySavePrepared =
-    completedActions.includes("prepare_memory_save");
-
-  const checkpointAttempted =
-    completedActions.includes("run_checkpoint_when_needed");
-
-  const handoverPrepared =
-    completedActions.includes("prepare_handover") ||
-    Boolean(handover?.prepared);
 
   const ashCoreSaveRequired =
     runtimeChanged || handoverRequired;
@@ -70,7 +82,7 @@ function buildSaveVerificationRuntime({
 
   return {
     mode: "save-verification-runtime",
-    version: "ash-local-runtime-v0.1",
+    version: "ash-local-runtime-v0.2-shared-runtime-state",
     task,
     project: projectContext?.project?.id || null,
     projectPath: projectContext?.project?.path || projectContext?.projectPath || null,
@@ -91,6 +103,7 @@ function buildSaveVerificationRuntime({
       repositoryDirty,
       runtimeChanged
     },
+    runtimeState,
     blockers,
     saveAllowed: blockers.length === 0,
     recommendedActions: [
@@ -116,7 +129,6 @@ function buildSaveVerificationRuntime({
 }
 
 module.exports = {
+  buildRuntimeState,
   buildSaveVerificationRuntime
 };
-
-
