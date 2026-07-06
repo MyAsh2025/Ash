@@ -120,12 +120,83 @@ function normalizeSteps(plan = {}) {
   return [];
 }
 
+function getStepActionName(step = {}) {
+  return String(step.action || step.name || step.type || "").toLowerCase();
+}
+
+function classifyCoreRuleRequirement(step = {}, executionRules = {}) {
+  const actionName = getStepActionName(step);
+  const requiredRules = [];
+
+  if (
+    actionName.includes("patch") ||
+    actionName.includes("edit") ||
+    actionName.includes("apply")
+  ) {
+    requiredRules.push("coreCheckBeforePatch");
+  }
+
+  if (
+    actionName.includes("git") ||
+    actionName.includes("commit") ||
+    actionName.includes("push")
+  ) {
+    requiredRules.push("coreCheckBeforeGit");
+  }
+
+  if (
+    actionName.includes("checkpoint") ||
+    actionName.includes("save")
+  ) {
+    requiredRules.push("coreCheckBeforeCheckpoint");
+  }
+
+  if (
+    actionName.includes("handover") ||
+    actionName.includes("finalization")
+  ) {
+    requiredRules.push("coreCheckBeforeHandover");
+  }
+
+  return requiredRules.filter((ruleName) => executionRules[ruleName]);
+}
+
+function buildCoreRuleGate(steps = [], executionRules = {}) {
+  const guardedActions = steps
+    .map((step) => {
+      const requiredRules = classifyCoreRuleRequirement(step, executionRules);
+
+      return {
+        stepId: step.stepId || null,
+        action: step.action || step.name || step.type || null,
+        requiredRules
+      };
+    })
+    .filter((entry) => entry.requiredRules.length > 0);
+
+  const missingPreconditions = guardedActions.map((entry) => ({
+    ...entry,
+    status: "diagnostic-only",
+    enforced: false,
+    missing: entry.requiredRules
+  }));
+
+  return {
+    mode: "executor-core-rule-gate",
+    version: "executor-core-rule-gate-v0.1-diagnostic",
+    diagnosticOnly: true,
+    enforced: false,
+    guardedActions,
+    missingPreconditions
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
   const planningRules = ruleEvaluation.planning || {};
   const executionContext = resolveExecutionContext(plan, context);
   const normalizedSteps = normalizeSteps(plan);
+  const coreRuleGate = buildCoreRuleGate(normalizedSteps, executionRules);
   let dependencyResolution = resolveDependencies(
     { steps: normalizedSteps },
     context.executionResults || []
@@ -221,6 +292,9 @@ function executePlan(plan, context = {}) {
     coreContextAware: ruleEvaluation.coreContextAware,
     executionRules,
     planningRules,
+    coreRuleGate,
+    guardedActions: coreRuleGate.guardedActions,
+    missingPreconditions: coreRuleGate.missingPreconditions,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -231,11 +305,11 @@ function executePlan(plan, context = {}) {
   };
 }
 
-module.exports = { executePlan, resolveExecutionContext, normalizeSteps };
-
-
-
-
-
-
+module.exports = {
+  executePlan,
+  resolveExecutionContext,
+  normalizeSteps,
+  buildCoreRuleGate,
+  classifyCoreRuleRequirement
+};
 
