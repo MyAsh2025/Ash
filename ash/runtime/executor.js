@@ -5,7 +5,7 @@ const { runAction } = require("../actions/action-runtime");
 const { resolveDependencies } = require("./dependency-resolver");
 const { applyFailurePolicy } = require("./failure-policy");
 const { evaluateRules } = require("./rule-evaluator");
-const { runCoreCheck } = require("./corecheck-runtime");
+const { runCoreCheck, runGitDiffCheck } = require("./corecheck-runtime");
 
 function resolveExecutionContext(plan = {}, context = {}) {
   const task =
@@ -364,6 +364,51 @@ function rebuildPreconditionStateAfterCoreCheck(
     preconditionDiagnostics
   };
 }
+function shouldAttemptAutoGitCheck(enforcementDecision = {}, context = {}) {
+  return (
+    context.autoGitCheck === true &&
+    enforcementDecision.shouldBlock === true &&
+    (enforcementDecision.diagnostic?.missing || []).includes("gitClean")
+  );
+}
+
+function runAutoGitCheck() {
+  const gitDiffCheckResult = runGitDiffCheck();
+
+  return {
+    mode: "executor-auto-git-check",
+    version: "executor-auto-git-check-v0.1-guarded",
+    attempted: true,
+    success: gitDiffCheckResult.success === true,
+    gitDiffCheckResult,
+    checkedAt: new Date().toISOString()
+  };
+}
+
+function rebuildPreconditionStateAfterGitCheck(
+  context = {},
+  coreRuleGate = {},
+  autoGitCheckResult = null
+) {
+  const nextContext = {
+    ...context,
+    gitDiffCheckResult:
+      autoGitCheckResult?.gitDiffCheckResult ||
+      context.gitDiffCheckResult ||
+      null
+  };
+
+  const corePreconditions = resolveCorePreconditions(nextContext);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
+
+  return {
+    corePreconditions,
+    preconditionDiagnostics
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -396,6 +441,7 @@ function executePlan(plan, context = {}) {
   const failureDecisions = [];
   const enforcementDecisions = [];
   const autoCoreCheckResults = [];
+  const autoGitCheckResults = [];
   let stoppedByFailure = false;
   let iteration = 0;
 
@@ -443,6 +489,26 @@ function executePlan(plan, context = {}) {
           context,
           coreRuleGate,
           autoCoreCheckResult
+        );
+
+        corePreconditions = rebuiltPreconditionState.corePreconditions;
+        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
+
+        enforcementDecision = shouldBlockStepForPreconditions(
+          step,
+          preconditionDiagnostics,
+          enforcementPolicy
+        );
+      }
+
+      if (shouldAttemptAutoGitCheck(enforcementDecision, context)) {
+        const autoGitCheckResult = runAutoGitCheck();
+        autoGitCheckResults.push(autoGitCheckResult);
+
+        const rebuiltPreconditionState = rebuildPreconditionStateAfterGitCheck(
+          context,
+          coreRuleGate,
+          autoGitCheckResult
         );
 
         corePreconditions = rebuiltPreconditionState.corePreconditions;
@@ -527,6 +593,7 @@ function executePlan(plan, context = {}) {
     enforcementPolicy,
     enforcementDecisions,
     autoCoreCheckResults,
+    autoGitCheckResults,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -549,6 +616,9 @@ module.exports = {
   shouldBlockStepForPreconditions,
   shouldAttemptAutoCoreCheck,
   runAutoCoreCheck,
-  rebuildPreconditionStateAfterCoreCheck
+  rebuildPreconditionStateAfterCoreCheck,
+  shouldAttemptAutoGitCheck,
+  runAutoGitCheck,
+  rebuildPreconditionStateAfterGitCheck
 };
 
