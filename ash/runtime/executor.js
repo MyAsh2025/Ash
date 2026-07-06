@@ -6,6 +6,7 @@ const { resolveDependencies } = require("./dependency-resolver");
 const { applyFailurePolicy } = require("./failure-policy");
 const { evaluateRules } = require("./rule-evaluator");
 const { runCoreCheck, runGitDiffCheck } = require("./corecheck-runtime");
+const { executeRegisteredAction, resolveExecutor } = require("./executor-registry");
 
 function resolveExecutionContext(plan = {}, context = {}) {
   const task =
@@ -84,10 +85,14 @@ function runActionStep(step, executionContext) {
     throw new Error("Action step is missing action/name.");
   }
 
-  const result = runAction(actionName, {
+  const actionContext = {
     ...executionContext,
     task: executionContext.task
-  });
+  };
+
+  const result = resolveExecutor(actionName)
+    ? executeRegisteredAction({ ...step, action: actionName }, actionContext)
+    : runAction(actionName, actionContext);
 
   if (!result.success) {
     throw new Error(`Action failed: ${actionName}`);
