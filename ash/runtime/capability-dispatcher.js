@@ -2,6 +2,7 @@
 
 const { resolveCapabilityForAction } = require("./capability-resolver");
 const { executeRegisteredAction } = require("./executor-registry");
+const { classifyAction } = require("./action-classification");
 const {
   createCapabilityRegistry,
   runCapability
@@ -27,7 +28,7 @@ function shouldRouteThroughExecutorPlan(step = {}, context = {}) {
 
   return (
     executorPlanPolicy.enabled &&
-    step.action !== "execute_plan"
+    classifyAction(step.action).classification !== "executor-internal"
   );
 }
 
@@ -182,6 +183,8 @@ module.exports = {
   shouldRouteThroughExecutorPlan,
   runExecutorPlanRoute
 };
+
+
 
 
 

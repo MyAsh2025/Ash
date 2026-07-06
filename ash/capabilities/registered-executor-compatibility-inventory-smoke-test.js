@@ -2,6 +2,7 @@
 
 const { registry } = require("../runtime/executor-registry");
 const { resolveCapabilityForAction } = require("../runtime/capability-resolver");
+const { classifyAction } = require("../runtime/action-classification");
 
 const actions = Object.keys(registry).sort();
 
@@ -16,7 +17,8 @@ const rows = actions.map((action) => {
     routeClass: hasExecutableCapability
       ? "capability-route"
       : "registered-executor-compatibility",
-    shouldPreferExecutorPlan: true
+    shouldPreferExecutorPlan: true,
+    actionClassification: classifyAction(action)
   };
 });
 
@@ -37,3 +39,4 @@ console.log(JSON.stringify(summary, null, 2));
 if (summary.totalRegisteredExecutors < 1) {
   process.exitCode = 1;
 }
+
