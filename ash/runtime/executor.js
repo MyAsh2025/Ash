@@ -370,6 +370,44 @@ function shouldBlockStepForPreconditions(
     diagnostic
   };
 }
+function rebuildPreconditionState(context = {}, coreRuleGate = {}, contextPatch = {}) {
+  const nextContext = {
+    ...context,
+    ...contextPatch,
+    corePreconditions: {
+      ...(context.corePreconditions || {}),
+      ...(contextPatch.corePreconditions || {})
+    },
+    handoverResult: contextPatch.handoverResult
+      ? {
+          ...(context.handoverResult || {}),
+          ...contextPatch.handoverResult
+        }
+      : context.handoverResult,
+    saveVerificationResult: contextPatch.saveVerificationResult
+      ? {
+          ...(context.saveVerificationResult || {}),
+          ...contextPatch.saveVerificationResult,
+          verification: {
+            ...(context.saveVerificationResult?.verification || {}),
+            ...(contextPatch.saveVerificationResult?.verification || {})
+          }
+        }
+      : context.saveVerificationResult
+  };
+
+  const corePreconditions = resolveCorePreconditions(nextContext);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
+
+  return {
+    context: nextContext,
+    corePreconditions,
+    preconditionDiagnostics
+  };
+}
 function shouldAttemptAutoCoreCheck(enforcementDecision = {}, context = {}) {
   return (
     context.autoCoreCheck === true &&
@@ -399,21 +437,9 @@ function rebuildPreconditionStateAfterCoreCheck(
   coreRuleGate = {},
   autoCoreCheckResult = null
 ) {
-  const nextContext = {
-    ...context,
+  return rebuildPreconditionState(context, coreRuleGate, {
     coreCheckResult: autoCoreCheckResult?.coreCheckResult || context.coreCheckResult || null
-  };
-
-  const corePreconditions = resolveCorePreconditions(nextContext);
-  const preconditionDiagnostics = attachPreconditionDiagnostics(
-    coreRuleGate,
-    corePreconditions
-  );
-
-  return {
-    corePreconditions,
-    preconditionDiagnostics
-  };
+  });
 }
 function shouldAttemptAutoGitCheck(enforcementDecision = {}, context = {}) {
   return (
@@ -488,8 +514,7 @@ function rebuildPreconditionStateAfterCheckpoint(
   coreRuleGate = {},
   autoCheckpointResult = null
 ) {
-  const nextContext = {
-    ...context,
+  return rebuildPreconditionState(context, coreRuleGate, {
     checkpointResult:
       autoCheckpointResult?.success === true
         ? {
@@ -498,18 +523,7 @@ function rebuildPreconditionStateAfterCheckpoint(
             result: autoCheckpointResult.checkpointResult
           }
         : autoCheckpointResult?.checkpointResult || context.checkpointResult || null
-  };
-
-  const corePreconditions = resolveCorePreconditions(nextContext);
-  const preconditionDiagnostics = attachPreconditionDiagnostics(
-    coreRuleGate,
-    corePreconditions
-  );
-
-  return {
-    corePreconditions,
-    preconditionDiagnostics
-  };
+  });
 }
 function shouldAttemptAutoAshCoreSave(enforcementDecision = {}, context = {}) {
   return (
@@ -540,26 +554,13 @@ function rebuildPreconditionStateAfterAshCoreSave(
   coreRuleGate = {},
   autoAshCoreSaveResult = null
 ) {
-  const nextContext = {
-    ...context,
+  return rebuildPreconditionState(context, coreRuleGate, {
     corePreconditions: {
-      ...(context.corePreconditions || {}),
       ashCoreSavePrepared:
         autoAshCoreSaveResult?.success === true ||
         context.corePreconditions?.ashCoreSavePrepared === true
     }
-  };
-
-  const corePreconditions = resolveCorePreconditions(nextContext);
-  const preconditionDiagnostics = attachPreconditionDiagnostics(
-    coreRuleGate,
-    corePreconditions
-  );
-
-  return {
-    corePreconditions,
-    preconditionDiagnostics
-  };
+  });
 }
 function shouldAttemptAutoMemorySave(enforcementDecision = {}, context = {}) {
   return (
@@ -590,26 +591,13 @@ function rebuildPreconditionStateAfterMemorySave(
   coreRuleGate = {},
   autoMemorySaveResult = null
 ) {
-  const nextContext = {
-    ...context,
+  return rebuildPreconditionState(context, coreRuleGate, {
     corePreconditions: {
-      ...(context.corePreconditions || {}),
       memorySavePrepared:
         autoMemorySaveResult?.success === true ||
         context.corePreconditions?.memorySavePrepared === true
     }
-  };
-
-  const corePreconditions = resolveCorePreconditions(nextContext);
-  const preconditionDiagnostics = attachPreconditionDiagnostics(
-    coreRuleGate,
-    corePreconditions
-  );
-
-  return {
-    corePreconditions,
-    preconditionDiagnostics
-  };
+  });
 }
 
 function shouldAttemptAutoHandover(enforcementDecision = {}, context = {}) {
@@ -640,42 +628,27 @@ function rebuildPreconditionStateAfterHandover(
   coreRuleGate = {},
   autoHandoverResult = null
 ) {
-  const nextContext = {
-    ...context,
+  const handoverPrepared =
+    autoHandoverResult?.success === true ||
+    context.corePreconditions?.handoverPrepared === true;
+
+  return rebuildPreconditionState(context, coreRuleGate, {
     corePreconditions: {
-      ...(context.corePreconditions || {}),
-      handoverPrepared:
-        autoHandoverResult?.success === true ||
-        context.corePreconditions?.handoverPrepared === true
+      handoverPrepared
     },
     handoverResult: {
-      ...(context.handoverResult || {}),
       prepared:
         autoHandoverResult?.success === true ||
         context.handoverResult?.prepared === true
     },
     saveVerificationResult: {
-      ...(context.saveVerificationResult || {}),
       verification: {
-        ...(context.saveVerificationResult?.verification || {}),
         handoverPrepared:
           autoHandoverResult?.success === true ||
           context.saveVerificationResult?.verification?.handoverPrepared === true
       }
     }
-  };
-
-  const corePreconditions = resolveCorePreconditions(nextContext);
-  const preconditionDiagnostics = attachPreconditionDiagnostics(
-    coreRuleGate,
-    corePreconditions
-  );
-
-  return {
-    context: nextContext,
-    corePreconditions,
-    preconditionDiagnostics
-  };
+  });
 }
 
 function executePlan(plan, context = {}) {
@@ -1003,6 +976,7 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
 
 
 
