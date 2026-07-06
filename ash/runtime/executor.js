@@ -371,8 +371,8 @@ function executePlan(plan, context = {}) {
   const executionContext = resolveExecutionContext(plan, context);
   const normalizedSteps = normalizeSteps(plan);
   const coreRuleGate = buildCoreRuleGate(normalizedSteps, executionRules);
-  const corePreconditions = resolveCorePreconditions(context);
-  const preconditionDiagnostics = attachPreconditionDiagnostics(
+  let corePreconditions = resolveCorePreconditions(context);
+  let preconditionDiagnostics = attachPreconditionDiagnostics(
     coreRuleGate,
     corePreconditions
   );
@@ -445,9 +445,12 @@ function executePlan(plan, context = {}) {
           autoCoreCheckResult
         );
 
+        corePreconditions = rebuiltPreconditionState.corePreconditions;
+        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
+
         enforcementDecision = shouldBlockStepForPreconditions(
           step,
-          rebuiltPreconditionState.preconditionDiagnostics,
+          preconditionDiagnostics,
           enforcementPolicy
         );
       }
