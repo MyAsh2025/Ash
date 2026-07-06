@@ -8,8 +8,70 @@ const {
 } = require("./capability-registry");
 const { classifyCapabilityResult } = require("./capability-result");
 
+function shouldRouteThroughExecutorPlan(step = {}, context = {}) {
+  return (
+    context.useExecutorPlan === true &&
+    step.action !== "execute_plan"
+  );
+}
+
+function runExecutorPlanRoute(step = {}, context = {}) {
+  const action = step.action || "unknown";
+  const executorPlanResult = executeRegisteredAction(
+    {
+      action: "execute_plan",
+      plan: {
+        task: context.task || step.task || action,
+        steps: [
+          {
+            ...step,
+            stepId: step.stepId || `executor-plan-${action}`,
+            context: {
+              ...(step.context || {}),
+              useExecutorPlan: false
+            }
+          }
+        ]
+      }
+    },
+    {
+      ...context,
+      useExecutorPlan: false
+    }
+  );
+
+  const classification = classifyCapabilityResult({
+    action,
+    executableCapability: null,
+    dispatchResult: {
+      success: Boolean(executorPlanResult.success),
+      route: "executor-plan",
+      result: executorPlanResult
+    }
+  });
+
+  return {
+    mode: "capability-dispatcher-runtime",
+    version: "ash-local-runtime-v0.4-executor-plan-opt-in",
+    success: Boolean(executorPlanResult.success),
+    action,
+    capability: "executor_plan",
+    executableCapability: null,
+    dispatched: true,
+    route: "executor-plan",
+    classification,
+    result: executorPlanResult,
+    dispatchedAt: new Date().toISOString()
+  };
+}
+
 function dispatchAction(step = {}, context = {}) {
   const action = step.action || "unknown";
+
+  if (shouldRouteThroughExecutorPlan(step, context)) {
+    return runExecutorPlanRoute(step, context);
+  }
+
   const resolved = resolveCapabilityForAction(action);
 
   if (!resolved.executableCapability) {
@@ -91,8 +153,14 @@ function dispatchAction(step = {}, context = {}) {
 }
 
 module.exports = {
-  dispatchAction
+  dispatchAction,
+  shouldRouteThroughExecutorPlan,
+  runExecutorPlanRoute
 };
+
+
+
+
 
 
 
