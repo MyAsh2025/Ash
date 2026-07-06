@@ -1,3 +1,5 @@
+const { classifyAction } = require("./action-classification");
+
 const capabilityMap = {
   node_check: {
     capability: "syntax_verification",
@@ -108,13 +110,15 @@ function resolveCapabilityForAction(action) {
 
 function enrichStepWithCapability(step) {
   const resolved = resolveCapabilityForAction(step.action);
+  const actionClassification = classifyAction(step.action);
 
   return {
     ...step,
     capability: resolved.capability,
     executableCapability: resolved.executableCapability || null,
     assignedAgent: resolved.preferredAgent,
-    fallbackAgents: resolved.fallbackAgents
+    fallbackAgents: resolved.fallbackAgents,
+    actionClassification
   };
 }
 
@@ -146,6 +150,7 @@ module.exports = {
   resolveCapabilityForAction,
   enrichStepWithCapability
 };
+
 
 
 
