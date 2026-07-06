@@ -1,3 +1,5 @@
+const { expandActionWithDependencies } = require("./dependency-policy");
+
 function expandActionDependencies(actions = []) {
   const expanded = [];
 
@@ -8,28 +10,9 @@ function expandActionDependencies(actions = []) {
   }
 
   for (const action of actions) {
-    if (action === "runtime_corecheck" || action === "run_corecheck") {
-      add("node_check");
-      add(action);
-      continue;
+    for (const expandedAction of expandActionWithDependencies(action)) {
+      add(expandedAction);
     }
-
-    if (action === "run_checkpoint_when_needed") {
-      add("node_check");
-      add("runtime_corecheck");
-      add("git_diff_check");
-      add(action);
-      continue;
-    }
-
-    if (action === "audit_check") {
-      add("node_check");
-      add("runtime_corecheck");
-      add(action);
-      continue;
-    }
-
-    add(action);
   }
 
   return expanded;
@@ -54,3 +37,4 @@ module.exports = {
   buildDependencyExpansionRuntime,
   expandActionDependencies
 };
+
