@@ -106,13 +106,21 @@ function dispatchAction(step = {}, context = {}) {
 
       return {
         mode: "capability-dispatcher-runtime",
-        version: "ash-local-runtime-v0.3-registered-classification",
+        version: "ash-local-runtime-v0.4-standard-route-fallback-observed",
         success: Boolean(registeredResult.success),
         action,
         capability: resolved.capability,
         executableCapability: null,
         dispatched: true,
         route: "registered-executor",
+        fallback: {
+          mode: "registered-executor-fallback",
+          version: "registered-executor-fallback-v0.1-observed",
+          action,
+          reason: "Executor Plan was disabled or unavailable, so dispatcher used a registered executor fallback.",
+          executorRegistered: true,
+          observedAt: new Date().toISOString()
+        },
         classification,
         result: registeredResult,
         dispatchedAt: new Date().toISOString()
@@ -174,6 +182,7 @@ module.exports = {
   shouldRouteThroughExecutorPlan,
   runExecutorPlanRoute
 };
+
 
 
 

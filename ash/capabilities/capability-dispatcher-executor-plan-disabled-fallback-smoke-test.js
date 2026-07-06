@@ -4,10 +4,10 @@ const { dispatchAction } = require("../runtime/capability-dispatcher");
 
 const result = dispatchAction(
   {
-    action: "development_pipeline",
+    action: "prepare_memory_save",
     generatedTask: {
       nextTask: {
-        task: "dispatcher executor plan disabled fallback smoke"
+        task: "dispatcher registered executor fallback smoke"
       }
     },
     dryRun: true
@@ -24,10 +24,18 @@ const summary = {
   success: result.success === true,
   route: result.route,
   dispatcherVersion: result.version,
-  resultMode: result.result?.mode || null
+  resultMode: result.result?.mode || null,
+  fallbackMode: result.fallback?.mode || null,
+  fallbackAction: result.fallback?.action || null,
+  fallbackObserved: Boolean(result.fallback?.observedAt)
 };
 
 console.log(JSON.stringify(summary, null, 2));
 
 if (summary.success !== true) process.exitCode = 1;
 if (summary.route !== "registered-executor") process.exitCode = 1;
+if (summary.fallbackMode !== "registered-executor-fallback") process.exitCode = 1;
+if (summary.fallbackAction !== "prepare_memory_save") process.exitCode = 1;
+if (summary.fallbackObserved !== true) process.exitCode = 1;
+
+
