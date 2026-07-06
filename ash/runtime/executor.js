@@ -609,6 +609,73 @@ function rebuildPreconditionStateAfterMemorySave(
     preconditionDiagnostics
   };
 }
+
+function shouldAttemptAutoHandover(enforcementDecision = {}, context = {}) {
+  return (
+    context.autoHandover === true &&
+    enforcementDecision.shouldBlock === true &&
+    (enforcementDecision.diagnostic?.missing || []).includes("handoverPrepared")
+  );
+}
+
+function runAutoHandover(context = {}) {
+  const handoverResult = executeRegisteredAction(
+    { action: "prepare_handover" },
+    context
+  );
+
+  return {
+    mode: "executor-auto-handover",
+    version: "executor-auto-handover-v0.1-guarded",
+    success: handoverResult?.success === true,
+    action: "prepare_handover",
+    handoverResult
+  };
+}
+
+function rebuildPreconditionStateAfterHandover(
+  context = {},
+  coreRuleGate = {},
+  autoHandoverResult = null
+) {
+  const nextContext = {
+    ...context,
+    corePreconditions: {
+      ...(context.corePreconditions || {}),
+      handoverPrepared:
+        autoHandoverResult?.success === true ||
+        context.corePreconditions?.handoverPrepared === true
+    },
+    handoverResult: {
+      ...(context.handoverResult || {}),
+      prepared:
+        autoHandoverResult?.success === true ||
+        context.handoverResult?.prepared === true
+    },
+    saveVerificationResult: {
+      ...(context.saveVerificationResult || {}),
+      verification: {
+        ...(context.saveVerificationResult?.verification || {}),
+        handoverPrepared:
+          autoHandoverResult?.success === true ||
+          context.saveVerificationResult?.verification?.handoverPrepared === true
+      }
+    }
+  };
+
+  const corePreconditions = resolveCorePreconditions(nextContext);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
+
+  return {
+    context: nextContext,
+    corePreconditions,
+    preconditionDiagnostics
+  };
+}
+
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -645,6 +712,7 @@ function executePlan(plan, context = {}) {
   const autoCheckpointResults = [];
   const autoAshCoreSaveResults = [];
   const autoMemorySaveResults = [];
+  const autoHandoverResults = [];
   let stoppedByFailure = false;
   let iteration = 0;
 
@@ -793,6 +861,30 @@ function executePlan(plan, context = {}) {
         );
       }
 
+      if (shouldAttemptAutoHandover(enforcementDecision, context)) {
+        const autoHandoverResult = runAutoHandover({
+          ...executionContext,
+          ...context
+        });
+        autoHandoverResults.push(autoHandoverResult);
+
+        const rebuiltPreconditionState = rebuildPreconditionStateAfterHandover(
+          context,
+          coreRuleGate,
+          autoHandoverResult
+        );
+
+        context = rebuiltPreconditionState.context;
+        corePreconditions = rebuiltPreconditionState.corePreconditions;
+        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
+
+        enforcementDecision = shouldBlockStepForPreconditions(
+          step,
+          preconditionDiagnostics,
+          enforcementPolicy
+        );
+      }
+
       enforcementDecisions.push(enforcementDecision);
 
       if (enforcementDecision.shouldBlock) {
@@ -869,6 +961,7 @@ function executePlan(plan, context = {}) {
     autoCheckpointResults,
     autoAshCoreSaveResults,
     autoMemorySaveResults,
+    autoHandoverResults,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -903,6 +996,11 @@ module.exports = {
   rebuildPreconditionStateAfterAshCoreSave,
   shouldAttemptAutoMemorySave,
   runAutoMemorySave,
-  rebuildPreconditionStateAfterMemorySave
+  rebuildPreconditionStateAfterMemorySave,
+  shouldAttemptAutoHandover,
+  runAutoHandover,
+  rebuildPreconditionStateAfterHandover
 };
+
+
 
