@@ -8,9 +8,23 @@ const {
 } = require("./capability-registry");
 const { classifyCapabilityResult } = require("./capability-result");
 
+function resolveExecutorPlanPolicy(context = {}) {
+  return {
+    mode: "executor-plan-policy",
+    version: "executor-plan-policy-v0.1-default-option",
+    enabled:
+      context.useExecutorPlan === true ||
+      context.defaultExecutorPlan === true,
+    explicitOptIn: context.useExecutorPlan === true,
+    defaultEnabled: context.defaultExecutorPlan === true
+  };
+}
+
 function shouldRouteThroughExecutorPlan(step = {}, context = {}) {
+  const executorPlanPolicy = resolveExecutorPlanPolicy(context);
+
   return (
-    context.useExecutorPlan === true &&
+    executorPlanPolicy.enabled &&
     step.action !== "execute_plan"
   );
 }
@@ -154,9 +168,12 @@ function dispatchAction(step = {}, context = {}) {
 
 module.exports = {
   dispatchAction,
+  resolveExecutorPlanPolicy,
   shouldRouteThroughExecutorPlan,
   runExecutorPlanRoute
 };
+
+
 
 
 
