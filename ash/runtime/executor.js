@@ -509,6 +509,56 @@ function rebuildPreconditionStateAfterCheckpoint(
     preconditionDiagnostics
   };
 }
+function shouldAttemptAutoAshCoreSave(enforcementDecision = {}, context = {}) {
+  return (
+    context.autoAshCoreSave === true &&
+    enforcementDecision.shouldBlock === true &&
+    (enforcementDecision.diagnostic?.missing || []).includes("ashCoreSavePrepared")
+  );
+}
+
+function runAutoAshCoreSave(context = {}) {
+  const ashCoreSaveResult = executeRegisteredAction(
+    { action: "prepare_ash_core_save" },
+    context
+  );
+
+  return {
+    mode: "executor-auto-ash-core-save",
+    version: "executor-auto-ash-core-save-v0.1-guarded",
+    attempted: true,
+    success: ashCoreSaveResult.success === true && ashCoreSaveResult.prepared === true,
+    ashCoreSaveResult,
+    checkedAt: new Date().toISOString()
+  };
+}
+
+function rebuildPreconditionStateAfterAshCoreSave(
+  context = {},
+  coreRuleGate = {},
+  autoAshCoreSaveResult = null
+) {
+  const nextContext = {
+    ...context,
+    corePreconditions: {
+      ...(context.corePreconditions || {}),
+      ashCoreSavePrepared:
+        autoAshCoreSaveResult?.success === true ||
+        context.corePreconditions?.ashCoreSavePrepared === true
+    }
+  };
+
+  const corePreconditions = resolveCorePreconditions(nextContext);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
+
+  return {
+    corePreconditions,
+    preconditionDiagnostics
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -543,6 +593,7 @@ function executePlan(plan, context = {}) {
   const autoCoreCheckResults = [];
   const autoGitCheckResults = [];
   const autoCheckpointResults = [];
+  const autoAshCoreSaveResults = [];
   let stoppedByFailure = false;
   let iteration = 0;
 
@@ -645,6 +696,29 @@ function executePlan(plan, context = {}) {
         );
       }
 
+      if (shouldAttemptAutoAshCoreSave(enforcementDecision, context)) {
+        const autoAshCoreSaveResult = runAutoAshCoreSave({
+          ...executionContext,
+          ...context
+        });
+        autoAshCoreSaveResults.push(autoAshCoreSaveResult);
+
+        const rebuiltPreconditionState = rebuildPreconditionStateAfterAshCoreSave(
+          context,
+          coreRuleGate,
+          autoAshCoreSaveResult
+        );
+
+        corePreconditions = rebuiltPreconditionState.corePreconditions;
+        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
+
+        enforcementDecision = shouldBlockStepForPreconditions(
+          step,
+          preconditionDiagnostics,
+          enforcementPolicy
+        );
+      }
+
       enforcementDecisions.push(enforcementDecision);
 
       if (enforcementDecision.shouldBlock) {
@@ -719,6 +793,7 @@ function executePlan(plan, context = {}) {
     autoCoreCheckResults,
     autoGitCheckResults,
     autoCheckpointResults,
+    autoAshCoreSaveResults,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -747,6 +822,9 @@ module.exports = {
   rebuildPreconditionStateAfterGitCheck,
   shouldAttemptAutoCheckpoint,
   runAutoCheckpoint,
-  rebuildPreconditionStateAfterCheckpoint
+  rebuildPreconditionStateAfterCheckpoint,
+  shouldAttemptAutoAshCoreSave,
+  runAutoAshCoreSave,
+  rebuildPreconditionStateAfterAshCoreSave
 };
 
