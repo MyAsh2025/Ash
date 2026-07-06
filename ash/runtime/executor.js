@@ -559,6 +559,56 @@ function rebuildPreconditionStateAfterAshCoreSave(
     preconditionDiagnostics
   };
 }
+function shouldAttemptAutoMemorySave(enforcementDecision = {}, context = {}) {
+  return (
+    context.autoMemorySave === true &&
+    enforcementDecision.shouldBlock === true &&
+    (enforcementDecision.diagnostic?.missing || []).includes("memorySavePrepared")
+  );
+}
+
+function runAutoMemorySave(context = {}) {
+  const memorySaveResult = executeRegisteredAction(
+    { action: "prepare_memory_save" },
+    context
+  );
+
+  return {
+    mode: "executor-auto-memory-save",
+    version: "executor-auto-memory-save-v0.1-guarded",
+    attempted: true,
+    success: memorySaveResult.success === true && memorySaveResult.prepared === true,
+    memorySaveResult,
+    checkedAt: new Date().toISOString()
+  };
+}
+
+function rebuildPreconditionStateAfterMemorySave(
+  context = {},
+  coreRuleGate = {},
+  autoMemorySaveResult = null
+) {
+  const nextContext = {
+    ...context,
+    corePreconditions: {
+      ...(context.corePreconditions || {}),
+      memorySavePrepared:
+        autoMemorySaveResult?.success === true ||
+        context.corePreconditions?.memorySavePrepared === true
+    }
+  };
+
+  const corePreconditions = resolveCorePreconditions(nextContext);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
+
+  return {
+    corePreconditions,
+    preconditionDiagnostics
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -594,6 +644,7 @@ function executePlan(plan, context = {}) {
   const autoGitCheckResults = [];
   const autoCheckpointResults = [];
   const autoAshCoreSaveResults = [];
+  const autoMemorySaveResults = [];
   let stoppedByFailure = false;
   let iteration = 0;
 
@@ -719,6 +770,29 @@ function executePlan(plan, context = {}) {
         );
       }
 
+      if (shouldAttemptAutoMemorySave(enforcementDecision, context)) {
+        const autoMemorySaveResult = runAutoMemorySave({
+          ...executionContext,
+          ...context
+        });
+        autoMemorySaveResults.push(autoMemorySaveResult);
+
+        const rebuiltPreconditionState = rebuildPreconditionStateAfterMemorySave(
+          context,
+          coreRuleGate,
+          autoMemorySaveResult
+        );
+
+        corePreconditions = rebuiltPreconditionState.corePreconditions;
+        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
+
+        enforcementDecision = shouldBlockStepForPreconditions(
+          step,
+          preconditionDiagnostics,
+          enforcementPolicy
+        );
+      }
+
       enforcementDecisions.push(enforcementDecision);
 
       if (enforcementDecision.shouldBlock) {
@@ -794,6 +868,7 @@ function executePlan(plan, context = {}) {
     autoGitCheckResults,
     autoCheckpointResults,
     autoAshCoreSaveResults,
+    autoMemorySaveResults,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -825,6 +900,9 @@ module.exports = {
   rebuildPreconditionStateAfterCheckpoint,
   shouldAttemptAutoAshCoreSave,
   runAutoAshCoreSave,
-  rebuildPreconditionStateAfterAshCoreSave
+  rebuildPreconditionStateAfterAshCoreSave,
+  shouldAttemptAutoMemorySave,
+  runAutoMemorySave,
+  rebuildPreconditionStateAfterMemorySave
 };
 
