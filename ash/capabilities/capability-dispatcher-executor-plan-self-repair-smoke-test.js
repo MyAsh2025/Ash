@@ -26,6 +26,14 @@ const result = dispatchAction(
     autoMemorySave: true,
     autoHandover: true,
 
+    coreCheckFiles: [
+      "ash/runtime/executor.js",
+      "ash/runtime/capability-dispatcher.js",
+      "ash/runtime/executors/plan-executor.js",
+      "ash/runtime/executors/development-pipeline-executor.js",
+      "ash/capabilities/capability-dispatcher-executor-plan-self-repair-smoke-test.js"
+    ],
+
     bootstrap: {
       ashCore: {
         coreContext: {
@@ -94,4 +102,5 @@ if (summary.guardedActions.length < 1) {
 if (summary.autoCoreCheckAttempts < 1) {
   process.exitCode = 1;
 }
+
 
