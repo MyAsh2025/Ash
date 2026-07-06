@@ -5,6 +5,7 @@ const { runAction } = require("../actions/action-runtime");
 const { resolveDependencies } = require("./dependency-resolver");
 const { applyFailurePolicy } = require("./failure-policy");
 const { evaluateRules } = require("./rule-evaluator");
+const { runCoreCheck } = require("./corecheck-runtime");
 
 function resolveExecutionContext(plan = {}, context = {}) {
   const task =
@@ -318,6 +319,51 @@ function shouldBlockStepForPreconditions(
     diagnostic
   };
 }
+function shouldAttemptAutoCoreCheck(enforcementDecision = {}, context = {}) {
+  return (
+    context.autoCoreCheck === true &&
+    enforcementDecision.shouldBlock === true &&
+    (enforcementDecision.diagnostic?.missing || []).includes("coreCheckCompleted")
+  );
+}
+
+function runAutoCoreCheck(context = {}) {
+  const coreCheckResult = runCoreCheck({
+    developmentPipeline: context.developmentPipeline || null,
+    files: context.coreCheckFiles || []
+  });
+
+  return {
+    mode: "executor-auto-corecheck",
+    version: "executor-auto-corecheck-v0.1-guarded",
+    attempted: true,
+    success: coreCheckResult.success === true,
+    coreCheckResult,
+    checkedAt: new Date().toISOString()
+  };
+}
+
+function rebuildPreconditionStateAfterCoreCheck(
+  context = {},
+  coreRuleGate = {},
+  autoCoreCheckResult = null
+) {
+  const nextContext = {
+    ...context,
+    coreCheckResult: autoCoreCheckResult?.coreCheckResult || context.coreCheckResult || null
+  };
+
+  const corePreconditions = resolveCorePreconditions(nextContext);
+  const preconditionDiagnostics = attachPreconditionDiagnostics(
+    coreRuleGate,
+    corePreconditions
+  );
+
+  return {
+    corePreconditions,
+    preconditionDiagnostics
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -349,6 +395,7 @@ function executePlan(plan, context = {}) {
   const loopHistory = [];
   const failureDecisions = [];
   const enforcementDecisions = [];
+  const autoCoreCheckResults = [];
   let stoppedByFailure = false;
   let iteration = 0;
 
@@ -382,11 +429,29 @@ function executePlan(plan, context = {}) {
     for (const step of readySteps) {
       console.log(`== Execute: ${step.name || step.action || step.type} ==`);
 
-      const enforcementDecision = shouldBlockStepForPreconditions(
+      let enforcementDecision = shouldBlockStepForPreconditions(
         step,
         preconditionDiagnostics,
         enforcementPolicy
       );
+
+      if (shouldAttemptAutoCoreCheck(enforcementDecision, context)) {
+        const autoCoreCheckResult = runAutoCoreCheck(context);
+        autoCoreCheckResults.push(autoCoreCheckResult);
+
+        const rebuiltPreconditionState = rebuildPreconditionStateAfterCoreCheck(
+          context,
+          coreRuleGate,
+          autoCoreCheckResult
+        );
+
+        enforcementDecision = shouldBlockStepForPreconditions(
+          step,
+          rebuiltPreconditionState.preconditionDiagnostics,
+          enforcementPolicy
+        );
+      }
+
       enforcementDecisions.push(enforcementDecision);
 
       if (enforcementDecision.shouldBlock) {
@@ -458,6 +523,7 @@ function executePlan(plan, context = {}) {
     preconditionDiagnostics,
     enforcementPolicy,
     enforcementDecisions,
+    autoCoreCheckResults,
     task: executionContext.task,
     projectContext: executionContext.projectContext,
     dependencyResolution,
@@ -477,6 +543,9 @@ module.exports = {
   resolveCorePreconditions,
   attachPreconditionDiagnostics,
   resolveEnforcementPolicy,
-  shouldBlockStepForPreconditions
+  shouldBlockStepForPreconditions,
+  shouldAttemptAutoCoreCheck,
+  runAutoCoreCheck,
+  rebuildPreconditionStateAfterCoreCheck
 };
 
