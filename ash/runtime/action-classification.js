@@ -17,17 +17,17 @@ const ACTION_CLASSIFICATIONS = {
     reason: "Registry bridge into Plan Executor."
   },
 
-  audit_check: { classification: "compatibility-layer", exposure: "internal-verification" },
-  classify_save_scope: { classification: "compatibility-layer", exposure: "internal-save" },
-  git_diff_check: { classification: "compatibility-layer", exposure: "internal-verification" },
-  inspect_repository: { classification: "compatibility-layer", exposure: "internal-observation" },
-  node_check: { classification: "compatibility-layer", exposure: "internal-verification" },
+  audit_check: { classification: "compatibility-layer", exposure: "internal-verification", phase: "verification" },
+  classify_save_scope: { classification: "compatibility-layer", exposure: "internal-save", phase: "preparation" },
+  git_diff_check: { classification: "compatibility-layer", exposure: "internal-verification", phase: "verification" },
+  inspect_repository: { classification: "compatibility-layer", exposure: "internal-observation", phase: "preparation" },
+  node_check: { classification: "compatibility-layer", exposure: "internal-verification", phase: "verification" },
   prepare_ash_core_save: { classification: "compatibility-layer", exposure: "internal-save" },
   prepare_handover: { classification: "compatibility-layer", exposure: "internal-save" },
   prepare_memory_save: { classification: "compatibility-layer", exposure: "internal-save" },
-  run_checkpoint_when_needed: { classification: "compatibility-layer", exposure: "internal-checkpoint" },
-  run_corecheck: { classification: "compatibility-layer", exposure: "internal-verification" },
-  runtime_corecheck: { classification: "compatibility-layer", exposure: "internal-verification" }
+  run_checkpoint_when_needed: { classification: "compatibility-layer", exposure: "internal-checkpoint", phase: "checkpoint" },
+  run_corecheck: { classification: "compatibility-layer", exposure: "internal-verification", phase: "execution" },
+  runtime_corecheck: { classification: "compatibility-layer", exposure: "internal-verification", phase: "verification" }
 };
 
 function classifyAction(action) {
@@ -50,3 +50,4 @@ module.exports = {
   classifyAction,
   classifyActions
 };
+

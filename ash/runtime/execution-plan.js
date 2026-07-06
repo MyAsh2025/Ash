@@ -1,31 +1,11 @@
 const { evaluateRules } = require("./rule-evaluator");
+const { classifyAction } = require("./action-classification");
+
 function resolvePhase(action, manager) {
-  if (
-    action === "node_check" ||
-    action === "runtime_corecheck" ||
-    action === "git_diff_check" ||
-    action === "audit_check"
-  ) {
-    return "verification";
-  }
+  const actionClassification = classifyAction(action);
 
-  if (
-    action === "inspect_repository" ||
-    action === "prepare_patch_plan"
-  ) {
-    return "preparation";
-  }
-
-  if (
-    action === "run_corecheck"
-  ) {
-    return "execution";
-  }
-
-  if (
-    action === "run_checkpoint_when_needed"
-  ) {
-    return "checkpoint";
+  if (actionClassification.phase) {
+    return actionClassification.phase;
   }
 
   if (manager === "repository-manager") {
@@ -34,7 +14,6 @@ function resolvePhase(action, manager) {
 
   return "general";
 }
-
 function resolveDependencies(action) {
   if (action === "runtime_corecheck") {
     return ["node_check"];
@@ -156,3 +135,4 @@ module.exports = {
   groupStepsByPhase,
   extractCoreContext
 };
+
