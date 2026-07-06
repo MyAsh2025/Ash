@@ -221,9 +221,16 @@ function resolveCorePreconditions(context = {}) {
       checkpointResult?.checkpointExists ??
       saveVerificationResult?.verification?.checkpointAttempted ??
       "unknown",
+    ashCoreSavePrepared:
+      explicitPreconditions.ashCoreSavePrepared === true ||
+      saveVerificationResult?.verification?.ashCoreSavePrepared === true,
+    memorySavePrepared:
+      explicitPreconditions.memorySavePrepared === true ||
+      saveVerificationResult?.verification?.memorySavePrepared === true,
     handoverPrepared:
       explicitPreconditions.handoverPrepared === true ||
-      handoverResult?.prepared === true
+      handoverResult?.prepared === true ||
+      saveVerificationResult?.verification?.handoverPrepared === true
   };
 }
 
@@ -259,6 +266,18 @@ function resolveRulePrecondition(ruleName, corePreconditions = {}) {
       {
         precondition: "coreCheckCompleted",
         satisfied: corePreconditions.coreCheckCompleted === true
+      },
+      {
+        precondition: "ashCoreSavePrepared",
+        satisfied: corePreconditions.ashCoreSavePrepared === true
+      },
+      {
+        precondition: "memorySavePrepared",
+        satisfied: corePreconditions.memorySavePrepared === true
+      },
+      {
+        precondition: "handoverPrepared",
+        satisfied: corePreconditions.handoverPrepared === true
       }
     ]
   };
