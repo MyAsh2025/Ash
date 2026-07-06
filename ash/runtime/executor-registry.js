@@ -4,6 +4,7 @@ const { runRuntimeCorecheck, runCheckpointWhenNeeded } = require("./executors/po
 const { runAuditCheck } = require("./executors/audit-executor");
 const { runPreparePatchPlan } = require("./executors/prepare-patch-executor");
 const { classifySaveScope, prepareHandoverSave, prepareAshCoreSave, prepareMemorySave } = require("./executors/save-executor");
+const { runPlanExecutor } = require("./executors/plan-executor");
 
 const registry = {
   node_check: runNodeCheck,
@@ -17,7 +18,8 @@ const registry = {
   classify_save_scope: classifySaveScope,
   prepare_handover: prepareHandoverSave,
   prepare_ash_core_save: prepareAshCoreSave,
-  prepare_memory_save: prepareMemorySave
+  prepare_memory_save: prepareMemorySave,
+  execute_plan: runPlanExecutor
 };
 
 function resolveExecutor(action) {
@@ -54,6 +56,7 @@ module.exports = {
   resolveExecutor,
   registry
 };
+
 
 
 
