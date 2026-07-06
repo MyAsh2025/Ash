@@ -200,6 +200,10 @@ function resolveCorePreconditions(context = {}) {
     coreCheckResult?.gitDiffCheck ||
     null;
   const checkpointResult = context.checkpointResult || context.checkpoint || null;
+  const saveVerificationResult =
+    context.saveVerificationResult ||
+    context.saveVerification ||
+    null;
   const handoverResult = context.handoverResult || context.handover || null;
 
   return {
@@ -215,6 +219,7 @@ function resolveCorePreconditions(context = {}) {
       explicitPreconditions.checkpointExists ??
       checkpointResult?.success ??
       checkpointResult?.checkpointExists ??
+      saveVerificationResult?.verification?.checkpointAttempted ??
       "unknown",
     handoverPrepared:
       explicitPreconditions.handoverPrepared === true ||
@@ -244,6 +249,10 @@ function resolveRulePrecondition(ruleName, corePreconditions = {}) {
       {
         precondition: "coreCheckCompleted",
         satisfied: corePreconditions.coreCheckCompleted === true
+      },
+      {
+        precondition: "checkpointExists",
+        satisfied: corePreconditions.checkpointExists === true
       }
     ],
     coreCheckBeforeHandover: [
