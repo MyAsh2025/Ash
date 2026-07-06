@@ -191,13 +191,33 @@ function buildCoreRuleGate(steps = [], executionRules = {}) {
   };
 }
 function resolveCorePreconditions(context = {}) {
-  const preconditions = context.corePreconditions || {};
+  const explicitPreconditions = context.corePreconditions || {};
+  const coreCheckResult = context.coreCheckResult || context.coreCheck || null;
+  const gitDiffCheckResult =
+    context.gitDiffCheckResult ||
+    context.gitDiffCheck ||
+    coreCheckResult?.gitDiffCheck ||
+    null;
+  const checkpointResult = context.checkpointResult || context.checkpoint || null;
+  const handoverResult = context.handoverResult || context.handover || null;
 
   return {
-    coreCheckCompleted: preconditions.coreCheckCompleted === true,
-    gitClean: preconditions.gitClean ?? "unknown",
-    checkpointExists: preconditions.checkpointExists ?? "unknown",
-    handoverPrepared: preconditions.handoverPrepared === true
+    coreCheckCompleted:
+      explicitPreconditions.coreCheckCompleted === true ||
+      coreCheckResult?.success === true,
+    gitClean:
+      explicitPreconditions.gitClean ??
+      coreCheckResult?.repositoryClean ??
+      gitDiffCheckResult?.clean ??
+      "unknown",
+    checkpointExists:
+      explicitPreconditions.checkpointExists ??
+      checkpointResult?.success ??
+      checkpointResult?.checkpointExists ??
+      "unknown",
+    handoverPrepared:
+      explicitPreconditions.handoverPrepared === true ||
+      handoverResult?.prepared === true
   };
 }
 
