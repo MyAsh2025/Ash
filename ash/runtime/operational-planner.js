@@ -1,3 +1,10 @@
+const {
+  resolveBaseOperationalSteps,
+  resolveOperationalStepsForGoal,
+  resolveDirtyRepositoryOperationalSteps,
+  filterGovernorOperationalSteps
+} = require("./operational-step-policy");
+
 function getPreviousLatest(previousRuntimeState) {
   return previousRuntimeState?.state?.latestRuntime || null;
 }
@@ -44,26 +51,8 @@ function classifyOperationalGoal({ task, previousRuntimeState, resumeRuntime }) 
 }
 
 function appendGovernorActions(steps, previousGovernor) {
-  for (const action of previousGovernor?.nextActions || []) {
-    if (action === "inspect_repository") {
-      steps.push("inspect_repository");
-    }
-
-    if (action === "runtime_corecheck") {
-      steps.push("runtime_corecheck");
-    }
-
-    if (action === "git_diff_check") {
-      steps.push("git_diff_check");
-    }
-
-    if (action === "save_verification") {
-      steps.push("save_verification");
-    }
-
-    if (action === "shutdown_verification") {
-      steps.push("shutdown_verification");
-    }
+  for (const action of filterGovernorOperationalSteps(previousGovernor?.nextActions || [])) {
+    steps.push(action);
   }
 }
 
@@ -77,38 +66,19 @@ function buildOperationalPlan({ task, previousRuntimeState, resumeRuntime, repos
   });
 
   const repositoryDirty = repository?.clean === false;
-  const steps = [];
-
-  steps.push("load_previous_runtime_state");
-  steps.push("classify_resume_state");
+  const steps = resolveBaseOperationalSteps();
 
   if (goal === "continue_governor_next_actions") {
     appendGovernorActions(steps, previousGovernor);
-  }
+  } else {
+    steps.push(...resolveOperationalStepsForGoal(goal));
 
-  if (goal === "continue_previous_operation" || goal === "continue_after_completed_cycle") {
-    steps.push("inspect_repository");
-    steps.push("runtime_corecheck");
-
-    if (repositoryDirty) {
-      steps.push("git_diff_check");
-      steps.push("save_verification");
-      steps.push("shutdown_verification");
+    if (
+      repositoryDirty &&
+      (goal === "continue_previous_operation" || goal === "continue_after_completed_cycle")
+    ) {
+      steps.push(...resolveDirtyRepositoryOperationalSteps());
     }
-  }
-
-  if (goal === "develop_runtime_architecture") {
-    steps.push("inspect_repository");
-    steps.push("prepare_patch_plan");
-    steps.push("runtime_corecheck");
-    steps.push("git_diff_check");
-    steps.push("save_verification");
-    steps.push("shutdown_verification");
-  }
-
-  if (goal === "general_operation") {
-    steps.push("inspect_repository");
-    steps.push("runtime_corecheck");
   }
 
   const uniqueSteps = [...new Set(steps)];
@@ -137,3 +107,4 @@ module.exports = {
   getPreviousGovernor,
   appendGovernorActions
 };
+
