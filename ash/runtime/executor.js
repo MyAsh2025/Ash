@@ -133,38 +133,7 @@ function getStepActionName(step = {}) {
 
 function classifyCoreRuleRequirement(step = {}, executionRules = {}) {
   const actionName = getStepActionName(step);
-  const requiredRules = [];
-
-  if (
-    actionName.includes("patch") ||
-    actionName.includes("edit") ||
-    actionName.includes("apply") ||
-    actionName === "development_pipeline"
-  ) {
-    requiredRules.push("coreCheckBeforePatch");
-  }
-
-  if (
-    actionName.includes("git") ||
-    actionName.includes("commit") ||
-    actionName.includes("push")
-  ) {
-    requiredRules.push("coreCheckBeforeGit");
-  }
-
-  if (
-    actionName.includes("checkpoint") ||
-    actionName.includes("save")
-  ) {
-    requiredRules.push("coreCheckBeforeCheckpoint");
-  }
-
-  if (
-    actionName.includes("handover") ||
-    actionName.includes("finalization")
-  ) {
-    requiredRules.push("coreCheckBeforeHandover");
-  }
+  const requiredRules = resolveRequiredRulesForAction(actionName);
 
   return requiredRules.filter((ruleName) => executionRules[ruleName]);
 }
@@ -1038,6 +1007,8 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
+
 
 
 
