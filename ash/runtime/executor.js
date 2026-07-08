@@ -672,6 +672,50 @@ function applyAutoRecoveryResult({
     )
   };
 }
+function executeAutoRecoveryStep({
+  enforcementDecision,
+  context,
+  step,
+  coreRuleGate,
+  enforcementPolicy,
+  shouldAttempt,
+  run,
+  rebuild,
+  results,
+  runContext = context
+}) {
+  if (!shouldAttempt(enforcementDecision, context)) {
+    return {
+      attempted: false,
+      context,
+      enforcementDecision
+    };
+  }
+
+  const autoResult = run(runContext);
+  results.push(autoResult);
+
+  const rebuiltPreconditionState = rebuild(
+    context,
+    coreRuleGate,
+    autoResult
+  );
+
+  const appliedRecovery = applyAutoRecoveryResult({
+    rebuiltPreconditionState,
+    step,
+    enforcementPolicy
+  });
+
+  return {
+    attempted: true,
+    context: appliedRecovery.context || context,
+    corePreconditions: appliedRecovery.corePreconditions,
+    preconditionDiagnostics: appliedRecovery.preconditionDiagnostics,
+    enforcementDecision: appliedRecovery.enforcementDecision,
+    autoResult
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -748,148 +792,134 @@ function executePlan(plan, context = {}) {
         enforcementPolicy
       );
 
-      if (shouldAttemptAutoCoreCheck(enforcementDecision, context)) {
-        const autoCoreCheckResult = runAutoCoreCheck(context);
-        autoCoreCheckResults.push(autoCoreCheckResult);
+      const autoCoreCheckRecovery = executeAutoRecoveryStep({
+        enforcementDecision,
+        context,
+        step,
+        coreRuleGate,
+        enforcementPolicy,
+        shouldAttempt: shouldAttemptAutoCoreCheck,
+        run: runAutoCoreCheck,
+        rebuild: rebuildPreconditionStateAfterCoreCheck,
+        results: autoCoreCheckResults
+      });
 
-        const rebuiltPreconditionState = rebuildPreconditionStateAfterCoreCheck(
-          context,
-          coreRuleGate,
-          autoCoreCheckResult
-        );
-
-        const appliedRecovery = applyAutoRecoveryResult({
-          rebuiltPreconditionState,
-          step,
-          enforcementPolicy
-        });
-
-        context = appliedRecovery.context || context;
-        corePreconditions = appliedRecovery.corePreconditions;
-        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
-        enforcementDecision = appliedRecovery.enforcementDecision;
+      if (autoCoreCheckRecovery.attempted) {
+        context = autoCoreCheckRecovery.context || context;
+        corePreconditions = autoCoreCheckRecovery.corePreconditions;
+        preconditionDiagnostics = autoCoreCheckRecovery.preconditionDiagnostics;
+        enforcementDecision = autoCoreCheckRecovery.enforcementDecision;
       }
 
-      if (shouldAttemptAutoGitCheck(enforcementDecision, context)) {
-        const autoGitCheckResult = runAutoGitCheck();
-        autoGitCheckResults.push(autoGitCheckResult);
+      const autoGitCheckRecovery = executeAutoRecoveryStep({
+        enforcementDecision,
+        context,
+        step,
+        coreRuleGate,
+        enforcementPolicy,
+        shouldAttempt: shouldAttemptAutoGitCheck,
+        run: runAutoGitCheck,
+        rebuild: rebuildPreconditionStateAfterGitCheck,
+        results: autoGitCheckResults
+      });
 
-        const rebuiltPreconditionState = rebuildPreconditionStateAfterGitCheck(
-          context,
-          coreRuleGate,
-          autoGitCheckResult
-        );
-
-        const appliedRecovery = applyAutoRecoveryResult({
-          rebuiltPreconditionState,
-          step,
-          enforcementPolicy
-        });
-
-        context = appliedRecovery.context || context;
-        corePreconditions = appliedRecovery.corePreconditions;
-        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
-        enforcementDecision = appliedRecovery.enforcementDecision;
+      if (autoGitCheckRecovery.attempted) {
+        context = autoGitCheckRecovery.context || context;
+        corePreconditions = autoGitCheckRecovery.corePreconditions;
+        preconditionDiagnostics = autoGitCheckRecovery.preconditionDiagnostics;
+        enforcementDecision = autoGitCheckRecovery.enforcementDecision;
       }
 
-      if (shouldAttemptAutoCheckpoint(enforcementDecision, context)) {
-        const autoCheckpointResult = runAutoCheckpoint({
+      const autoCheckpointRecovery = executeAutoRecoveryStep({
+        enforcementDecision,
+        context,
+        step,
+        coreRuleGate,
+        enforcementPolicy,
+        shouldAttempt: shouldAttemptAutoCheckpoint,
+        run: runAutoCheckpoint,
+        rebuild: rebuildPreconditionStateAfterCheckpoint,
+        results: autoCheckpointResults,
+        runContext: {
           ...executionContext,
           ...context
-        });
-        autoCheckpointResults.push(autoCheckpointResult);
+        }
+      });
 
-        const rebuiltPreconditionState = rebuildPreconditionStateAfterCheckpoint(
-          context,
-          coreRuleGate,
-          autoCheckpointResult
-        );
-
-        const appliedRecovery = applyAutoRecoveryResult({
-          rebuiltPreconditionState,
-          step,
-          enforcementPolicy
-        });
-
-        context = appliedRecovery.context || context;
-        corePreconditions = appliedRecovery.corePreconditions;
-        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
-        enforcementDecision = appliedRecovery.enforcementDecision;
+      if (autoCheckpointRecovery.attempted) {
+        context = autoCheckpointRecovery.context || context;
+        corePreconditions = autoCheckpointRecovery.corePreconditions;
+        preconditionDiagnostics = autoCheckpointRecovery.preconditionDiagnostics;
+        enforcementDecision = autoCheckpointRecovery.enforcementDecision;
       }
 
-      if (shouldAttemptAutoAshCoreSave(enforcementDecision, context)) {
-        const autoAshCoreSaveResult = runAutoAshCoreSave({
+      const autoAshCoreSaveRecovery = executeAutoRecoveryStep({
+        enforcementDecision,
+        context,
+        step,
+        coreRuleGate,
+        enforcementPolicy,
+        shouldAttempt: shouldAttemptAutoAshCoreSave,
+        run: runAutoAshCoreSave,
+        rebuild: rebuildPreconditionStateAfterAshCoreSave,
+        results: autoAshCoreSaveResults,
+        runContext: {
           ...executionContext,
           ...context
-        });
-        autoAshCoreSaveResults.push(autoAshCoreSaveResult);
+        }
+      });
 
-        const rebuiltPreconditionState = rebuildPreconditionStateAfterAshCoreSave(
-          context,
-          coreRuleGate,
-          autoAshCoreSaveResult
-        );
-
-        const appliedRecovery = applyAutoRecoveryResult({
-          rebuiltPreconditionState,
-          step,
-          enforcementPolicy
-        });
-
-        context = appliedRecovery.context || context;
-        corePreconditions = appliedRecovery.corePreconditions;
-        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
-        enforcementDecision = appliedRecovery.enforcementDecision;
+      if (autoAshCoreSaveRecovery.attempted) {
+        context = autoAshCoreSaveRecovery.context || context;
+        corePreconditions = autoAshCoreSaveRecovery.corePreconditions;
+        preconditionDiagnostics = autoAshCoreSaveRecovery.preconditionDiagnostics;
+        enforcementDecision = autoAshCoreSaveRecovery.enforcementDecision;
       }
 
-      if (shouldAttemptAutoMemorySave(enforcementDecision, context)) {
-        const autoMemorySaveResult = runAutoMemorySave({
+      const autoMemorySaveRecovery = executeAutoRecoveryStep({
+        enforcementDecision,
+        context,
+        step,
+        coreRuleGate,
+        enforcementPolicy,
+        shouldAttempt: shouldAttemptAutoMemorySave,
+        run: runAutoMemorySave,
+        rebuild: rebuildPreconditionStateAfterMemorySave,
+        results: autoMemorySaveResults,
+        runContext: {
           ...executionContext,
           ...context
-        });
-        autoMemorySaveResults.push(autoMemorySaveResult);
+        }
+      });
 
-        const rebuiltPreconditionState = rebuildPreconditionStateAfterMemorySave(
-          context,
-          coreRuleGate,
-          autoMemorySaveResult
-        );
-
-        const appliedRecovery = applyAutoRecoveryResult({
-          rebuiltPreconditionState,
-          step,
-          enforcementPolicy
-        });
-
-        context = appliedRecovery.context || context;
-        corePreconditions = appliedRecovery.corePreconditions;
-        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
-        enforcementDecision = appliedRecovery.enforcementDecision;
+      if (autoMemorySaveRecovery.attempted) {
+        context = autoMemorySaveRecovery.context || context;
+        corePreconditions = autoMemorySaveRecovery.corePreconditions;
+        preconditionDiagnostics = autoMemorySaveRecovery.preconditionDiagnostics;
+        enforcementDecision = autoMemorySaveRecovery.enforcementDecision;
       }
 
-      if (shouldAttemptAutoHandover(enforcementDecision, context)) {
-        const autoHandoverResult = runAutoHandover({
+      const autoHandoverRecovery = executeAutoRecoveryStep({
+        enforcementDecision,
+        context,
+        step,
+        coreRuleGate,
+        enforcementPolicy,
+        shouldAttempt: shouldAttemptAutoHandover,
+        run: runAutoHandover,
+        rebuild: rebuildPreconditionStateAfterHandover,
+        results: autoHandoverResults,
+        runContext: {
           ...executionContext,
           ...context
-        });
-        autoHandoverResults.push(autoHandoverResult);
+        }
+      });
 
-        const rebuiltPreconditionState = rebuildPreconditionStateAfterHandover(
-          context,
-          coreRuleGate,
-          autoHandoverResult
-        );
-
-        const appliedRecovery = applyAutoRecoveryResult({
-          rebuiltPreconditionState,
-          step,
-          enforcementPolicy
-        });
-
-        context = appliedRecovery.context || context;
-        corePreconditions = appliedRecovery.corePreconditions;
-        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
-        enforcementDecision = appliedRecovery.enforcementDecision;
+      if (autoHandoverRecovery.attempted) {
+        context = autoHandoverRecovery.context || context;
+        corePreconditions = autoHandoverRecovery.corePreconditions;
+        preconditionDiagnostics = autoHandoverRecovery.preconditionDiagnostics;
+        enforcementDecision = autoHandoverRecovery.enforcementDecision;
       }
 
       enforcementDecisions.push(enforcementDecision);
@@ -1008,6 +1038,11 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
+
+
+
+
 
 
 
