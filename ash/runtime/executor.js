@@ -651,6 +651,27 @@ function rebuildPreconditionStateAfterHandover(
   });
 }
 
+function applyAutoRecoveryResult({
+  rebuiltPreconditionState,
+  step,
+  enforcementPolicy
+}) {
+  const nextContext = rebuiltPreconditionState.context || null;
+  const corePreconditions = rebuiltPreconditionState.corePreconditions;
+  const preconditionDiagnostics =
+    rebuiltPreconditionState.preconditionDiagnostics;
+
+  return {
+    context: nextContext,
+    corePreconditions,
+    preconditionDiagnostics,
+    enforcementDecision: shouldBlockStepForPreconditions(
+      step,
+      preconditionDiagnostics,
+      enforcementPolicy
+    )
+  };
+}
 function executePlan(plan, context = {}) {
   const ruleEvaluation = evaluateRules({ bootstrap: context.bootstrap || null });
   const executionRules = ruleEvaluation.execution || {};
@@ -737,14 +758,16 @@ function executePlan(plan, context = {}) {
           autoCoreCheckResult
         );
 
-        corePreconditions = rebuiltPreconditionState.corePreconditions;
-        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
-
-        enforcementDecision = shouldBlockStepForPreconditions(
+        const appliedRecovery = applyAutoRecoveryResult({
+          rebuiltPreconditionState,
           step,
-          preconditionDiagnostics,
           enforcementPolicy
-        );
+        });
+
+        context = appliedRecovery.context || context;
+        corePreconditions = appliedRecovery.corePreconditions;
+        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
+        enforcementDecision = appliedRecovery.enforcementDecision;
       }
 
       if (shouldAttemptAutoGitCheck(enforcementDecision, context)) {
@@ -757,14 +780,16 @@ function executePlan(plan, context = {}) {
           autoGitCheckResult
         );
 
-        corePreconditions = rebuiltPreconditionState.corePreconditions;
-        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
-
-        enforcementDecision = shouldBlockStepForPreconditions(
+        const appliedRecovery = applyAutoRecoveryResult({
+          rebuiltPreconditionState,
           step,
-          preconditionDiagnostics,
           enforcementPolicy
-        );
+        });
+
+        context = appliedRecovery.context || context;
+        corePreconditions = appliedRecovery.corePreconditions;
+        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
+        enforcementDecision = appliedRecovery.enforcementDecision;
       }
 
       if (shouldAttemptAutoCheckpoint(enforcementDecision, context)) {
@@ -780,14 +805,16 @@ function executePlan(plan, context = {}) {
           autoCheckpointResult
         );
 
-        corePreconditions = rebuiltPreconditionState.corePreconditions;
-        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
-
-        enforcementDecision = shouldBlockStepForPreconditions(
+        const appliedRecovery = applyAutoRecoveryResult({
+          rebuiltPreconditionState,
           step,
-          preconditionDiagnostics,
           enforcementPolicy
-        );
+        });
+
+        context = appliedRecovery.context || context;
+        corePreconditions = appliedRecovery.corePreconditions;
+        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
+        enforcementDecision = appliedRecovery.enforcementDecision;
       }
 
       if (shouldAttemptAutoAshCoreSave(enforcementDecision, context)) {
@@ -803,14 +830,16 @@ function executePlan(plan, context = {}) {
           autoAshCoreSaveResult
         );
 
-        corePreconditions = rebuiltPreconditionState.corePreconditions;
-        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
-
-        enforcementDecision = shouldBlockStepForPreconditions(
+        const appliedRecovery = applyAutoRecoveryResult({
+          rebuiltPreconditionState,
           step,
-          preconditionDiagnostics,
           enforcementPolicy
-        );
+        });
+
+        context = appliedRecovery.context || context;
+        corePreconditions = appliedRecovery.corePreconditions;
+        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
+        enforcementDecision = appliedRecovery.enforcementDecision;
       }
 
       if (shouldAttemptAutoMemorySave(enforcementDecision, context)) {
@@ -826,14 +855,16 @@ function executePlan(plan, context = {}) {
           autoMemorySaveResult
         );
 
-        corePreconditions = rebuiltPreconditionState.corePreconditions;
-        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
-
-        enforcementDecision = shouldBlockStepForPreconditions(
+        const appliedRecovery = applyAutoRecoveryResult({
+          rebuiltPreconditionState,
           step,
-          preconditionDiagnostics,
           enforcementPolicy
-        );
+        });
+
+        context = appliedRecovery.context || context;
+        corePreconditions = appliedRecovery.corePreconditions;
+        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
+        enforcementDecision = appliedRecovery.enforcementDecision;
       }
 
       if (shouldAttemptAutoHandover(enforcementDecision, context)) {
@@ -849,15 +880,16 @@ function executePlan(plan, context = {}) {
           autoHandoverResult
         );
 
-        context = rebuiltPreconditionState.context;
-        corePreconditions = rebuiltPreconditionState.corePreconditions;
-        preconditionDiagnostics = rebuiltPreconditionState.preconditionDiagnostics;
-
-        enforcementDecision = shouldBlockStepForPreconditions(
+        const appliedRecovery = applyAutoRecoveryResult({
+          rebuiltPreconditionState,
           step,
-          preconditionDiagnostics,
           enforcementPolicy
-        );
+        });
+
+        context = appliedRecovery.context || context;
+        corePreconditions = appliedRecovery.corePreconditions;
+        preconditionDiagnostics = appliedRecovery.preconditionDiagnostics;
+        enforcementDecision = appliedRecovery.enforcementDecision;
       }
 
       enforcementDecisions.push(enforcementDecision);
@@ -976,6 +1008,8 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
+
 
 
 
