@@ -102,7 +102,7 @@ function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
     phases,
     steps,
     executable: Boolean(workflow?.autoExecutable),
-    dependencyMode: "action-name",
+    dependencyMode: "dependency-policy",
     coreContextAware: Boolean(ruleEvaluation.coreContextAware),
     ruleEvaluation,
     builtAt: new Date().toISOString()
@@ -116,5 +116,6 @@ module.exports = {
   groupStepsByPhase,
   extractCoreContext
 };
+
 
 
