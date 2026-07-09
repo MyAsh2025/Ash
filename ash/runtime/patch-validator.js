@@ -16,6 +16,13 @@ const UNSAFE_REPLACE_ANCHORS = new Set([
   "stub"
 ]);
 
+function isDiagnosticOnlyGeneratedCode(generatedCode = "") {
+  return (
+    generatedCode.includes("function describeGeneratedImplementation()") &&
+    generatedCode.includes("generated-implementation-diagnostic")
+  );
+}
+
 function isUnsafeReplaceOperation(operation = {}) {
   return (
     operation.operation === "replace" &&
@@ -44,6 +51,7 @@ function validatePatchOperations(patchGenerator) {
       : [];
     const generatedCode = operation.payload?.generatedCode || "";
     const unsafeReplaceOperation = isUnsafeReplaceOperation(operation);
+    const diagnosticOnlyGeneratedCode = isDiagnosticOnlyGeneratedCode(generatedCode);
 
     const validation = {
       file: targetFile,
@@ -55,13 +63,15 @@ function validatePatchOperations(patchGenerator) {
       hasRequiredChecks: requiredChecks.length > 0,
       hasGeneratedCode: generatedCode.length > 0,
       unsafeReplaceOperation,
+      diagnosticOnlyGeneratedCode,
       readyForSafePatch:
         fileExists &&
         anchorExists &&
         supportedOperation &&
         requiredChecks.length > 0 &&
         generatedCode.length > 0 &&
-        !unsafeReplaceOperation
+        !unsafeReplaceOperation &&
+        !diagnosticOnlyGeneratedCode
     };
 
     if (!validation.fileExists) {
@@ -86,6 +96,10 @@ function validatePatchOperations(patchGenerator) {
 
     if (validation.unsafeReplaceOperation) {
       issues.push(`Unsafe replace anchor for generated code: ${anchorPattern}`);
+    }
+
+    if (validation.diagnosticOnlyGeneratedCode) {
+      issues.push(`Invalid generated code: diagnostic-only implementation for ${targetFile}`);
     }
 
     validatedOperations.push(validation);
@@ -113,4 +127,5 @@ function validatePatchOperations(patchGenerator) {
 module.exports = {
   validatePatchOperations
 };
+
 
