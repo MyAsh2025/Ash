@@ -7,7 +7,10 @@ const { applyFailurePolicy } = require("./failure-policy");
 const { evaluateRules } = require("./rule-evaluator");
 const { runCoreCheck, runGitDiffCheck } = require("./corecheck-runtime");
 const { executeRegisteredAction, resolveExecutor } = require("./executor-registry");
-const { resolveRequiredRulesForAction } = require("./action-classification");
+const {
+  resolveRequiredRulesForAction,
+  resolveExecutionPolicyForAction
+} = require("./action-classification");
 
 function resolveExecutionContext(plan = {}, context = {}) {
   const task =
@@ -108,17 +111,24 @@ function decideStepExecution(step = {}) {
   const cleanupReview = work.includes("cleanup-review");
 
   if (cleanupReview || reportOnly) {
+    const executionPolicy = resolveExecutionPolicyForAction(action);
+    const policyDecision = cleanupReview
+      ? executionPolicy.cleanupReview
+      : executionPolicy.reportOnly;
+    const execute = policyDecision === "allow";
+
     return {
       mode: "executor-step-decision",
-      version: "executor-step-decision-v0.1-report-only",
+      version: "executor-step-decision-v0.2-policy-driven",
       action,
-      execute: action === "inspect_repository",
-      decision: action === "inspect_repository" ? "inspect-only" : "report-only-blocked",
+      execute,
+      decision: execute ? "policy-allowed" : "policy-blocked",
       reportOnly: true,
       automaticDeletionAllowed,
-      reason: action === "inspect_repository"
-        ? "Cleanup review allows repository inspection only."
-        : "Cleanup review is report-only and blocks non-inspection execution."
+      executionPolicy,
+      reason: execute
+        ? "Policy layer allows this action during report-only execution."
+        : "Policy layer blocks this action during report-only execution."
     };
   }
 
@@ -1088,22 +1098,4 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

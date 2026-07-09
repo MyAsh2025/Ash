@@ -11,7 +11,11 @@ const ACTION_CLASSIFICATIONS = {
     classification: "capability-route",
     exposure: "public-capability",
     reason: "Patch planning capability.",
-    requiredRules: ["coreCheckBeforePatch"]
+    requiredRules: ["coreCheckBeforePatch"],
+    executionPolicy: {
+      reportOnly: "deny",
+      cleanupReview: "deny"
+    }
   },
   execute_plan: {
     classification: "executor-internal",
@@ -22,7 +26,15 @@ const ACTION_CLASSIFICATIONS = {
   audit_check: { classification: "compatibility-layer", exposure: "internal-verification", phase: "verification" },
   classify_save_scope: { classification: "compatibility-layer", exposure: "internal-save", phase: "preparation" },
   git_diff_check: { classification: "compatibility-layer", exposure: "internal-verification", phase: "verification", requiredRules: ["coreCheckBeforeGit"] },
-  inspect_repository: { classification: "compatibility-layer", exposure: "internal-observation", phase: "preparation" },
+  inspect_repository: {
+    classification: "compatibility-layer",
+    exposure: "internal-observation",
+    phase: "preparation",
+    executionPolicy: {
+      reportOnly: "allow",
+      cleanupReview: "allow"
+    }
+  },
   node_check: { classification: "compatibility-layer", exposure: "internal-verification", phase: "verification" },
   prepare_ash_core_save: { classification: "compatibility-layer", exposure: "internal-save", requiredRules: ["coreCheckBeforeCheckpoint"] },
   prepare_handover: { classification: "compatibility-layer", exposure: "internal-save", requiredRules: ["coreCheckBeforeHandover"] },
@@ -51,11 +63,15 @@ function resolveRequiredRulesForAction(action) {
   return classifyAction(action).requiredRules || [];
 }
 
+function resolveExecutionPolicyForAction(action) {
+  return classifyAction(action).executionPolicy || {};
+}
+
 module.exports = {
   ACTION_CLASSIFICATIONS,
   classifyAction,
   classifyActions,
-  resolveRequiredRulesForAction
+  resolveRequiredRulesForAction,
+  resolveExecutionPolicyForAction
 };
-
 
