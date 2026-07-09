@@ -37,6 +37,31 @@ function collectFiles(base, dir) {
 }
 
 function reconstructOriginalPath(relative) {
+  const knownExtensions = [
+    ".js",
+    ".json",
+    ".md",
+    ".txt",
+    ".ps1",
+    ".ts",
+    ".tsx",
+    ".jsx"
+  ];
+
+  for (const ext of knownExtensions) {
+    const marker = ext + ".backup.";
+
+    if (relative.includes(marker)) {
+      return relative.slice(0, relative.indexOf(marker) + ext.length);
+    }
+  }
+
+  const backupIndex = relative.indexOf(".backup.");
+
+  if (backupIndex === -1) {
+    return null;
+  }
+
   const ext = path.extname(relative);
 
   if (!ext) {
@@ -266,6 +291,7 @@ module.exports = {
   shouldSkipFile
 
 };
+
 
 
 
