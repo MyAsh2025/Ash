@@ -20,6 +20,26 @@ function discoverTaskFromRepository({
   observation = null
 } = {}) {
   const finding = observation?.nextTask || null;
+  const repositoryHealth = observation?.repositoryHealth || null;
+
+  if (!finding && repositoryHealth?.attentionReasons?.includes("large-cleanup-candidate-groups-detected")) {
+    return {
+      mode: "task-discovery-runtime",
+      version: "ash-local-runtime-v0.1",
+      success: true,
+      discovered: true,
+      task: {
+        task: "Review repository cleanup candidate groups",
+        priority: "normal",
+        source: "repository-health",
+        work: ["cleanup-review"],
+        reason: "Repository health detected large cleanup candidate groups.",
+        reportOnly: true,
+        automaticDeletionAllowed: false
+      },
+      discoveredAt: new Date().toISOString()
+    };
+  }
 
   if (!finding) {
     return {
@@ -55,3 +75,4 @@ module.exports = {
   discoverTaskFromRepository,
   describeWork
 };
+
