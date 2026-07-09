@@ -347,6 +347,20 @@ function buildRepositoryHealth({
       (cleanupRecommendations[recommendation] || 0) + 1;
   }
 
+  const attentionReasons = [];
+
+  if (findings.length > 0) {
+    attentionReasons.push("repository-findings-detected");
+  }
+
+  if (cleanupCandidateGroups.some((group) => group.candidateCount >= 20)) {
+    attentionReasons.push("large-cleanup-candidate-groups-detected");
+  }
+
+  if (cleanupCandidateGroups.some((group) => group.types.includes("temporary-file"))) {
+    attentionReasons.push("temporary-artifacts-detected");
+  }
+
   const status =
     findings.length > 0
       ? "attention"
@@ -376,6 +390,7 @@ function buildRepositoryHealth({
     cleanupCandidateCount: cleanupCandidates.length,
     cleanupCandidateGroupCount: cleanupCandidateGroups.length,
     cleanupRecommendations,
+    attentionReasons,
     automaticDeletionAllowed: false
   };
 }
@@ -504,6 +519,7 @@ module.exports = {
   shouldSkipFile
 
 };
+
 
 
 
