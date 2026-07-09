@@ -87,19 +87,17 @@ function runPowerShellStep(step, executionContext) {
 function decidePlanExecution(plan = {}) {
   const planPolicy = plan.planPolicy || {};
   const reportOnly = planPolicy.reportOnly === true;
-  const cleanupReview = planPolicy.cleanupReview === true;
 
   return {
     mode: "executor-plan-decision",
-    version: "executor-plan-decision-v0.1-report-only",
+    version: "executor-plan-decision-v0.2-policy-wrapper",
     execute: true,
+    policy: planPolicy,
     reportOnly,
-    cleanupReview,
+    cleanupReview: planPolicy.cleanupReview === true,
     automaticDeletionAllowed: planPolicy.automaticDeletionAllowed === true,
-    decision: reportOnly ? "report-only-plan" : "execute-plan",
-    reason: reportOnly
-      ? "Plan contains report-only policy; step execution will be individually guarded."
-      : "Plan is executable under current policy."
+    decision: reportOnly ? "policy-report-only-plan" : "policy-executable-plan",
+    reason: planPolicy.reason || "Executor accepted plan policy."
   };
 }
 

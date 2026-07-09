@@ -44,7 +44,7 @@ function buildStep(task, action, index) {
   };
 }
 
-function buildPlanPolicy(steps = []) {
+function resolvePlanPolicy(steps = []) {
   const reportOnly = steps.some((step) => step.reportOnly === true);
   const cleanupReview = steps.some((step) =>
     (step.work || []).includes("cleanup-review")
@@ -118,7 +118,7 @@ function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
   });
 
   const phases = groupStepsByPhase(steps);
-  const planPolicy = buildPlanPolicy(steps);
+  const planPolicy = resolvePlanPolicy(steps);
 
   return {
     mode: "execution-plan-runtime",
@@ -137,18 +137,10 @@ function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
 
 module.exports = {
   buildExecutionPlan,
+  resolvePlanPolicy,
   resolvePhase,
   resolveDependencies,
   groupStepsByPhase,
   extractCoreContext
 };
-
-
-
-
-
-
-
-
-
 
