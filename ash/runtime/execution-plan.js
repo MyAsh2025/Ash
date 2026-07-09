@@ -36,6 +36,10 @@ function buildStep(task, action, index) {
     action,
     priority: task.priority,
     required: task.required,
+    source: task.source || null,
+    work: task.work || [],
+    reportOnly: Boolean(task.reportOnly),
+    automaticDeletionAllowed: task.automaticDeletionAllowed === true,
     dependencies: resolveDependencies(action)
   };
 }
@@ -116,6 +120,8 @@ module.exports = {
   groupStepsByPhase,
   extractCoreContext
 };
+
+
 
 
 
