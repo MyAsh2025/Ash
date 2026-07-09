@@ -36,6 +36,125 @@ function collectFiles(base, dir) {
   return result;
 }
 
+function reconstructOriginalPath(relative) {
+  const ext = path.extname(relative);
+
+  if (!ext) {
+    return null;
+  }
+
+  const withoutExt = relative.slice(0, -ext.length);
+  const reconstructed = withoutExt.replace(/\.backup\..*$/, "") + ext;
+
+  return reconstructed === relative ? null : reconstructed;
+}
+
+function classifyCleanupCandidate(file, projectPath = process.cwd()) {
+  const relative = path.relative(projectPath, file).replace(/\\/g, "/");
+  const normalized = relative.toLowerCase();
+
+  const stat = fs.existsSync(file)
+    ? fs.statSync(file)
+    : null;
+
+  const modifiedAt = stat?.mtime ?? null;
+  const sizeBytes = stat?.size ?? null;
+
+  const ageDays = modifiedAt
+    ? Math.floor((Date.now() - modifiedAt.getTime()) / 86400000)
+    : null;
+
+  const cleanupRisk =
+    ageDays === null
+      ? "review"
+      : ageDays < 7
+        ? "protected"
+        : ageDays < 30
+          ? "review"
+          : "low";
+
+  const cleanupRecommendedAction =
+    cleanupRisk === "low"
+      ? "verify-unused-then-remove"
+      : "keep-until-older-or-reviewed";
+
+  const originalPath = normalized.includes(".backup.")
+    ? reconstructOriginalPath(relative)
+    : null;
+
+  const originalExists = originalPath
+    ? fs.existsSync(path.join(projectPath, originalPath))
+    : null;
+
+  if (
+    normalized.includes(".backup.") ||
+    normalized.includes(".backup/") ||
+    normalized.match(/\.backup\.[0-9]+$/)
+  ) {
+    return {
+      path: relative,
+      type: "backup-file",
+      risk: cleanupRisk,
+      referenced: "unverified",
+      recommendedAction: cleanupRecommendedAction,
+      reason: "Backup artifact detected.",
+      modifiedAt,
+      ageDays,
+      sizeBytes,
+      originalPath,
+      originalExists
+    };
+  }
+
+  if (
+    normalized.includes("/.sandbox/") ||
+    normalized.includes("/tmp/") ||
+    normalized.includes("/temp/") ||
+    normalized.endsWith(".tmp")
+  ) {
+    return {
+      path: relative,
+      type: "temporary-file",
+      risk: cleanupRisk,
+      referenced: "unverified",
+      recommendedAction: cleanupRecommendedAction,
+      reason: "Temporary artifact detected.",
+      modifiedAt,
+      ageDays,
+      sizeBytes,
+      originalPath,
+      originalExists
+    };
+  }
+
+  const projectName = path.basename(projectPath).toLowerCase();
+
+  if (
+    projectName !== "ash" &&
+    (
+      normalized === "ash" ||
+      normalized.startsWith("ash/")
+    )
+  ) {
+    return {
+      path: relative,
+      type: "embedded-ash-folder",
+      risk: "medium",
+      referenced: "unverified",
+      recommendedAction: "verify-references-before-removal",
+      reason: "Possible duplicate or embedded Ash folder detected."
+    };
+  }
+
+  return null;
+}
+
+function detectCleanupCandidates(files = [], projectPath = process.cwd()) {
+  return files
+    .map((file) => classifyCleanupCandidate(file, projectPath))
+    .filter(Boolean);
+}
+
 function shouldSkipFile(file) {
   const normalized = file.replace(/\\/g, "/");
 
@@ -76,10 +195,12 @@ function observeRepository({
 } = {}) {
 
   const findings = [];
+  const scannedFiles = [];
 
   for (const dir of scanTargets) {
 
     const files = collectFiles(projectPath, dir);
+    scannedFiles.push(...files);
 
     for (const file of files) {
 
@@ -110,6 +231,8 @@ function observeRepository({
 
   });
 
+  const cleanupCandidates = detectCleanupCandidates(scannedFiles, projectPath);
+
   return {
 
     mode: "repository-observation-runtime",
@@ -119,6 +242,9 @@ function observeRepository({
     success: true,
 
     findings,
+    findingCount: findings.length,
+    cleanupCandidateCount: cleanupCandidates.length,
+    cleanupCandidates,
 
     nextTask:
 
@@ -135,7 +261,19 @@ function observeRepository({
 module.exports = {
 
   observeRepository,
+  detectCleanupCandidates,
+  classifyCleanupCandidate,
   shouldSkipFile
 
 };
+
+
+
+
+
+
+
+
+
+
 
