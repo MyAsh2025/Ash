@@ -822,7 +822,6 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
-    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoCoreCheck,
         run: runAutoCoreCheck,
         rebuild: rebuildPreconditionStateAfterCoreCheck,
@@ -842,7 +841,6 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
-    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoGitCheck,
         run: runAutoGitCheck,
         rebuild: rebuildPreconditionStateAfterGitCheck,
@@ -862,7 +860,6 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
-    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoCheckpoint,
         run: runAutoCheckpoint,
         rebuild: rebuildPreconditionStateAfterCheckpoint,
@@ -886,7 +883,6 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
-    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoAshCoreSave,
         run: runAutoAshCoreSave,
         rebuild: rebuildPreconditionStateAfterAshCoreSave,
@@ -910,7 +906,6 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
-    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoMemorySave,
         run: runAutoMemorySave,
         rebuild: rebuildPreconditionStateAfterMemorySave,
@@ -934,7 +929,6 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
-    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoHandover,
         run: runAutoHandover,
         rebuild: rebuildPreconditionStateAfterHandover,
@@ -1094,6 +1088,7 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
 
 
 
