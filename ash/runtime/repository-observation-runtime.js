@@ -219,6 +219,117 @@ function detectCleanupCandidates(files = [], projectPath = process.cwd()) {
     .sort(compareCleanupCandidates);
 }
 
+function assessCleanupGroup(group) {
+  const hasProtected = group.risks.includes("protected");
+  const hasLow = group.risks.includes("low");
+  const hasTemporary = group.types.includes("temporary-file");
+
+  if (hasProtected) {
+    return {
+      recommendation: "keep",
+      reason: "Recent protected cleanup candidates exist in this group."
+    };
+  }
+
+  if (group.candidateCount >= 20) {
+    return {
+      recommendation: "review",
+      reason: "High backup accumulation detected."
+    };
+  }
+
+  if (hasTemporary && group.oldestAgeDays !== null && group.oldestAgeDays >= 7) {
+    return {
+      recommendation: "review",
+      reason: "Temporary artifacts are older than review threshold."
+    };
+  }
+
+  if (hasLow) {
+    return {
+      recommendation: "candidate",
+      reason: "Only older low-risk cleanup candidates detected."
+    };
+  }
+
+  return {
+    recommendation: "review",
+    reason: "Cleanup candidates require verification before removal."
+  };
+}
+
+function groupCleanupCandidates(cleanupCandidates = []) {
+  const groups = new Map();
+
+  for (const candidate of cleanupCandidates) {
+    const groupKey = candidate.originalPath || candidate.path;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        originalPath: candidate.originalPath,
+        originalExists: candidate.originalExists,
+        groupKey,
+        candidateCount: 0,
+        types: [],
+        risks: [],
+        oldestAgeDays: null,
+        newestAgeDays: null,
+        totalSizeBytes: 0,
+        candidates: []
+      });
+    }
+
+    const group = groups.get(groupKey);
+
+    group.candidateCount += 1;
+    group.candidates.push(candidate);
+
+    if (!group.types.includes(candidate.type)) {
+      group.types.push(candidate.type);
+    }
+
+    if (!group.risks.includes(candidate.risk)) {
+      group.risks.push(candidate.risk);
+    }
+
+    if (typeof candidate.ageDays === "number") {
+      group.oldestAgeDays =
+        group.oldestAgeDays === null
+          ? candidate.ageDays
+          : Math.max(group.oldestAgeDays, candidate.ageDays);
+
+      group.newestAgeDays =
+        group.newestAgeDays === null
+          ? candidate.ageDays
+          : Math.min(group.newestAgeDays, candidate.ageDays);
+    }
+
+    if (typeof candidate.sizeBytes === "number") {
+      group.totalSizeBytes += candidate.sizeBytes;
+    }
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      assessment: assessCleanupGroup(group)
+    }))
+    .sort((a, b) => {
+      if (a.candidateCount !== b.candidateCount) {
+        return b.candidateCount - a.candidateCount;
+      }
+
+      const aOldest = a.oldestAgeDays ?? -1;
+      const bOldest = b.oldestAgeDays ?? -1;
+
+      if (aOldest !== bOldest) {
+        return bOldest - aOldest;
+      }
+
+      return a.groupKey.localeCompare(b.groupKey);
+    });
+}
+
 function shouldSkipFile(file) {
   const normalized = file.replace(/\\/g, "/");
 
@@ -296,6 +407,7 @@ function observeRepository({
   });
 
   const cleanupCandidates = detectCleanupCandidates(scannedFiles, projectPath);
+  const cleanupCandidateGroups = groupCleanupCandidates(cleanupCandidates);
 
   return {
 
@@ -308,7 +420,9 @@ function observeRepository({
     findings,
     findingCount: findings.length,
     cleanupCandidateCount: cleanupCandidates.length,
+    cleanupCandidateGroupCount: cleanupCandidateGroups.length,
     cleanupCandidates,
+    cleanupCandidateGroups,
 
     nextTask:
 
@@ -328,9 +442,13 @@ module.exports = {
   detectCleanupCandidates,
   classifyCleanupCandidate,
   compareCleanupCandidates,
+  groupCleanupCandidates,
+  assessCleanupGroup,
   shouldSkipFile
 
 };
+
+
 
 
 
