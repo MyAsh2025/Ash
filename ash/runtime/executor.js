@@ -20,7 +20,9 @@ function resolveExecutionContext(plan = {}, context = {}) {
   const projectContext =
     context.projectContext ||
     plan.projectContext ||
-    resolveProject(task);
+    resolveProject(task, {
+      projectPath: context.projectPath || plan.projectPath
+    });
 
   const project = projectContext.project || {};
   const projectPath = project.path || process.cwd();
@@ -1064,6 +1066,7 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
 
 
 

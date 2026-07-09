@@ -6,22 +6,38 @@ function loadProjectRegistry() {
   return JSON.parse(fs.readFileSync(registryPath, "utf8"));
 }
 
-function resolveProject(task = "") {
+function normalizePathForMatch(value = "") {
+  return String(value || "").replace(/\\/g, "/").toLowerCase();
+}
+
+function resolveProject(task = "", options = {}) {
   const registry = loadProjectRegistry();
   const text = String(task || "").toLowerCase();
+  const requestedProjectPath = normalizePathForMatch(options.projectPath);
 
   let projectId = registry.defaultProject;
 
-  if (text.includes("ash_core") || text.includes("ash core")) {
+  if (requestedProjectPath) {
+    const pathMatchedProject = registry.projects.find((item) =>
+      normalizePathForMatch(item.path) === requestedProjectPath
+    );
+
+    if (pathMatchedProject) {
+      projectId = pathMatchedProject.id;
+    }
+  }
+
+  if (projectId === registry.defaultProject && text.includes("ash_core") || projectId === registry.defaultProject && text.includes("ash core")) {
     projectId = "ash_core";
-  } else if (text.includes("ash service") || text === "ash" || text.includes("local runtime")) {
+  } else if (projectId === registry.defaultProject && (text.includes("ash service") || text === "ash" || text.includes("local runtime"))) {
     projectId = "ash";
   } else if (
-    text.includes("honne") ||
+    projectId === registry.defaultProject &&
+    (text.includes("honne") ||
     text.includes("fortune") ||
     text.includes("本音") ||
     text.includes("占い") ||
-    text.includes("corecheck")
+    text.includes("corecheck"))
   ) {
     projectId = "honne_fortune";
   }
@@ -39,3 +55,4 @@ function resolveProject(task = "") {
 }
 
 module.exports = { loadProjectRegistry, resolveProject };
+
