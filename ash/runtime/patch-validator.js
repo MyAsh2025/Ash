@@ -9,6 +9,20 @@ const SUPPORTED_OPERATIONS = new Set([
   "replace"
 ]);
 
+const UNSAFE_REPLACE_ANCHORS = new Set([
+  "TODO",
+  "FIXME",
+  "XXX",
+  "stub"
+]);
+
+function isUnsafeReplaceOperation(operation = {}) {
+  return (
+    operation.operation === "replace" &&
+    UNSAFE_REPLACE_ANCHORS.has(operation.anchorPattern)
+  );
+}
+
 function validatePatchOperations(patchGenerator) {
   const operations = Array.isArray(patchGenerator?.operations)
     ? patchGenerator.operations
@@ -29,6 +43,7 @@ function validatePatchOperations(patchGenerator) {
       ? operation.payload.requiredChecks
       : [];
     const generatedCode = operation.payload?.generatedCode || "";
+    const unsafeReplaceOperation = isUnsafeReplaceOperation(operation);
 
     const validation = {
       file: targetFile,
@@ -39,11 +54,14 @@ function validatePatchOperations(patchGenerator) {
       supportedOperation,
       hasRequiredChecks: requiredChecks.length > 0,
       hasGeneratedCode: generatedCode.length > 0,
+      unsafeReplaceOperation,
       readyForSafePatch:
         fileExists &&
         anchorExists &&
         supportedOperation &&
-        requiredChecks.length > 0
+        requiredChecks.length > 0 &&
+        generatedCode.length > 0 &&
+        !unsafeReplaceOperation
     };
 
     if (!validation.fileExists) {
@@ -60,6 +78,14 @@ function validatePatchOperations(patchGenerator) {
 
     if (!validation.hasRequiredChecks) {
       issues.push(`Missing required checks for: ${targetFile}`);
+    }
+
+    if (!validation.hasGeneratedCode) {
+      issues.push(`Generated code is missing for: ${targetFile}`);
+    }
+
+    if (validation.unsafeReplaceOperation) {
+      issues.push(`Unsafe replace anchor for generated code: ${anchorPattern}`);
     }
 
     validatedOperations.push(validation);
@@ -87,3 +113,4 @@ function validatePatchOperations(patchGenerator) {
 module.exports = {
   validatePatchOperations
 };
+
