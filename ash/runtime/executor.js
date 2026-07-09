@@ -79,6 +79,39 @@ function runPowerShellStep(step, executionContext) {
   };
 }
 
+function decideStepExecution(step = {}) {
+  const action = step.action || step.name || step.type || null;
+  const work = step.work || [];
+  const reportOnly = step.reportOnly === true;
+  const automaticDeletionAllowed = step.automaticDeletionAllowed === true;
+  const cleanupReview = work.includes("cleanup-review");
+
+  if (cleanupReview || reportOnly) {
+    return {
+      mode: "executor-step-decision",
+      version: "executor-step-decision-v0.1-report-only",
+      action,
+      execute: action === "inspect_repository",
+      decision: action === "inspect_repository" ? "inspect-only" : "report-only-blocked",
+      reportOnly: true,
+      automaticDeletionAllowed,
+      reason: action === "inspect_repository"
+        ? "Cleanup review allows repository inspection only."
+        : "Cleanup review is report-only and blocks non-inspection execution."
+    };
+  }
+
+  return {
+    mode: "executor-step-decision",
+    version: "executor-step-decision-v0.1-standard",
+    action,
+    execute: true,
+    decision: "execute",
+    reportOnly: false,
+    automaticDeletionAllowed
+  };
+}
+
 function runActionStep(step, executionContext) {
   const actionName = step.action || step.name;
 
@@ -911,6 +944,29 @@ function executePlan(plan, context = {}) {
       }
 
       let result = null;
+      const stepExecutionDecision = decideStepExecution(step);
+
+      if (!stepExecutionDecision.execute) {
+        result = {
+          action: step.action || step.name || step.type || null,
+          originalAction: step.action || step.name || step.type || null,
+          stepId: step.stepId || null,
+          taskId: step.taskId || null,
+          manager: step.manager || null,
+          phase: step.phase || null,
+          priority: step.priority ?? null,
+          required: Boolean(step.required),
+          success: true,
+          skipped: true,
+          reportOnly: true,
+          automaticDeletionAllowed: step.automaticDeletionAllowed === true,
+          decision: stepExecutionDecision,
+          reason: stepExecutionDecision.reason
+        };
+        results.push(result);
+        if (result.stepId) executedStepIds.add(result.stepId);
+        continue;
+      }
 
       if (step.type === "powershell") {
         result = runPowerShellStep(step, executionContext);
@@ -980,6 +1036,7 @@ function executePlan(plan, context = {}) {
 
 module.exports = {
   executePlan,
+  decideStepExecution,
   resolveExecutionContext,
   normalizeSteps,
   buildCoreRuleGate,
@@ -1007,6 +1064,7 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
 
 
 
