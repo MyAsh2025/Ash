@@ -330,6 +330,56 @@ function groupCleanupCandidates(cleanupCandidates = []) {
     });
 }
 
+function buildRepositoryHealth({
+  findings = [],
+  cleanupCandidates = [],
+  cleanupCandidateGroups = []
+} = {}) {
+  const cleanupRecommendations = {
+    keep: 0,
+    review: 0,
+    candidate: 0
+  };
+
+  for (const group of cleanupCandidateGroups) {
+    const recommendation = group.assessment?.recommendation || "review";
+    cleanupRecommendations[recommendation] =
+      (cleanupRecommendations[recommendation] || 0) + 1;
+  }
+
+  const status =
+    findings.length > 0
+      ? "attention"
+      : cleanupRecommendations.candidate > 0
+        ? "cleanup-ready"
+        : cleanupRecommendations.review > 0
+          ? "moderate"
+          : cleanupCandidates.length > 0
+            ? "stable-with-artifacts"
+            : "clean";
+
+  const reason =
+    status === "attention"
+      ? "Repository findings require attention."
+      : status === "cleanup-ready"
+        ? "Cleanup candidates exist, but removal still requires verification."
+        : status === "moderate"
+          ? "Cleanup artifacts detected in report-only mode."
+          : status === "stable-with-artifacts"
+            ? "Artifacts detected but currently protected or retained."
+            : "No repository findings or cleanup candidates detected.";
+
+  return {
+    status,
+    reason,
+    findingCount: findings.length,
+    cleanupCandidateCount: cleanupCandidates.length,
+    cleanupCandidateGroupCount: cleanupCandidateGroups.length,
+    cleanupRecommendations,
+    automaticDeletionAllowed: false
+  };
+}
+
 function shouldSkipFile(file) {
   const normalized = file.replace(/\\/g, "/");
 
@@ -408,6 +458,11 @@ function observeRepository({
 
   const cleanupCandidates = detectCleanupCandidates(scannedFiles, projectPath);
   const cleanupCandidateGroups = groupCleanupCandidates(cleanupCandidates);
+  const repositoryHealth = buildRepositoryHealth({
+    findings,
+    cleanupCandidates,
+    cleanupCandidateGroups
+  });
 
   return {
 
@@ -423,6 +478,7 @@ function observeRepository({
     cleanupCandidateGroupCount: cleanupCandidateGroups.length,
     cleanupCandidates,
     cleanupCandidateGroups,
+    repositoryHealth,
 
     nextTask:
 
@@ -444,9 +500,11 @@ module.exports = {
   compareCleanupCandidates,
   groupCleanupCandidates,
   assessCleanupGroup,
+  buildRepositoryHealth,
   shouldSkipFile
 
 };
+
 
 
 
