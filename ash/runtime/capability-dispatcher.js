@@ -25,9 +25,11 @@ function resolveExecutorPlanPolicy(context = {}) {
 
 function shouldRouteThroughExecutorPlan(step = {}, context = {}) {
   const executorPlanPolicy = resolveExecutorPlanPolicy(context);
+  const resolved = resolveCapabilityForAction(step.action);
 
   return (
     executorPlanPolicy.enabled &&
+    !resolved.executableCapability &&
     classifyAction(step.action).classification !== "executor-internal"
   );
 }
@@ -183,16 +185,4 @@ module.exports = {
   shouldRouteThroughExecutorPlan,
   runExecutorPlanRoute
 };
-
-
-
-
-
-
-
-
-
-
-
-
 
