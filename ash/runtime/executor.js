@@ -81,6 +81,25 @@ function runPowerShellStep(step, executionContext) {
   };
 }
 
+function decidePlanExecution(plan = {}) {
+  const planPolicy = plan.planPolicy || {};
+  const reportOnly = planPolicy.reportOnly === true;
+  const cleanupReview = planPolicy.cleanupReview === true;
+
+  return {
+    mode: "executor-plan-decision",
+    version: "executor-plan-decision-v0.1-report-only",
+    execute: true,
+    reportOnly,
+    cleanupReview,
+    automaticDeletionAllowed: planPolicy.automaticDeletionAllowed === true,
+    decision: reportOnly ? "report-only-plan" : "execute-plan",
+    reason: reportOnly
+      ? "Plan contains report-only policy; step execution will be individually guarded."
+      : "Plan is executable under current policy."
+  };
+}
+
 function decideStepExecution(step = {}) {
   const action = step.action || step.name || step.type || null;
   const work = step.work || [];
@@ -725,6 +744,7 @@ function executePlan(plan, context = {}) {
   const executionRules = ruleEvaluation.execution || {};
   const planningRules = ruleEvaluation.planning || {};
   const executionContext = resolveExecutionContext(plan, context);
+  const planExecutionDecision = decidePlanExecution(plan);
   const normalizedSteps = normalizeSteps(plan);
   const coreRuleGate = buildCoreRuleGate(normalizedSteps, executionRules);
   let corePreconditions = resolveCorePreconditions(context);
@@ -802,6 +822,7 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
+    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoCoreCheck,
         run: runAutoCoreCheck,
         rebuild: rebuildPreconditionStateAfterCoreCheck,
@@ -821,6 +842,7 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
+    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoGitCheck,
         run: runAutoGitCheck,
         rebuild: rebuildPreconditionStateAfterGitCheck,
@@ -840,6 +862,7 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
+    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoCheckpoint,
         run: runAutoCheckpoint,
         rebuild: rebuildPreconditionStateAfterCheckpoint,
@@ -863,6 +886,7 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
+    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoAshCoreSave,
         run: runAutoAshCoreSave,
         rebuild: rebuildPreconditionStateAfterAshCoreSave,
@@ -886,6 +910,7 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
+    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoMemorySave,
         run: runAutoMemorySave,
         rebuild: rebuildPreconditionStateAfterMemorySave,
@@ -909,6 +934,7 @@ function executePlan(plan, context = {}) {
         step,
         coreRuleGate,
         enforcementPolicy,
+    planExecutionDecision,
         shouldAttempt: shouldAttemptAutoHandover,
         run: runAutoHandover,
         rebuild: rebuildPreconditionStateAfterHandover,
@@ -1019,6 +1045,7 @@ function executePlan(plan, context = {}) {
     corePreconditions,
     preconditionDiagnostics,
     enforcementPolicy,
+    planExecutionDecision,
     enforcementDecisions,
     autoCoreCheckResults,
     autoGitCheckResults,
@@ -1038,6 +1065,7 @@ function executePlan(plan, context = {}) {
 
 module.exports = {
   executePlan,
+  decidePlanExecution,
   decideStepExecution,
   resolveExecutionContext,
   normalizeSteps,
@@ -1066,6 +1094,7 @@ module.exports = {
   runAutoHandover,
   rebuildPreconditionStateAfterHandover
 };
+
 
 
 
