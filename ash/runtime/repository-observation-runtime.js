@@ -174,10 +174,49 @@ function classifyCleanupCandidate(file, projectPath = process.cwd()) {
   return null;
 }
 
+function compareCleanupCandidates(a, b) {
+  const riskRank = {
+    low: 0,
+    review: 1,
+    protected: 2,
+    medium: 3
+  };
+
+  const typeRank = {
+    "temporary-file": 0,
+    "backup-file": 1,
+    "embedded-ash-folder": 2
+  };
+
+  const aRisk = riskRank[a.risk] ?? 99;
+  const bRisk = riskRank[b.risk] ?? 99;
+
+  if (aRisk !== bRisk) {
+    return aRisk - bRisk;
+  }
+
+  const aType = typeRank[a.type] ?? 99;
+  const bType = typeRank[b.type] ?? 99;
+
+  if (aType !== bType) {
+    return aType - bType;
+  }
+
+  const aAge = a.ageDays ?? -1;
+  const bAge = b.ageDays ?? -1;
+
+  if (aAge !== bAge) {
+    return bAge - aAge;
+  }
+
+  return a.path.localeCompare(b.path);
+}
+
 function detectCleanupCandidates(files = [], projectPath = process.cwd()) {
   return files
     .map((file) => classifyCleanupCandidate(file, projectPath))
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort(compareCleanupCandidates);
 }
 
 function shouldSkipFile(file) {
@@ -288,9 +327,11 @@ module.exports = {
   observeRepository,
   detectCleanupCandidates,
   classifyCleanupCandidate,
+  compareCleanupCandidates,
   shouldSkipFile
 
 };
+
 
 
 
