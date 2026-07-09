@@ -44,6 +44,26 @@ function buildStep(task, action, index) {
   };
 }
 
+function buildPlanPolicy(steps = []) {
+  const reportOnly = steps.some((step) => step.reportOnly === true);
+  const cleanupReview = steps.some((step) =>
+    (step.work || []).includes("cleanup-review")
+  );
+
+  return {
+    mode: "execution-plan-policy",
+    version: "execution-plan-policy-v0.1-report-only",
+    reportOnly,
+    cleanupReview,
+    automaticDeletionAllowed:
+      steps.length > 0 &&
+      steps.every((step) => step.automaticDeletionAllowed === true),
+    reason: reportOnly
+      ? "Plan contains report-only steps."
+      : "Plan is executable under current task metadata."
+  };
+}
+
 function groupStepsByPhase(steps) {
   const order = [
     "verification",
@@ -98,6 +118,7 @@ function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
   });
 
   const phases = groupStepsByPhase(steps);
+  const planPolicy = buildPlanPolicy(steps);
 
   return {
     mode: "execution-plan-runtime",
@@ -105,6 +126,7 @@ function buildExecutionPlan({ taskRuntime, workflow, bootstrap = null }) {
     tasks: tasks.length,
     phases,
     steps,
+    planPolicy,
     executable: Boolean(workflow?.autoExecutable),
     dependencyMode: "dependency-policy",
     coreContextAware: Boolean(ruleEvaluation.coreContextAware),
@@ -120,6 +142,11 @@ module.exports = {
   groupStepsByPhase,
   extractCoreContext
 };
+
+
+
+
+
 
 
 
