@@ -27,17 +27,34 @@ function resolveProject(task = "", options = {}) {
     }
   }
 
-  if (projectId === registry.defaultProject && text.includes("ash_core") || projectId === registry.defaultProject && text.includes("ash core")) {
+  const shouldInferFromTask = projectId === registry.defaultProject;
+
+  if (
+    shouldInferFromTask &&
+    (
+      text.includes("ash_core") ||
+      text.includes("ash core")
+    )
+  ) {
     projectId = "ash_core";
-  } else if (projectId === registry.defaultProject && (text.includes("ash service") || text === "ash" || text.includes("local runtime"))) {
+  } else if (
+    shouldInferFromTask &&
+    (
+      text.includes("ash service") ||
+      text === "ash" ||
+      text.includes("local runtime")
+    )
+  ) {
     projectId = "ash";
   } else if (
-    projectId === registry.defaultProject &&
-    (text.includes("honne") ||
-    text.includes("fortune") ||
-    text.includes("本音") ||
-    text.includes("占い") ||
-    text.includes("corecheck"))
+    shouldInferFromTask &&
+    (
+      text.includes("honne") ||
+      text.includes("fortune") ||
+      text.includes("本音") ||
+      text.includes("占い") ||
+      text.includes("corecheck")
+    )
   ) {
     projectId = "honne_fortune";
   }
@@ -55,4 +72,5 @@ function resolveProject(task = "", options = {}) {
 }
 
 module.exports = { loadProjectRegistry, resolveProject };
+
 
