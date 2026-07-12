@@ -1,4 +1,4 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -110,7 +110,7 @@ function Add-Row($Parent, $Name, $Top) {
     $label.Left = 20
     $label.Top = $Top
     $label.Width = 130
-    $label.Font = New-Object System.Drawing.Font('Segoe UI', 10, 'Bold')
+    $label.Font = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
 
     $value = New-Object System.Windows.Forms.Label
     $value.Text = '-'
@@ -139,7 +139,7 @@ $title.Left = 22
 $title.Top = 18
 $title.Width = 300
 $title.Height = 42
-$title.Font = New-Object System.Drawing.Font('Segoe UI', 22, 'Bold')
+$title.Font = New-Object System.Drawing.Font('Segoe UI', 22, [System.Drawing.FontStyle]::Bold)
 $form.Controls.Add($title)
 
 $group = New-Object System.Windows.Forms.GroupBox
