@@ -66,6 +66,10 @@ function runExecutorPlanRoute(step = {}, context = {}) {
       success: Boolean(executorPlanResult.success),
       route: "executor-plan",
       result: executorPlanResult
+    },
+    classificationContext: {
+      ...context,
+      ...step
     }
   });
 
@@ -104,6 +108,10 @@ function dispatchAction(step = {}, context = {}) {
           success: Boolean(registeredResult.success),
           route: "registered-executor",
           result: registeredResult
+        },
+        classificationContext: {
+          ...context,
+          ...step
         }
       });
 
@@ -162,7 +170,8 @@ function dispatchAction(step = {}, context = {}) {
   const classification = classifyCapabilityResult({
     action,
     executableCapability: resolved.executableCapability,
-    dispatchResult: result
+    dispatchResult: result,
+    classificationContext: input
   });
 
   return {

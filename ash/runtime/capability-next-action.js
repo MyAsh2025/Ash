@@ -3,6 +3,7 @@
 const nextActionMap = {
   continue: [],
   stop: [],
+  report_only: [],
   run_development_pipeline: ["development_pipeline"],
   repair_patch: ["repair_patch"],
   verify_patch: ["verify_patch"],

@@ -1,9 +1,34 @@
 "use strict";
 
+function resolveSelectedTask(classificationContext = {}) {
+  return (
+    classificationContext?.generatedTask?.nextTask ||
+    classificationContext?.nextTask ||
+    classificationContext?.selectedTask ||
+    null
+  );
+}
+
+function isReportOnlyTask(task = null) {
+  if (!task) {
+    return false;
+  }
+
+  const work = Array.isArray(task.work)
+    ? task.work
+    : [];
+
+  return (
+    task.reportOnly === true ||
+    work.includes("cleanup-review")
+  );
+}
+
 function classifyCapabilityResult({
   action = "unknown",
   executableCapability = null,
-  dispatchResult = null
+  dispatchResult = null,
+  classificationContext = {}
 } = {}) {
   const innerResult = dispatchResult?.result?.result || dispatchResult?.result || dispatchResult;
 
@@ -114,16 +139,46 @@ function classifyCapabilityResult({
 
   if (executableCapability === "minimal_core_gate") {
     const required = innerResult?.required || {};
+    const selectedTask =
+      resolveSelectedTask(classificationContext);
+    const reportOnly =
+      isReportOnlyTask(selectedTask);
+
+    if (reportOnly) {
+      return {
+        mode: "capability-result-runtime",
+        version:
+          "ash-local-runtime-v0.2-report-only-routing",
+        action,
+        executableCapability,
+        success: true,
+        classification:
+          "report_only_task_complete",
+        nextAction: "report_only",
+        required,
+        reportOnly: true,
+        selectedTask,
+        reason:
+          "Report-only task completed without entering the development pipeline."
+      };
+    }
 
     return {
       mode: "capability-result-runtime",
-      version: "ash-local-runtime-v0.1",
+      version:
+        "ash-local-runtime-v0.2-report-only-routing",
       action,
       executableCapability,
       success: true,
-      classification: innerResult?.triggered ? "core_gate_triggered" : "core_gate_clear",
-      nextAction: innerResult?.triggered ? "corecheck_or_save_gate" : "run_development_pipeline",
+      classification: innerResult?.triggered
+        ? "core_gate_triggered"
+        : "core_gate_clear",
+      nextAction: innerResult?.triggered
+        ? "corecheck_or_save_gate"
+        : "run_development_pipeline",
       required,
+      reportOnly: false,
+      selectedTask,
       reason: innerResult?.triggered
         ? "Minimal Core Gate requires follow-up."
         : "Minimal Core Gate did not trigger."
@@ -149,5 +204,4 @@ function classifyCapabilityResult({
 module.exports = {
   classifyCapabilityResult
 };
-
 
