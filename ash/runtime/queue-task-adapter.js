@@ -31,7 +31,11 @@ function adaptQueueItemForExecution({
   const implementationPlanner = buildImplementationPlanner({
     task: item.task,
     targetFile: item.targetFile || null,
-    work: item.work || []
+    work: item.work || [],
+    repairAction: item.repairAction || null,
+    failureStage: item.failureStage || null,
+    issues: item.issues || [],
+    previousTask: item.previousTask || null
   });
 
   const patchPlanner = buildPatchPlanner({
@@ -62,6 +66,4 @@ function adaptQueueItemForExecution({
 module.exports = {
   adaptQueueItemForExecution
 };
-
-
 

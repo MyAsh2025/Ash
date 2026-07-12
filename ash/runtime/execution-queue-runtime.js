@@ -24,8 +24,30 @@ function buildExecutionQueue({
     status: "waiting",
     source,
     reason: nextTask.reason || null,
-    targetFile: nextTask.file || nextTask.targetFile || null,
-    work: Array.isArray(nextTask.work) ? nextTask.work : [],
+    targetFile:
+      nextTask.targetFile ||
+      nextTask.file ||
+      null,
+    work: Array.isArray(nextTask.work)
+      ? nextTask.work
+      : [],
+    repairAction:
+      nextTask.repairAction || null,
+    failureStage:
+      nextTask.failureStage || null,
+    errorMessage:
+      nextTask.errorMessage || null,
+    failedAction:
+      nextTask.failedAction || null,
+    issues: Array.isArray(nextTask.issues)
+      ? nextTask.issues
+      : [],
+    validatedOperations:
+      Array.isArray(nextTask.validatedOperations)
+        ? nextTask.validatedOperations
+        : [],
+    previousTask:
+      nextTask.previousTask || null,
     createdAt: new Date().toISOString()
   };
 
