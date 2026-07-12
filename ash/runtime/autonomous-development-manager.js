@@ -121,6 +121,7 @@ function runAutonomousDevelopmentManager({
 } = {}) {
   const cycles = [];
   let pendingRepairTask = null;
+  let lastCompletedReportOnlyTask = null;
 
   for (let i = 0; i < maxCycles; i++) {
     const repositoryObservation = observeRepository({
@@ -128,7 +129,8 @@ function runAutonomousDevelopmentManager({
     });
 
     const taskDiscovery = discoverTaskFromRepository({
-      observation: repositoryObservation
+      observation: repositoryObservation,
+      excludedTask: lastCompletedReportOnlyTask
     });
 
     if (!taskDiscovery.discovered) {
@@ -257,6 +259,12 @@ function runAutonomousDevelopmentManager({
         cycles,
         ranAt: new Date().toISOString()
       };
+    }
+
+    if (discoveredTask?.reportOnly === true) {
+      lastCompletedReportOnlyTask = discoveredTask;
+    } else {
+      lastCompletedReportOnlyTask = null;
     }
   }
 

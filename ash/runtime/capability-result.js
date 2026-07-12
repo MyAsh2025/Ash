@@ -163,6 +163,25 @@ function classifyCapabilityResult({
       };
     }
 
+    if (selectedTask?.repairAction === "repair_patch") {
+      return {
+        mode: "capability-result-runtime",
+        version:
+          "ash-local-runtime-v0.3-repair-task-routing",
+        action,
+        executableCapability,
+        success: true,
+        classification:
+          "repair_task_ready",
+        nextAction: "repair_patch",
+        required,
+        reportOnly: false,
+        selectedTask,
+        reason:
+          "Repair task requested direct repair_patch execution."
+      };
+    }
+
     return {
       mode: "capability-result-runtime",
       version:
