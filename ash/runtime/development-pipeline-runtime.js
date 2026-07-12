@@ -69,7 +69,13 @@ function runDevelopmentPipeline({
   });
 
   const patchGenerator = buildPatchGenerator(editPlanner);
-  const codeGenerator = generateCodeForPatch(patchGenerator);
+  const codeGenerator = generateCodeForPatch(patchGenerator, {
+    implementationPlanner:
+      queueTaskAdapter.implementationPlanner || null,
+    selectedTask:
+      queueTaskAdapter.item || null,
+    patchPlanner
+  });
   const patchValidator = validatePatchOperations(codeGenerator);
 
   const patchApplyEngine = applyValidatedPatch({
