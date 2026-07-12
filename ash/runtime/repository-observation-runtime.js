@@ -405,24 +405,148 @@ function shouldSkipFile(file) {
   );
 }
 
+function analyzeSourceSignals(text = "") {
+  let code = "";
+  let comments = "";
+  let state = "code";
+  let quote = null;
+
+  for (let index = 0; index < text.length; index++) {
+    const current = text[index];
+    const next = text[index + 1] || "";
+
+    if (state === "code") {
+      if (
+        current === "'" ||
+        current === '"' ||
+        current === "`"
+      ) {
+        state = "string";
+        quote = current;
+        code += " ";
+        continue;
+      }
+
+      if (current === "/" && next === "/") {
+        state = "line-comment";
+        comments += "//";
+        code += "  ";
+        index += 1;
+        continue;
+      }
+
+      if (current === "/" && next === "*") {
+        state = "block-comment";
+        comments += "/*";
+        code += "  ";
+        index += 1;
+        continue;
+      }
+
+      code += current;
+      continue;
+    }
+
+    if (state === "string") {
+      if (current === "\\") {
+        code += " ";
+
+        if (index + 1 < text.length) {
+          code += text[index + 1] === "\n"
+            ? "\n"
+            : " ";
+          index += 1;
+        }
+
+        continue;
+      }
+
+      if (current === quote) {
+        state = "code";
+        quote = null;
+        code += " ";
+        continue;
+      }
+
+      code += current === "\n"
+        ? "\n"
+        : " ";
+
+      continue;
+    }
+
+    if (state === "line-comment") {
+      comments += current;
+      code += current === "\n"
+        ? "\n"
+        : " ";
+
+      if (current === "\n") {
+        state = "code";
+      }
+
+      continue;
+    }
+
+    if (state === "block-comment") {
+      if (current === "*" && next === "/") {
+        comments += "*/";
+        code += "  ";
+        index += 1;
+        state = "code";
+        continue;
+      }
+
+      comments += current;
+      code += current === "\n"
+        ? "\n"
+        : " ";
+    }
+  }
+
+  return {
+    code,
+    comments
+  };
+}
+
+function hasExplicitWorkMarker(comments = "") {
+  return (
+    /\/\/\s*(?:TODO|FIXME|XXX)\b(?:\s*:|\s+-|\s+[A-Z0-9])/i.test(comments) ||
+    /\/\*+\s*(?:TODO|FIXME|XXX)\b(?:\s*:|\s+-|\s+[A-Z0-9])/i.test(comments) ||
+    /^\s*\*\s*(?:TODO|FIXME|XXX)\b(?:\s*:|\s+-|\s+[A-Z0-9])/im.test(comments)
+  );
+}
+
+function hasMissingImplementationSignal(code = "") {
+  return (
+    /\bthrow\s+new\s+Error\s*\(/.test(code) ||
+    /\bNotImplemented\b/.test(code)
+  );
+}
+
 function detectWork(file) {
   if (shouldSkipFile(file)) {
     return [];
   }
 
   const text = fs.readFileSync(file, "utf8");
-
+  const signals = analyzeSourceSignals(text);
   const work = [];
 
-  if (/TODO|FIXME|XXX/i.test(text)) {
+  if (hasExplicitWorkMarker(signals.comments)) {
     work.push("todo");
   }
 
-  if (/throw new Error|NotImplemented|stub/i.test(text)) {
+  if (hasMissingImplementationSignal(signals.code)) {
     work.push("implementation");
   }
 
-  if (/continue_autonomous_development/.test(text)) {
+  if (
+    /\bcontinue_autonomous_development\b/.test(
+      signals.code
+    )
+  ) {
     work.push("execution");
   }
 
@@ -519,20 +643,4 @@ module.exports = {
   shouldSkipFile
 
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
