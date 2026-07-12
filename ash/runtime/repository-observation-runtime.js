@@ -518,11 +518,36 @@ function hasExplicitWorkMarker(comments = "") {
   );
 }
 
-function hasMissingImplementationSignal(code = "") {
+function extractThrownErrorMessages(code = "") {
+  const messages = [];
+  const pattern =
+    /\bthrow\s+new\s+Error\s*\(\s*(["'`])([\s\S]*?)\1\s*\)/g;
+
+  let match = null;
+
+  while ((match = pattern.exec(code)) !== null) {
+    messages.push(match[2] || "");
+  }
+
+  return messages;
+}
+
+function isMissingImplementationMessage(message = "") {
   return (
-    /\bthrow\s+new\s+Error\s*\(/.test(code) ||
-    /\bNotImplemented\b/.test(code)
+    /\bnot[\s_-]*implemented\b/i.test(message) ||
+    /\bnotimplemented\b/i.test(message) ||
+    /\bimplementation[\s_-]*(?:missing|required|pending)\b/i.test(message) ||
+    /\b(?:todo|fixme|xxx|stub)\b/i.test(message)
   );
+}
+
+function hasMissingImplementationSignal(code = "") {
+  if (/\bNotImplemented\b/.test(code)) {
+    return true;
+  }
+
+  return extractThrownErrorMessages(code)
+    .some(isMissingImplementationMessage);
 }
 
 function detectWork(file) {
