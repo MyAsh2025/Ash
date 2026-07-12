@@ -50,7 +50,67 @@ function extractCapabilityFailure(capabilityLoop = null) {
       classification?.reason ||
       capabilityLoop?.stopReason ||
       "Capability loop failed.",
-    failedAction: failedStep?.action || null
+    failedAction: failedStep?.action || null,
+    issues: Array.isArray(pipelineResult?.patchValidator?.issues)
+      ? pipelineResult.patchValidator.issues
+      : [],
+    validatedOperations: Array.isArray(
+      pipelineResult?.patchValidator?.validatedOperations
+    )
+      ? pipelineResult.patchValidator.validatedOperations
+      : [],
+    targetFile:
+      pipelineResult?.patchValidator?.validatedOperations?.[0]?.file ||
+      pipelineResult?.editPlanner?.edits?.[0]?.file ||
+      null
+  };
+}
+
+function buildRepairTask({
+  failure,
+  previousTask,
+  cycleIndex
+} = {}) {
+  const issues = Array.isArray(failure?.issues)
+    ? failure.issues
+    : [];
+
+  const validatedOperations = Array.isArray(failure?.validatedOperations)
+    ? failure.validatedOperations
+    : [];
+
+  return {
+    task: [
+      "Repair autonomous development failure",
+      failure?.failureStage ? `at ${failure.failureStage}` : null,
+      failure?.targetFile ? `for ${failure.targetFile}` : null
+    ].filter(Boolean).join(" "),
+    priority: "critical",
+    source: "autonomous-failure-recovery",
+    file: failure?.targetFile || previousTask?.file || null,
+    targetFile:
+      failure?.targetFile ||
+      previousTask?.targetFile ||
+      previousTask?.file ||
+      null,
+    work: [
+      "repair",
+      "self-evolution",
+      failure?.failureStage || "capability-loop"
+    ],
+    failureStage: failure?.failureStage || null,
+    errorMessage: failure?.errorMessage || null,
+    failedAction: failure?.failedAction || null,
+    issues,
+    validatedOperations,
+    previousTask: previousTask || null,
+    repairAction: "repair_patch",
+    cycleIndex,
+    reason: [
+      failure?.errorMessage || "Autonomous development failed.",
+      issues.length > 0 ? `Issues: ${issues.join(" | ")}` : null,
+      "Repair this failure and continue autonomous development."
+    ].filter(Boolean).join(" ")
   };
 }
 function runAutonomousDevelopmentManager({
@@ -60,6 +120,7 @@ function runAutonomousDevelopmentManager({
   dryRun = false
 } = {}) {
   const cycles = [];
+  let pendingRepairTask = null;
 
   for (let i = 0; i < maxCycles; i++) {
     const repositoryObservation = observeRepository({
@@ -105,7 +166,12 @@ function runAutonomousDevelopmentManager({
         }
       : null;
 
-    const discoveredTask = explicitUserTask || taskDiscovery.task;
+    const discoveredTask =
+      pendingRepairTask ||
+      explicitUserTask ||
+      taskDiscovery.task;
+
+    pendingRepairTask = null;
 
     const capabilityLoop = runCapabilityLoop({
       task: discoveredTask.task || task,
@@ -141,7 +207,8 @@ function runAutonomousDevelopmentManager({
       taskDiscovery,
       selectedTask: discoveredTask,
       capabilityLoop,
-      coreCheck
+      coreCheck,
+      repairTask: null
     });
 
     if (!capabilityLoop.success || !coreCheck.success) {
@@ -149,17 +216,44 @@ function runAutonomousDevelopmentManager({
         ? extractCapabilityFailure(capabilityLoop)
         : null;
 
+      if (!coreCheck.success) {
+        return {
+          mode: "autonomous-development-manager-runtime",
+          version: "ash-local-runtime-v0.2-repair-carryover",
+          success: false,
+          stopped: true,
+          stopReason: "corecheck_failed",
+          failureStage: null,
+          errorMessage: coreCheck.reason || "CoreCheck failed.",
+          failedAction: null,
+          cycles,
+          ranAt: new Date().toISOString()
+        };
+      }
+
+      const repairTask = buildRepairTask({
+        failure: capabilityFailure,
+        previousTask: discoveredTask,
+        cycleIndex: i
+      });
+
+      cycles[cycles.length - 1].repairTask = repairTask;
+      pendingRepairTask = repairTask;
+
+      if (i < maxCycles - 1) {
+        continue;
+      }
+
       return {
         mode: "autonomous-development-manager-runtime",
-        version: "ash-local-runtime-v0.1",
+        version: "ash-local-runtime-v0.2-repair-carryover",
         success: false,
         stopped: true,
-        stopReason: !capabilityLoop.success
-          ? "capability_loop_failed"
-          : "corecheck_failed",
+        stopReason: "max_cycles_reached_with_pending_repair",
         failureStage: capabilityFailure?.failureStage || null,
         errorMessage: capabilityFailure?.errorMessage || null,
         failedAction: capabilityFailure?.failedAction || null,
+        pendingRepairTask: repairTask,
         cycles,
         ranAt: new Date().toISOString()
       };
