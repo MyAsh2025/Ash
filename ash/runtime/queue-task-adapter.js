@@ -30,18 +30,61 @@ function adaptQueueItemForExecution({
   const adapter = resolveExecutionAdapter(step);
   const implementationPlanner = buildImplementationPlanner({
     task: item.task,
-    targetFile: item.targetFile || null,
+    targetFile:
+      item.targetFile ||
+      item.file ||
+      null,
     work: item.work || [],
-    repairAction: item.repairAction || null,
-    failureStage: item.failureStage || null,
-    issues: item.issues || [],
-    previousTask: item.previousTask || null
+    implementationType:
+      item.implementationType || null,
+    strategy:
+      item.strategy || null,
+    recommendedOperation:
+      item.recommendedOperation || null,
+    confidence:
+      item.confidence || null,
+    targetSymbol:
+      item.targetSymbol || null,
+    symbolType:
+      item.symbolType || null,
+    expectedBehavior:
+      item.expectedBehavior || [],
+    implementationTemplate:
+      item.implementationTemplate || null,
+    repairAction:
+      item.repairAction || null,
+    failureStage:
+      item.failureStage || null,
+    issues:
+      item.issues || [],
+    previousTask:
+      item.previousTask || null
   });
 
   const patchPlanner = buildPatchPlanner({
     task: item.task,
-    targetFile: item.targetFile || null,
+    targetFile:
+      item.targetFile ||
+      item.file ||
+      implementationPlanner.targetFile ||
+      null,
     work: item.work || [],
+    targetSymbol:
+      implementationPlanner.targetSymbol ||
+      item.targetSymbol ||
+      null,
+    symbolType:
+      implementationPlanner.symbolType ||
+      item.symbolType ||
+      null,
+    expectedBehavior:
+      implementationPlanner.expectedBehavior ||
+      item.expectedBehavior ||
+      [],
+    recommendedOperation:
+      implementationPlanner.recommendedOperation ||
+      item.recommendedOperation ||
+      null,
     executionPolicy: {
       plannedActions: ["prepare_patch_plan"]
     },
@@ -66,4 +109,3 @@ function adaptQueueItemForExecution({
 module.exports = {
   adaptQueueItemForExecution
 };
-

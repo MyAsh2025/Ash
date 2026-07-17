@@ -28,6 +28,18 @@ function buildExecutionQueue({
       nextTask.targetFile ||
       nextTask.file ||
       null,
+    targetSymbol:
+      nextTask.targetSymbol || null,
+    symbolType:
+      nextTask.symbolType || null,
+    expectedBehavior:
+      Array.isArray(nextTask.expectedBehavior)
+        ? nextTask.expectedBehavior
+        : [],
+    implementationTemplate:
+      nextTask.implementationTemplate || null,
+    recommendedOperation:
+      nextTask.recommendedOperation || null,
     work: Array.isArray(nextTask.work)
       ? nextTask.work
       : [],

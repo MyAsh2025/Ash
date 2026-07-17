@@ -7,8 +7,28 @@ const UNSAFE_REPLACE_ANCHORS = new Set([
   "stub"
 ]);
 
+const SAFE_SYMBOL_OPERATIONS = new Set([
+  "insert-before",
+  "insert-after"
+]);
+
 function normalizePath(value = "") {
   return String(value).replace(/\\/g, "/");
+}
+
+function normalizeOperation(value = null) {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0
+  ) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  return SAFE_SYMBOL_OPERATIONS.has(normalized)
+    ? normalized
+    : null;
 }
 
 function findTargetResult({
@@ -19,22 +39,74 @@ function findTargetResult({
     return null;
   }
 
-  const normalizedTarget = normalizePath(repositoryTargetFile);
+  const normalizedTarget =
+    normalizePath(repositoryTargetFile);
 
-  return (targetLocator?.results || []).find((result) => {
-    const normalizedResult = normalizePath(result?.filePath || "");
+  return (targetLocator?.results || []).find(
+    (result) => {
+      const normalizedResult =
+        normalizePath(result?.filePath || "");
 
-    return (
-      normalizedResult === normalizedTarget ||
-      normalizedResult.endsWith(`/${normalizedTarget}`) ||
-      normalizedResult.endsWith(normalizedTarget)
-    );
-  }) || null;
+      return (
+        normalizedResult === normalizedTarget ||
+        normalizedResult.endsWith(
+          `/${normalizedTarget}`
+        ) ||
+        normalizedResult.endsWith(
+          normalizedTarget
+        )
+      );
+    }
+  ) || null;
 }
 
 function findAnchor(result, pattern) {
   return (result?.anchors || []).find(
-    (anchor) => anchor?.pattern === pattern
+    (anchor) =>
+      anchor?.pattern === pattern
+  ) || null;
+}
+
+function findPreferredSymbolAnchor({
+  targetLocator,
+  targetSymbol
+} = {}) {
+  if (
+    targetLocator?.symbolLocated !== true ||
+    typeof targetSymbol !== "string" ||
+    targetSymbol.trim().length === 0
+  ) {
+    return null;
+  }
+
+  const normalizedTargetSymbol =
+    targetSymbol.trim();
+
+  const symbolAnchors =
+    Array.isArray(targetLocator.symbolAnchors)
+      ? targetLocator.symbolAnchors
+      : [];
+
+  const declarationAnchor =
+    symbolAnchors.find(
+      (anchor) =>
+        anchor?.pattern ===
+        `function ${normalizedTargetSymbol}`
+    ) ||
+    symbolAnchors.find(
+      (anchor) =>
+        anchor?.pattern ===
+        `class ${normalizedTargetSymbol}`
+    );
+
+  if (declarationAnchor) {
+    return declarationAnchor;
+  }
+
+  return symbolAnchors.find(
+    (anchor) =>
+      anchor?.pattern ===
+      `${normalizedTargetSymbol}(`
   ) || null;
 }
 
@@ -46,26 +118,110 @@ function buildChecks() {
   ];
 }
 
-function buildRepositoryEdit({
+function buildSymbolEdit({
+  repositoryTargetFile,
+  targetLocator,
+  patchPlanner
+} = {}) {
+  const targetSymbol =
+    patchPlanner?.targetSymbol || null;
+
+  const symbolAnchor =
+    findPreferredSymbolAnchor({
+      targetLocator,
+      targetSymbol
+    });
+
+  if (
+    !repositoryTargetFile ||
+    !symbolAnchor
+  ) {
+    return null;
+  }
+
+  const rawRequestedOperation =
+    typeof patchPlanner?.recommendedOperation === "string"
+      ? patchPlanner.recommendedOperation.trim().toLowerCase()
+      : null;
+
+  const requestedOperation =
+    normalizeOperation(rawRequestedOperation);
+
+  /*
+   * Do not silently convert an unsupported requested operation.
+   *
+   * In particular, replacing a short symbol declaration anchor such as
+   * "function buildExample" would not replace the complete function body.
+   * Full-symbol replacement requires a verified symbol-range locator.
+   */
+  if (
+    rawRequestedOperation &&
+    !requestedOperation
+  ) {
+    return null;
+  }
+
+  const operation =
+    requestedOperation || "insert-before";
+
+  return {
+    file: repositoryTargetFile,
+    operation,
+    anchorPattern: symbolAnchor.pattern,
+    anchorLine: symbolAnchor.line,
+    purpose:
+      `Implement concrete work near target symbol ${targetSymbol}.`,
+    targetSymbol,
+    symbolType:
+      patchPlanner?.symbolType || null,
+    expectedBehavior:
+      Array.isArray(
+        patchPlanner?.expectedBehavior
+      )
+        ? patchPlanner.expectedBehavior
+        : [],
+    requiredChecks: buildChecks(),
+    planningPolicy: {
+      structuralAnchorRequired: true,
+      unsafeReplaceAnchorsRejected:
+        Array.from(
+          UNSAFE_REPLACE_ANCHORS
+        ),
+      selectedAnchorClass:
+        "symbol-declaration",
+      requestedOperation:
+        patchPlanner?.recommendedOperation ||
+        null,
+      effectiveOperation: operation
+    }
+  };
+}
+
+function buildRepositoryFallbackEdit({
   repositoryTargetFile,
   repositoryTargetResult
 } = {}) {
-  if (!repositoryTargetFile || !repositoryTargetResult) {
+  if (
+    !repositoryTargetFile ||
+    !repositoryTargetResult
+  ) {
     return null;
   }
 
   /*
-   * Repository-observation markers such as TODO, FIXME, XXX and stub are
-   * discovery signals, not safe replacement boundaries. Replacing one of
-   * those short markers can overwrite an arbitrary section of source code.
+   * Repository-observation markers such as TODO,
+   * FIXME, XXX and stub are discovery signals,
+   * not safe replacement boundaries.
    *
-   * Until a structural function-level locator is available, extend a
-   * CommonJS runtime only immediately before its module.exports block.
+   * When a concrete symbol cannot be located,
+   * extend a CommonJS runtime only immediately
+   * before its module.exports block.
    */
-  const moduleExportsAnchor = findAnchor(
-    repositoryTargetResult,
-    "module.exports"
-  );
+  const moduleExportsAnchor =
+    findAnchor(
+      repositoryTargetResult,
+      "module.exports"
+    );
 
   if (!moduleExportsAnchor) {
     return null;
@@ -74,17 +230,21 @@ function buildRepositoryEdit({
   return {
     file: repositoryTargetFile,
     operation: "insert-before",
-    anchorPattern: moduleExportsAnchor.pattern,
-    anchorLine: moduleExportsAnchor.line,
+    anchorPattern:
+      moduleExportsAnchor.pattern,
+    anchorLine:
+      moduleExportsAnchor.line,
     purpose:
       "Implement repository-discovered work at the target module's safe export boundary.",
     requiredChecks: buildChecks(),
     planningPolicy: {
       structuralAnchorRequired: true,
-      unsafeReplaceAnchorsRejected: Array.from(
-        UNSAFE_REPLACE_ANCHORS
-      ),
-      selectedAnchorClass: "module-export-boundary"
+      unsafeReplaceAnchorsRejected:
+        Array.from(
+          UNSAFE_REPLACE_ANCHORS
+        ),
+      selectedAnchorClass:
+        "module-export-boundary"
     }
   };
 }
@@ -93,24 +253,31 @@ function buildPatchPlannerFallback({
   indexResult,
   patchPlannerAnchor
 } = {}) {
-  if (!indexResult || !patchPlannerAnchor) {
+  if (
+    !indexResult ||
+    !patchPlannerAnchor
+  ) {
     return null;
   }
 
   return {
     file: "ash/index.js",
     operation: "insert-after",
-    anchorPattern: patchPlannerAnchor.pattern,
-    anchorLine: patchPlannerAnchor.line,
+    anchorPattern:
+      patchPlannerAnchor.pattern,
+    anchorLine:
+      patchPlannerAnchor.line,
     purpose:
       "Connect the next autonomous development runtime after Patch Planner output.",
     requiredChecks: buildChecks(),
     planningPolicy: {
       structuralAnchorRequired: true,
-      unsafeReplaceAnchorsRejected: Array.from(
-        UNSAFE_REPLACE_ANCHORS
-      ),
-      selectedAnchorClass: "named-section-boundary"
+      unsafeReplaceAnchorsRejected:
+        Array.from(
+          UNSAFE_REPLACE_ANCHORS
+        ),
+      selectedAnchorClass:
+        "named-section-boundary"
     }
   };
 }
@@ -119,24 +286,32 @@ function buildRuntimeFallback({
   runtimeResult,
   runtimeModuleAnchor
 } = {}) {
-  if (!runtimeResult || !runtimeModuleAnchor) {
+  if (
+    !runtimeResult ||
+    !runtimeModuleAnchor
+  ) {
     return null;
   }
 
   return {
-    file: "ash/runtime/patch-planner.js",
+    file:
+      "ash/runtime/patch-planner.js",
     operation: "insert-before",
-    anchorPattern: runtimeModuleAnchor.pattern,
-    anchorLine: runtimeModuleAnchor.line,
+    anchorPattern:
+      runtimeModuleAnchor.pattern,
+    anchorLine:
+      runtimeModuleAnchor.line,
     purpose:
       "Prepare a safe runtime module extension point for autonomous development work.",
     requiredChecks: buildChecks(),
     planningPolicy: {
       structuralAnchorRequired: true,
-      unsafeReplaceAnchorsRejected: Array.from(
-        UNSAFE_REPLACE_ANCHORS
-      ),
-      selectedAnchorClass: "module-export-boundary"
+      unsafeReplaceAnchorsRejected:
+        Array.from(
+          UNSAFE_REPLACE_ANCHORS
+        ),
+      selectedAnchorClass:
+        "module-export-boundary"
     }
   };
 }
@@ -145,85 +320,170 @@ function buildEditPlanner({
   patchPlanner,
   targetLocator
 } = {}) {
-  const required = patchPlanner?.needsPatchPlanning === true;
+  const required =
+    patchPlanner?.needsPatchPlanning === true;
+
   const repositoryTargetFile =
-    patchPlanner?.repositoryTargetFile || null;
+    patchPlanner?.repositoryTargetFile ||
+    null;
 
-  const repositoryTargetResult = findTargetResult({
-    targetLocator,
-    repositoryTargetFile
-  });
+  const repositoryTargetResult =
+    findTargetResult({
+      targetLocator,
+      repositoryTargetFile
+    });
 
-  const indexResult = (targetLocator?.results || []).find(
-    (result) =>
-      normalizePath(result?.filePath || "").endsWith(
-        "ash/index.js"
-      )
-  ) || null;
+  const symbolRequested =
+    typeof patchPlanner?.targetSymbol === "string" &&
+    patchPlanner.targetSymbol.trim().length > 0;
 
-  const runtimeResult = (targetLocator?.results || []).find(
-    (result) =>
-      normalizePath(result?.filePath || "").includes(
-        "ash/runtime/"
-      )
-  ) || null;
+  const symbolLocated =
+    targetLocator?.symbolLocated === true;
 
-  const patchPlannerAnchor = findAnchor(
-    indexResult,
-    "== Patch Planner =="
-  );
+  const requestedOperation =
+    typeof patchPlanner?.recommendedOperation === "string"
+      ? patchPlanner.recommendedOperation.trim().toLowerCase()
+      : null;
 
-  const runtimeModuleAnchor = findAnchor(
-    runtimeResult,
-    "module.exports"
-  );
+  const supportedSymbolOperation =
+    !requestedOperation ||
+    normalizeOperation(requestedOperation) !== null;
+
+  const indexResult =
+    (targetLocator?.results || []).find(
+      (result) =>
+        normalizePath(
+          result?.filePath || ""
+        ).endsWith(
+          "ash/index.js"
+        )
+    ) || null;
+
+  const runtimeResult =
+    (targetLocator?.results || []).find(
+      (result) =>
+        result?.role ===
+        "runtime-fallback"
+    ) ||
+    (targetLocator?.results || []).find(
+      (result) =>
+        normalizePath(
+          result?.filePath || ""
+        ).endsWith(
+          "ash/runtime/patch-planner.js"
+        )
+    ) ||
+    null;
+
+  const patchPlannerAnchor =
+    findAnchor(
+      indexResult,
+      "== Patch Planner =="
+    );
+
+  const runtimeModuleAnchor =
+    findAnchor(
+      runtimeResult,
+      "module.exports"
+    );
 
   const edits = [];
 
   if (required) {
-    const repositoryEdit = buildRepositoryEdit({
-      repositoryTargetFile,
-      repositoryTargetResult
-    });
+    const symbolEdit =
+      buildSymbolEdit({
+        repositoryTargetFile,
+        targetLocator,
+        patchPlanner
+      });
 
-    if (repositoryEdit) {
-      edits.push(repositoryEdit);
+    if (symbolEdit) {
+      edits.push(symbolEdit);
     }
   }
 
-  if (required && edits.length === 0) {
-    const patchPlannerFallback = buildPatchPlannerFallback({
-      indexResult,
-      patchPlannerAnchor
-    });
+  if (
+    required &&
+    edits.length === 0 &&
+    !symbolRequested
+  ) {
+    const repositoryFallbackEdit =
+      buildRepositoryFallbackEdit({
+        repositoryTargetFile,
+        repositoryTargetResult
+      });
+
+    if (repositoryFallbackEdit) {
+      edits.push(
+        repositoryFallbackEdit
+      );
+    }
+  }
+
+  if (
+    required &&
+    edits.length === 0 &&
+    !symbolRequested
+  ) {
+    const patchPlannerFallback =
+      buildPatchPlannerFallback({
+        indexResult,
+        patchPlannerAnchor
+      });
 
     if (patchPlannerFallback) {
-      edits.push(patchPlannerFallback);
+      edits.push(
+        patchPlannerFallback
+      );
     }
   }
 
-  if (required && edits.length === 0) {
-    const runtimeFallback = buildRuntimeFallback({
-      runtimeResult,
-      runtimeModuleAnchor
-    });
+  if (
+    required &&
+    edits.length === 0 &&
+    !symbolRequested
+  ) {
+    const runtimeFallback =
+      buildRuntimeFallback({
+        runtimeResult,
+        runtimeModuleAnchor
+      });
 
     if (runtimeFallback) {
       edits.push(runtimeFallback);
     }
   }
 
+  const selectedEdit =
+    edits[0] || null;
+
   return {
     mode: "edit-planner-runtime",
-    version: "ash-local-runtime-v0.2-safe-structural-anchors",
+    version:
+      "ash-local-runtime-v0.3-symbol-aware-structural-anchors",
     required,
-    targetLocated: targetLocator?.located === true,
-    repositoryTargetLocated: Boolean(repositoryTargetResult),
+    targetLocated:
+      targetLocator?.located === true,
+    repositoryTargetLocated:
+      Boolean(repositoryTargetResult),
+    symbolRequested,
+    symbolLocated,
+    requestedOperation,
+    supportedSymbolOperation,
+    targetSymbol:
+      patchPlanner?.targetSymbol ||
+      null,
+    selectedAnchorClass:
+      selectedEdit?.planningPolicy
+        ?.selectedAnchorClass ||
+      null,
     edits,
-    planReady: edits.length > 0,
-    rejectedReplaceAnchors: Array.from(
-      UNSAFE_REPLACE_ANCHORS
-    ),
+    planReady:
+      edits.length > 0,
+    rejectedReplaceAnchors:
+      Array.from(
+        UNSAFE_REPLACE_ANCHORS
+      ),
     nextActions:
       edits.length > 0
         ? [
@@ -234,15 +494,29 @@ function buildEditPlanner({
           ]
         : [],
     reason:
-      edits.length > 0
-        ? "Edit plan prepared from a safe structural anchor."
-        : repositoryTargetFile && repositoryTargetResult
-          ? "Target file was located, but no safe structural edit anchor was found."
-          : "No editable structural anchor was found.",
-    plannedAt: new Date().toISOString()
+      symbolRequested &&
+      !supportedSymbolOperation
+        ? `Requested symbol operation ${requestedOperation} requires verified full-symbol range replacement.`
+        : symbolRequested &&
+            !symbolLocated
+          ? `Target symbol ${patchPlanner?.targetSymbol} was not located; unsafe fallback editing was blocked.`
+          : selectedEdit?.planningPolicy
+              ?.selectedAnchorClass ===
+              "symbol-declaration"
+            ? "Edit plan prepared from the concrete target symbol."
+            : edits.length > 0
+              ? "Edit plan prepared from a safe structural fallback anchor."
+              : repositoryTargetFile &&
+                  repositoryTargetResult
+                ? "Target file was located, but no safe structural edit anchor was found."
+                : "No editable structural anchor was found.",
+    plannedAt:
+      new Date().toISOString()
   };
 }
 
 module.exports = {
-  buildEditPlanner
+  buildEditPlanner,
+  findPreferredSymbolAnchor,
+  normalizeOperation
 };

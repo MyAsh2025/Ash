@@ -8,6 +8,9 @@ const { classifyIntent } = require("./ash/runtime/intent-runtime");
 const { routeCommand } = require("./ash/runtime/command-router");
 const { executeCommandRoute } = require("./ash/runtime/command-route-executor");
 const { buildBootstrapContext } = require("./ash/runtime/bootstrap-runtime");
+const {
+  resolveImplementationProviderFromContext
+} = require("./ash/runtime/implementation-provider-registry");
 
 function getArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -193,12 +196,40 @@ const bootstrap = buildBootstrapContext({
   dryRun: dryRun || !allowApply
 });
 
+const implementationProviderRegistry =
+  resolveImplementationProviderFromContext({
+    context: {
+      implementationProviderName:
+        process.env.ASH_IMPLEMENTATION_PROVIDER ||
+        null
+    }
+  });
+
+if (implementationProviderRegistry.success !== true) {
+  console.error(JSON.stringify({
+    mode: "ash-auto-dev-provider-resolution",
+    success: false,
+    providerName:
+      implementationProviderRegistry.providerName,
+    errorMessage:
+      implementationProviderRegistry.reason
+  }, null, 2));
+
+  process.exit(1);
+}
+
 const result = runAutonomousDevelopmentManager({
   task: requestedTask,
   context: {
     projectPath: process.cwd(),
     dryRun: dryRun || !allowApply,
-    bootstrap
+    bootstrap,
+    implementationProvider:
+      implementationProviderRegistry.provider ||
+      null,
+    implementationProviderName:
+      implementationProviderRegistry.providerName ||
+      null
   },
   maxCycles,
   dryRun: dryRun || !allowApply
@@ -241,5 +272,3 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
-
-

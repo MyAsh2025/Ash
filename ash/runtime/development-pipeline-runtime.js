@@ -18,6 +18,9 @@ function getPipelineFailure(stages = []) {
 const { buildExecutionQueue } = require("./execution-queue-runtime");
 const { adaptQueueItemForExecution } = require("./queue-task-adapter");
 const { buildTargetLocator } = require("./target-locator");
+const {
+  resolveImplementationProvider
+} = require("./implementation-provider");
 const { buildEditPlanner } = require("./edit-planner");
 const { buildPatchGenerator } = require("./patch-generator");
 const { generateCodeForPatch } = require("./code-generator");
@@ -47,7 +50,8 @@ function runDevelopmentPipeline({
       })
     : {
         mode: "queue-task-adapter-runtime",
-        version: "ash-local-runtime-v0.1",
+        version:
+      "ash-local-runtime-v0.2-implementation-provider",
         success: false,
         reason: "No queue item available for adaptation."
       };
@@ -63,6 +67,22 @@ function runDevelopmentPipeline({
     patchPlanner
   });
 
+  const implementationProvider =
+    resolveImplementationProvider({
+      implementationPlanner:
+        queueTaskAdapter.implementationPlanner ||
+        null,
+      targetLocator,
+      provider:
+        context.implementationProvider ||
+        null
+    });
+
+  const resolvedImplementationPlanner =
+    implementationProvider.implementationPlanner ||
+    queueTaskAdapter.implementationPlanner ||
+    null;
+
   const editPlanner = buildEditPlanner({
     patchPlanner,
     targetLocator
@@ -71,7 +91,7 @@ function runDevelopmentPipeline({
   const patchGenerator = buildPatchGenerator(editPlanner);
   const codeGenerator = generateCodeForPatch(patchGenerator, {
     implementationPlanner:
-      queueTaskAdapter.implementationPlanner || null,
+      resolvedImplementationPlanner,
     selectedTask:
       queueTaskAdapter.item || null,
     patchPlanner
@@ -104,6 +124,13 @@ function runDevelopmentPipeline({
       name: "target-locator",
       failed: targetLocator.located !== true,
       reason: targetLocator.reason
+    },
+    {
+      name: "implementation-provider",
+      failed:
+        implementationProvider.success !== true,
+      reason:
+        implementationProvider.reason
     },
     {
       name: "edit-planner",
@@ -141,6 +168,7 @@ function runDevelopmentPipeline({
     queueTaskAdapter.success === true &&
     patchPlanner.planReady === true &&
     targetLocator.located === true &&
+    implementationProvider.success === true &&
     editPlanner.planReady === true &&
     patchGenerator.success === true &&
     codeGenerator.success === true &&
@@ -149,13 +177,16 @@ function runDevelopmentPipeline({
 
   return {
     mode: "development-pipeline-runtime",
-    version: "ash-local-runtime-v0.1",
+    version:
+      "ash-local-runtime-v0.2-implementation-provider",
     success,
     dryRun,
     executionQueue,
     queueTaskAdapter,
     patchPlanner,
     targetLocator,
+    implementationProvider,
+    resolvedImplementationPlanner,
     editPlanner,
     patchGenerator,
     codeGenerator,
@@ -173,4 +204,3 @@ function runDevelopmentPipeline({
 module.exports = {
   runDevelopmentPipeline
 };
-

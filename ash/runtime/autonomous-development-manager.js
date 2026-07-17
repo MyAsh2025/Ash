@@ -1,5 +1,48 @@
 "use strict";
 
+function extractExplicitTargetSymbol(task = "") {
+  const text = String(task || "").trim();
+
+  if (!text) {
+    return null;
+  }
+
+  const labeledMatch = text.match(
+    /\btarget\s+symbol\b\s*[:=]\s*([A-Za-z_$][A-Za-z0-9_$]*)\b/i
+  );
+
+  if (labeledMatch?.[1]) {
+    return labeledMatch[1];
+  }
+
+  const actionMatch = text.match(
+    /\b(?:improve|implement|repair|fix|update|complete)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/i
+  );
+
+  if (actionMatch?.[1]) {
+    const candidate = actionMatch[1];
+
+    /*
+     * Do not treat ordinary prose such as
+     * "complete missing implementation" as a symbol request.
+     *
+     * Unlabeled symbol inference is limited to identifiers
+     * that visibly resemble code. Simple lowercase symbols
+     * remain available through the explicit
+     * "target symbol: name" syntax.
+     */
+    const resemblesCodeSymbol =
+      /[A-Z_$]/.test(candidate) ||
+      candidate.includes("_");
+
+    if (resemblesCodeSymbol) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function extractExplicitTargetFile(task = "") {
   const text = String(task || "");
   const lines = text.split(/\r?\n/);
@@ -152,7 +195,15 @@ function runAutonomousDevelopmentManager({
       task.trim() !== "autonomous development" &&
       task.trim() !== "run fully autonomous Ash development";
 
-    const explicitTargetFile = hasExplicitUserTask ? extractExplicitTargetFile(task) : null;
+    const explicitTargetFile =
+      hasExplicitUserTask
+        ? extractExplicitTargetFile(task)
+        : null;
+
+    const explicitTargetSymbol =
+      hasExplicitUserTask
+        ? extractExplicitTargetSymbol(task)
+        : null;
 
     const explicitUserTask = hasExplicitUserTask
       ? {
@@ -161,6 +212,7 @@ function runAutonomousDevelopmentManager({
           source: "user-explicit-task",
           file: explicitTargetFile,
           targetFile: explicitTargetFile,
+          targetSymbol: explicitTargetSymbol,
           work: ["self-evolution", "priority"],
           reason: explicitTargetFile
             ? `Explicit user task targets ${explicitTargetFile}.`

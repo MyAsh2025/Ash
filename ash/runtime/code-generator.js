@@ -6,12 +6,56 @@ const SUPPORTED_OPERATIONS = new Set([
   "replace"
 ]);
 
+function normalizeExpectedBehavior(value) {
+  return Array.isArray(value)
+    ? value
+        .filter((item) => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
+function normalizeExecutableCodeTemplate(
+  implementationPlanner
+) {
+  const implementationTemplate =
+    implementationPlanner?.implementationTemplate || null;
+
+  const executableCodeTemplate =
+    implementationTemplate?.executableCodeTemplate;
+
+  return typeof executableCodeTemplate === "string"
+    ? executableCodeTemplate.trim()
+    : "";
+}
+
 function normalizeGenerationContext(context = {}) {
   const implementationPlanner =
     context.implementationPlanner || null;
 
   const selectedTask =
     context.selectedTask || null;
+
+  const targetSymbol =
+    implementationPlanner?.targetSymbol ||
+    selectedTask?.targetSymbol ||
+    null;
+
+  const symbolType =
+    implementationPlanner?.symbolType ||
+    selectedTask?.symbolType ||
+    null;
+
+  const expectedBehavior =
+    normalizeExpectedBehavior(
+      implementationPlanner?.expectedBehavior ||
+      selectedTask?.expectedBehavior
+    );
+
+  const executableCodeTemplate =
+    normalizeExecutableCodeTemplate(
+      implementationPlanner
+    );
 
   return {
     implementationPlanner,
@@ -40,6 +84,18 @@ function normalizeGenerationContext(context = {}) {
       implementationPlanner?.recommendedOperation || null,
     confidence:
       implementationPlanner?.confidence || null,
+    targetSymbol,
+    symbolType,
+    expectedBehavior,
+    implementationTemplate:
+      implementationPlanner?.implementationTemplate || null,
+    executableCodeTemplate,
+    concretePlanReady:
+      implementationPlanner?.concretePlanReady === true,
+    executableTemplateReady:
+      implementationPlanner?.executableTemplateReady === true,
+    readyForCodeGeneration:
+      implementationPlanner?.readyForCodeGeneration === true,
     repairAction:
       selectedTask?.repairAction || null,
     failureStage:
@@ -69,6 +125,53 @@ function validateOperation(operation) {
 
   if (!operation.anchorPattern) {
     return "Patch operation anchorPattern is missing.";
+  }
+
+  return null;
+}
+
+function validateConcreteGenerationPlan({
+  operation,
+  generationContext
+} = {}) {
+  if (!generationContext.implementationPlanner) {
+    return "Implementation planner result is missing.";
+  }
+
+  if (generationContext.concretePlanReady !== true) {
+    return "Concrete implementation plan is not ready.";
+  }
+
+  if (generationContext.executableTemplateReady !== true) {
+    return "Executable code template is not ready.";
+  }
+
+  if (generationContext.readyForCodeGeneration !== true) {
+    return "Implementation planner has not approved code generation.";
+  }
+
+  if (!generationContext.targetSymbol) {
+    return "Concrete target symbol is missing.";
+  }
+
+  if (generationContext.expectedBehavior.length === 0) {
+    return "Expected implementation behavior is missing.";
+  }
+
+  if (!generationContext.executableCodeTemplate) {
+    return "Executable code template is empty.";
+  }
+
+  if (
+    generationContext.recommendedOperation &&
+    generationContext.recommendedOperation !==
+      operation.operation
+  ) {
+    return [
+      "Patch operation does not match the concrete implementation plan.",
+      `Planned: ${generationContext.recommendedOperation}.`,
+      `Received: ${operation.operation}.`
+    ].join(" ");
   }
 
   return null;
@@ -113,22 +216,31 @@ function buildGeneratedCodeForOperation(
     };
   }
 
-  /*
-   * The previous implementation emitted a diagnostic function for every
-   * task. That output was syntactically valid but did not implement the
-   * requested repository change.
-   *
-   * Until the implementation planner supplies a concrete target symbol and
-   * executable code template, generation must stop here rather than sending
-   * placeholder code to the patch validator or apply engine.
-   */
-  return {
-    generatedCode: "",
-    missingReason: buildMissingPlanReason({
+  const planError =
+    validateConcreteGenerationPlan({
       operation,
       generationContext
-    }),
-    generationReady: false
+    });
+
+  if (planError) {
+    return {
+      generatedCode: "",
+      missingReason: [
+        planError,
+        buildMissingPlanReason({
+          operation,
+          generationContext
+        })
+      ].join(" "),
+      generationReady: false
+    };
+  }
+
+  return {
+    generatedCode:
+      generationContext.executableCodeTemplate,
+    missingReason: null,
+    generationReady: true
   };
 }
 
@@ -190,7 +302,7 @@ function generateCodeForPatch(
   return {
     mode: "code-generator-runtime",
     version:
-      "ash-local-runtime-v0.2-concrete-plan-required",
+      "ash-local-runtime-v0.3-executable-template",
     success,
     readyForValidation: success,
     operations: generatedOperations,
@@ -201,7 +313,7 @@ function generateCodeForPatch(
           operation.payload?.codeGenerated === true
       ).length,
     reason: success
-      ? "Generated executable code from a concrete implementation plan."
+      ? "Generated executable code from a verified concrete implementation template."
       : firstMissingReason ||
         "Concrete implementation planning is required before code generation.",
     generatedAt: new Date().toISOString()
