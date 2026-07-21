@@ -1,6 +1,15 @@
+"use strict";
+
 const fs = require("fs");
 const path = require("path");
-const { loadAshCore } = require("./ash-core-connector");
+
+const {
+  loadAshCore
+} = require("./ash-core-connector");
+
+const {
+  evaluateRules
+} = require("./rule-evaluator");
 
 function listRecentLogs(logDir, limit = 5) {
   if (!fs.existsSync(logDir)) {
@@ -27,41 +36,134 @@ function classifyRepositoryState(repository = {}) {
   return "unverified";
 }
 
-function runStartupGate({ task, projectContext, repository, dryRun }) {
-  const logDir = path.join(process.cwd(), "ash", "logs");
-  const recentLogs = listRecentLogs(logDir);
+function buildCoreRepairActions(violations = []) {
+  const actions = [];
 
-  const repositoryState = classifyRepositoryState(repository);
-  const ashCore = loadAshCore();
+  if (
+    violations.includes("core-context-unavailable") ||
+    violations.includes("required-core-incomplete")
+  ) {
+    actions.push("repair_core_runtime");
+  }
+
+  if (
+    violations.includes("active-runtime-stack-incomplete")
+  ) {
+    actions.push("verify_runtime_stack");
+  }
+
+  if (
+    violations.includes("core-loading-rule-unavailable") ||
+    violations.includes(
+      "runtime-enforcement-rule-unavailable"
+    )
+  ) {
+    actions.push("restore_runtime_enforcement");
+  }
+
+  return [...new Set(actions)];
+}
+
+function runStartupGate({
+  task = "",
+  projectContext = null,
+  repository = {},
+  dryRun = true,
+  ashCorePath = null
+} = {}) {
+  const normalizedTask =
+    String(task || "").toLowerCase();
+
+  const projectPath =
+    projectContext?.projectPath ||
+    process.cwd();
+
+  const logDir = path.join(
+    projectPath,
+    "ash",
+    "logs"
+  );
+
+  const recentLogs =
+    listRecentLogs(logDir);
+
+  const repositoryState =
+    classifyRepositoryState(repository);
+
+  const ashCore = loadAshCore(
+    ashCorePath
+      ? { ashCorePath }
+      : {}
+  );
+
+  const ruleEvaluation = evaluateRules({
+    bootstrap: {
+      mode: "startup-gate-rule-bootstrap",
+      ashCore
+    },
+    workflow: {
+      autoExecutable: false
+    },
+    taskRuntime: null
+  });
+
+  const runtimeExecutionAllowed =
+    ruleEvaluation.runtimeExecutionAllowed === true;
+
+  const violations = Array.isArray(
+    ruleEvaluation.violations
+  )
+    ? ruleEvaluation.violations
+    : [];
+
+  const stopBeforeDevelopmentPipeline =
+    runtimeExecutionAllowed !== true;
 
   const coreCheckRequired =
     repositoryState !== "completed" ||
-    Boolean(repository.risk && repository.risk !== "low") ||
-    task.includes("runtime") ||
-    task.includes("architecture") ||
-    task.includes("corecheck") ||
-    task.includes("gate");
+    Boolean(
+      repository.risk &&
+      repository.risk !== "low"
+    ) ||
+    normalizedTask.includes("runtime") ||
+    normalizedTask.includes("architecture") ||
+    normalizedTask.includes("corecheck") ||
+    normalizedTask.includes("gate") ||
+    !runtimeExecutionAllowed;
 
   const saveVerificationRequired =
-    repositoryState === "implemented-but-uncommitted";
+    repositoryState ===
+    "implemented-but-uncommitted";
 
   const handoverReviewRequired =
     recentLogs.length >= 5 ||
-    task.includes("handover") ||
-    task.includes("resume");
+    normalizedTask.includes("handover") ||
+    normalizedTask.includes("resume");
+
+  const coreRepairActions =
+    buildCoreRepairActions(violations);
 
   return {
     mode: "startup-gate-runtime",
-    version: "ash-local-runtime-v0.1",
+    version:
+      "ash-local-runtime-v0.2-core-enforcement",
     task,
     dryRun,
-    projectPath: projectContext?.projectPath || null,
+    projectPath,
     ashCore,
+    ruleEvaluation,
     repositoryState,
+    runtimeExecutionAllowed,
+    stopBeforeDevelopmentPipeline,
+    violations,
     stateClassification: {
-      completed: repositoryState === "completed",
-      implementedButUncommitted: repositoryState === "implemented-but-uncommitted",
-      unverified: repositoryState === "unverified",
+      completed:
+        repositoryState === "completed",
+      implementedButUncommitted:
+        repositoryState ===
+        "implemented-but-uncommitted",
+      unverified:
+        repositoryState === "unverified",
       unimplemented: false
     },
     gates: {
@@ -69,12 +171,20 @@ function runStartupGate({ task, projectContext, repository, dryRun }) {
       repositoryVerificationRequired: true,
       saveVerificationRequired,
       handoverReviewRequired,
-      resumeRequired: true
+      resumeRequired: true,
+      runtimeExecutionAllowed,
+      coreRuntimeBlocked:
+        !runtimeExecutionAllowed
     },
     recommendedActions: [
       "inspect_repository",
-      ...(coreCheckRequired ? ["runtime_corecheck"] : []),
-      ...(saveVerificationRequired ? ["git_diff_check"] : [])
+      ...(coreCheckRequired
+        ? ["runtime_corecheck"]
+        : []),
+      ...(saveVerificationRequired
+        ? ["git_diff_check"]
+        : []),
+      ...coreRepairActions
     ],
     recentLogs,
     evaluatedAt: new Date().toISOString()
@@ -83,6 +193,6 @@ function runStartupGate({ task, projectContext, repository, dryRun }) {
 
 module.exports = {
   runStartupGate,
-  classifyRepositoryState
+  classifyRepositoryState,
+  buildCoreRepairActions
 };
-
