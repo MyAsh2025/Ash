@@ -1,5 +1,9 @@
 "use strict";
 
+const {
+  createCommandProvider
+} = require("./implementation-provider-command");
+
 function normalizeProviderName(value = null) {
   if (typeof value !== "string") {
     return null;
@@ -111,6 +115,76 @@ function resolveImplementationProviderFromContext({
     };
   }
 
+  if (
+    requestedProvider === "command" ||
+    requestedProvider === "cli"
+  ) {
+    const command =
+      context.implementationProviderCommand ||
+      environment
+        .ASH_IMPLEMENTATION_PROVIDER_COMMAND ||
+      null;
+
+    const args =
+      context.implementationProviderArgs ||
+      environment
+        .ASH_IMPLEMENTATION_PROVIDER_ARGS_JSON ||
+      [];
+
+    const timeoutMs =
+      context.implementationProviderTimeoutMs ||
+      environment
+        .ASH_IMPLEMENTATION_PROVIDER_TIMEOUT_MS ||
+      null;
+
+    const maxBufferBytes =
+      context.implementationProviderMaxBufferBytes ||
+      environment
+        .ASH_IMPLEMENTATION_PROVIDER_MAX_BUFFER_BYTES ||
+      null;
+
+    if (
+      typeof command !== "string" ||
+      !command.trim()
+    ) {
+      return {
+        mode: "implementation-provider-registry",
+        success: false,
+        configured: false,
+        providerName: "command-provider",
+        provider: null,
+        source:
+          context.implementationProviderName
+            ? "context-name"
+            : "environment",
+        reason:
+          "Command implementation provider requires ASH_IMPLEMENTATION_PROVIDER_COMMAND."
+      };
+    }
+
+    return {
+      mode: "implementation-provider-registry",
+      success: true,
+      configured: true,
+      providerName: "command-provider",
+      provider:
+        createCommandProvider({
+          command,
+          args,
+          cwd:
+            context.projectPath ||
+            process.cwd(),
+          timeoutMs,
+          maxBufferBytes,
+          environment
+        }),
+      source:
+        context.implementationProviderName
+          ? "context-name"
+          : "environment"
+    };
+  }
+
   return {
     mode: "implementation-provider-registry",
     success: false,
@@ -129,5 +203,6 @@ function resolveImplementationProviderFromContext({
 module.exports = {
   resolveImplementationProviderFromContext,
   createVerificationProvider,
+  createCommandProvider,
   normalizeProviderName
 };
