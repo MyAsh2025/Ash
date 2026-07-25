@@ -5,7 +5,8 @@ const path = require("path");
 
 function inferExportedFunctionSymbol({
   targetFile = null,
-  root = process.cwd()
+  root = process.cwd(),
+  task = ""
 } = {}) {
   const normalizedTargetFile =
     typeof targetFile === "string"
@@ -98,6 +99,86 @@ function inferExportedFunctionSymbol({
         declaredFunctions.has(symbol)
       )
       .sort();
+
+  const normalizedTask =
+    String(task || "");
+
+  function taskMentionsSymbol(symbol) {
+    let matchIndex =
+      normalizedTask.indexOf(symbol);
+
+    while (matchIndex !== -1) {
+      const beforeCharacter =
+        matchIndex > 0
+          ? normalizedTask[matchIndex - 1]
+          : "";
+
+      const afterIndex =
+        matchIndex + symbol.length;
+
+      const afterCharacter =
+        afterIndex < normalizedTask.length
+          ? normalizedTask[afterIndex]
+          : "";
+
+      const beforeIsIdentifier =
+        /[A-Za-z0-9_$]/.test(
+          beforeCharacter
+        );
+
+      const afterIsIdentifier =
+        /[A-Za-z0-9_$]/.test(
+          afterCharacter
+        );
+
+      if (
+        !beforeIsIdentifier &&
+        !afterIsIdentifier
+      ) {
+        return true;
+      }
+
+      matchIndex =
+        normalizedTask.indexOf(
+          symbol,
+          matchIndex + symbol.length
+        );
+    }
+
+    return false;
+  }
+
+  const taskMentionedCandidates =
+    candidates.filter(
+      taskMentionsSymbol
+    );
+
+  if (taskMentionedCandidates.length === 1) {
+    return {
+      targetSymbol:
+        taskMentionedCandidates[0],
+      symbolType: "function",
+      source:
+        "task-mentioned-exported-function",
+      candidates,
+      taskMentionedCandidates,
+      reason:
+        `Inferred ${taskMentionedCandidates[0]} from the task text and exported functions in ${normalizedTargetFile}.`
+    };
+  }
+
+  if (taskMentionedCandidates.length > 1) {
+    return {
+      targetSymbol: null,
+      symbolType: null,
+      source:
+        "ambiguous-task-mentioned-exported-functions",
+      candidates,
+      taskMentionedCandidates,
+      reason:
+        `Multiple exported function candidates were mentioned in the task for ${normalizedTargetFile}.`
+    };
+  }
 
   if (candidates.length !== 1) {
     return {
@@ -400,7 +481,8 @@ function buildImplementationPlanner({
 
   const inferredTargetSymbol =
     inferExportedFunctionSymbol({
-      targetFile: resolvedTargetFile
+      targetFile: resolvedTargetFile,
+      task: originalTask?.task || task
     });
 
   const resolvedTargetSymbol =
