@@ -199,9 +199,24 @@ const bootstrap = buildBootstrapContext({
 const implementationProviderRegistry =
   resolveImplementationProviderFromContext({
     context: {
+      projectPath: process.cwd(),
       implementationProviderName:
         process.env.ASH_IMPLEMENTATION_PROVIDER ||
-        null
+        "command",
+      implementationProviderCommand:
+        process.env
+          .ASH_IMPLEMENTATION_PROVIDER_COMMAND ||
+        "node",
+      implementationProviderArgs:
+        process.env
+          .ASH_IMPLEMENTATION_PROVIDER_ARGS_JSON ||
+        [
+          "./ash/providers/openai-implementation-provider.mjs"
+        ],
+      implementationProviderTimeoutMs:
+        process.env
+          .ASH_IMPLEMENTATION_PROVIDER_TIMEOUT_MS ||
+        180000
     }
   });
 

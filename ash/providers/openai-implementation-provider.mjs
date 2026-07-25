@@ -1,7 +1,9 @@
 "use strict";
 
 import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 
@@ -191,29 +193,42 @@ function buildUserPrompt(input) {
 }
 
 async function main() {
+  const providerDirectory =
+    path.dirname(
+      fileURLToPath(import.meta.url)
+    );
+
+  const defaultEnvFile =
+    path.resolve(
+      providerDirectory,
+      "..",
+      "..",
+      ".env"
+    );
+
   const envFile =
     safeString(
       process.env.ASH_OPENAI_ENV_FILE
+    ) ||
+    defaultEnvFile;
+
+  const envResult =
+    dotenv.config({
+      path: envFile,
+      override: false,
+      quiet: true
+    });
+
+  if (envResult.error) {
+    fail(
+      "Ash OpenAI environment file could not be loaded.",
+      {
+        envFile,
+        errorMessage:
+          envResult.error.message
+      }
     );
-
-  if (envFile) {
-    const envResult =
-      dotenv.config({
-        path: envFile,
-        override: false,
-        quiet: true
-      });
-
-    if (envResult.error) {
-      fail(
-        "Ash OpenAI environment file could not be loaded.",
-        {
-          errorMessage:
-            envResult.error.message
-        }
-      );
-      return;
-    }
+    return;
   }
 
   const apiKey =
