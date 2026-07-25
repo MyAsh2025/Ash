@@ -205,20 +205,21 @@ function runAutonomousDevelopmentManager({
         ? extractExplicitTargetSymbol(task)
         : null;
 
-    const explicitUserTask = hasExplicitUserTask
-      ? {
-          task: task.trim(),
-          priority: "critical",
-          source: "user-explicit-task",
-          file: explicitTargetFile,
-          targetFile: explicitTargetFile,
-          targetSymbol: explicitTargetSymbol,
-          work: ["self-evolution", "priority"],
-          reason: explicitTargetFile
-            ? `Explicit user task targets ${explicitTargetFile}.`
-            : "Explicit user task takes priority over repository observation."
-        }
-      : null;
+    const explicitUserTask =
+      hasExplicitUserTask &&
+      explicitTargetFile
+        ? {
+            task: task.trim(),
+            priority: "critical",
+            source: "user-explicit-task",
+            file: explicitTargetFile,
+            targetFile: explicitTargetFile,
+            targetSymbol: explicitTargetSymbol,
+            work: ["self-evolution", "priority"],
+            reason:
+              `Explicit user task targets ${explicitTargetFile}.`
+          }
+        : null;
 
     const discoveredTask =
       pendingRepairTask ||
