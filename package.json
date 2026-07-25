@@ -7,5 +7,9 @@
   "scripts": {
     "run": "node ash/index.js",
     "dry": "node ash/index.js --dry-run"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "openai": "^6.48.0"
   }
 }

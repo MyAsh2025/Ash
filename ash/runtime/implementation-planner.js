@@ -1,5 +1,130 @@
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
+
+function inferExportedFunctionSymbol({
+  targetFile = null,
+  root = process.cwd()
+} = {}) {
+  const normalizedTargetFile =
+    typeof targetFile === "string"
+      ? targetFile.trim()
+      : "";
+
+  if (
+    !normalizedTargetFile ||
+    !normalizedTargetFile.toLowerCase().endsWith(".js")
+  ) {
+    return {
+      targetSymbol: null,
+      symbolType: null,
+      source: null,
+      candidates: [],
+      reason:
+        "Target symbol inference requires a JavaScript target file."
+    };
+  }
+
+  const absoluteTargetFile =
+    path.isAbsolute(normalizedTargetFile)
+      ? normalizedTargetFile
+      : path.join(root, normalizedTargetFile);
+
+  if (!fs.existsSync(absoluteTargetFile)) {
+    return {
+      targetSymbol: null,
+      symbolType: null,
+      source: null,
+      candidates: [],
+      reason:
+        `Target symbol inference file does not exist: ${normalizedTargetFile}`
+    };
+  }
+
+  const sourceText =
+    fs.readFileSync(absoluteTargetFile, "utf8");
+
+  const declaredFunctions =
+    new Set(
+      Array.from(
+        sourceText.matchAll(
+          /(?:^|\n)\s*(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g
+        ),
+        (match) => match[1]
+      )
+    );
+
+  const exportedSymbols =
+    new Set();
+
+  const moduleExportsMatch =
+    sourceText.match(
+      /module\.exports\s*=\s*\{([\s\S]*?)\}\s*;?/m
+    );
+
+  if (moduleExportsMatch?.[1]) {
+    const exportBody =
+      moduleExportsMatch[1];
+
+    for (
+      const match of exportBody.matchAll(
+        /(?:^|,)\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*(?=,|$)/gm
+      )
+    ) {
+      exportedSymbols.add(match[1]);
+    }
+
+    for (
+      const match of exportBody.matchAll(
+        /(?:^|,)\s*[A-Za-z_$][A-Za-z0-9_$]*\s*:\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*(?=,|$)/gm
+      )
+    ) {
+      exportedSymbols.add(match[1]);
+    }
+  }
+
+  for (
+    const match of sourceText.matchAll(
+      /(?:module\.)?exports\.([A-Za-z_$][A-Za-z0-9_$]*)\s*=/g
+    )
+  ) {
+    exportedSymbols.add(match[1]);
+  }
+
+  const candidates =
+    [...exportedSymbols]
+      .filter((symbol) =>
+        declaredFunctions.has(symbol)
+      )
+      .sort();
+
+  if (candidates.length !== 1) {
+    return {
+      targetSymbol: null,
+      symbolType: null,
+      source:
+        candidates.length > 1
+          ? "ambiguous-exported-functions"
+          : null,
+      candidates,
+      reason:
+        candidates.length > 1
+          ? `Multiple exported function candidates were found in ${normalizedTargetFile}.`
+          : `No unique exported function candidate was found in ${normalizedTargetFile}.`
+    };
+  }
+
+  return {
+    targetSymbol: candidates[0],
+    symbolType: "function",
+    source: "unique-exported-function",
+    candidates,
+    reason:
+      `Inferred ${candidates[0]} as the unique exported function in ${normalizedTargetFile}.`
+  };
+}
+
 function normalizeWork(work = []) {
   return Array.isArray(work)
     ? work.filter(Boolean)
@@ -273,11 +398,17 @@ function buildImplementationPlanner({
     originalTask?.file ||
     null;
 
+  const inferredTargetSymbol =
+    inferExportedFunctionSymbol({
+      targetFile: resolvedTargetFile
+    });
+
   const resolvedTargetSymbol =
     targetSymbol ||
     originalTask?.targetSymbol ||
     implementationTemplate?.targetSymbol ||
     originalTask?.implementationTemplate?.targetSymbol ||
+    inferredTargetSymbol.targetSymbol ||
     null;
 
   const resolvedSymbolType =
@@ -370,6 +501,8 @@ function buildImplementationPlanner({
       resolvedTargetSymbol,
     symbolType:
       resolvedSymbolType,
+    targetSymbolInference:
+      inferredTargetSymbol,
     expectedBehavior:
       resolvedExpectedBehavior,
     implementationTemplate: {
@@ -417,5 +550,6 @@ function buildImplementationPlanner({
 }
 
 module.exports = {
-  buildImplementationPlanner
+  buildImplementationPlanner,
+  inferExportedFunctionSymbol
 };

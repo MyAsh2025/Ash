@@ -12,3 +12,5 @@ ash/save-drafts/
 ash/capabilities/.sandbox/
 untracked.txt
 ersOwnerStudioProjectsAsh
+
+node_modules/
