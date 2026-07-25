@@ -206,8 +206,7 @@ function runAutonomousDevelopmentManager({
         : null;
 
     const explicitUserTask =
-      hasExplicitUserTask &&
-      explicitTargetFile
+      hasExplicitUserTask
         ? {
             task: task.trim(),
             priority: "critical",
@@ -217,7 +216,9 @@ function runAutonomousDevelopmentManager({
             targetSymbol: explicitTargetSymbol,
             work: ["self-evolution", "priority"],
             reason:
-              `Explicit user task targets ${explicitTargetFile}.`
+              explicitTargetFile
+                ? `Explicit user task targets ${explicitTargetFile}.`
+                : "Explicit user task requires autonomous target discovery."
           }
         : null;
 
