@@ -180,32 +180,188 @@ function inferExportedFunctionSymbol({
     };
   }
 
-  if (candidates.length !== 1) {
+  if (candidates.length === 1) {
     return {
-      targetSymbol: null,
-      symbolType: null,
-      source:
-        candidates.length > 1
-          ? "ambiguous-exported-functions"
-          : null,
+      targetSymbol: candidates[0],
+      symbolType: "function",
+      source: "unique-exported-function",
       candidates,
       reason:
-        candidates.length > 1
-          ? `Multiple exported function candidates were found in ${normalizedTargetFile}.`
-          : `No unique exported function candidate was found in ${normalizedTargetFile}.`
+        `Inferred ${candidates[0]} as the unique exported function in ${normalizedTargetFile}.`
+    };
+  }
+
+  function tokenize(value = "") {
+    return String(value || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .split(/[^a-z0-9_$]+/)
+      .map((term) => term.trim())
+      .filter((term) => term.length >= 3);
+  }
+
+  const ignoredTaskTerms =
+    new Set([
+      "add",
+      "build",
+      "change",
+      "create",
+      "fix",
+      "improve",
+      "make",
+      "update"
+    ]);
+
+  const aliases = {
+    planning: ["plan", "planner"],
+    plan: ["planning", "planner"],
+    planner: ["plan", "planning"],
+    discovery: [
+      "discover",
+      "locator",
+      "locate",
+      "resolver",
+      "resolution"
+    ],
+    inference: [
+      "infer",
+      "inferred"
+    ],
+    infer: [
+      "inference",
+      "inferred"
+    ],
+    implementation: [
+      "implement"
+    ],
+    validation: [
+      "validate",
+      "validator"
+    ],
+    generation: [
+      "generate",
+      "generator"
+    ]
+  };
+
+  const taskTerms =
+    Array.from(
+      new Set(
+        tokenize(normalizedTask)
+          .filter(
+            (term) =>
+              !ignoredTaskTerms.has(term)
+          )
+      )
+    );
+
+  function expandTerm(term) {
+    return Array.from(
+      new Set([
+        term,
+        ...(aliases[term] || [])
+      ])
+    );
+  }
+
+  function scoreCandidate(symbol) {
+    const symbolTerms =
+      new Set(tokenize(symbol));
+
+    let score = 0;
+    const matches = [];
+
+    for (const taskTerm of taskTerms) {
+      if (symbolTerms.has(taskTerm)) {
+        score += 10;
+        matches.push({
+          taskTerm,
+          matchedTerm: taskTerm,
+          type: "symbol-term",
+          weight: 10
+        });
+        continue;
+      }
+
+      const aliasMatch =
+        expandTerm(taskTerm).find(
+          (expandedTerm) =>
+            expandedTerm !== taskTerm &&
+            symbolTerms.has(expandedTerm)
+        );
+
+      if (aliasMatch) {
+        score += 7;
+        matches.push({
+          taskTerm,
+          matchedTerm: aliasMatch,
+          type: "symbol-alias",
+          weight: 7
+        });
+      }
+    }
+
+    return {
+      symbol,
+      score,
+      matches
+    };
+  }
+
+  const scoredCandidates =
+    candidates
+      .map(scoreCandidate)
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          left.symbol.localeCompare(right.symbol)
+      );
+
+  const bestCandidate =
+    scoredCandidates[0] || null;
+
+  const secondCandidate =
+    scoredCandidates[1] || null;
+
+  if (
+    bestCandidate &&
+    bestCandidate.score >= 7 &&
+    (
+      !secondCandidate ||
+      bestCandidate.score -
+        secondCandidate.score >= 3
+    )
+  ) {
+    return {
+      targetSymbol:
+        bestCandidate.symbol,
+      symbolType: "function",
+      source:
+        "task-semantic-exported-function",
+      candidates,
+      taskMentionedCandidates,
+      scoredCandidates,
+      reason:
+        `Inferred ${bestCandidate.symbol} from task semantics and exported functions in ${normalizedTargetFile}.`
     };
   }
 
   return {
-    targetSymbol: candidates[0],
-    symbolType: "function",
-    source: "unique-exported-function",
+    targetSymbol: null,
+    symbolType: null,
+    source:
+      candidates.length > 1
+        ? "ambiguous-exported-functions"
+        : null,
     candidates,
+    taskMentionedCandidates,
+    scoredCandidates,
     reason:
-      `Inferred ${candidates[0]} as the unique exported function in ${normalizedTargetFile}.`
+      candidates.length > 1
+        ? `Multiple exported function candidates were found in ${normalizedTargetFile}, and task semantics did not resolve them safely.`
+        : `No unique exported function candidate was found in ${normalizedTargetFile}.`
   };
 }
-
 function normalizeWork(work = []) {
   return Array.isArray(work)
     ? work.filter(Boolean)
@@ -547,7 +703,13 @@ function buildImplementationPlanner({
   const resolvedRecommendedOperation =
     recommendedOperation ||
     originalTask?.recommendedOperation ||
-    selectedClassification.recommendedOperation;
+    (
+      inferredTargetSymbol.targetSymbol &&
+      resolvedTargetSymbol ===
+        inferredTargetSymbol.targetSymbol
+        ? "replace"
+        : selectedClassification.recommendedOperation
+    );
 
   const resolvedConfidence =
     confidence ||

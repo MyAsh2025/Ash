@@ -3,6 +3,9 @@
 const { resolveExecutionAdapter } = require("./execution-adapter");
 const { buildPatchPlanner } = require("./patch-planner");
 const { buildImplementationPlanner } = require("./implementation-planner");
+const {
+  resolveRepositoryTargetFromTask
+} = require("./target-locator");
 
 function adaptQueueItemForExecution({
   item = null,
@@ -28,12 +31,39 @@ function adaptQueueItemForExecution({
   };
 
   const adapter = resolveExecutionAdapter(step);
+
+  const explicitTargetFile =
+    item.targetFile ||
+    item.file ||
+    null;
+
+  const targetResolution =
+    explicitTargetFile
+      ? {
+          targetFile: explicitTargetFile,
+          resolved: true,
+          ambiguous: false,
+          score: null,
+          candidates: [],
+          reason:
+            "Repository target was provided explicitly."
+        }
+      : resolveRepositoryTargetFromTask({
+          task: item.task,
+          root:
+            context.projectPath ||
+            process.cwd()
+        });
+
+  const resolvedTargetFile =
+    explicitTargetFile ||
+    targetResolution.targetFile ||
+    null;
+
   const implementationPlanner = buildImplementationPlanner({
     task: item.task,
     targetFile:
-      item.targetFile ||
-      item.file ||
-      null,
+      resolvedTargetFile,
     work: item.work || [],
     implementationType:
       item.implementationType || null,
@@ -64,8 +94,7 @@ function adaptQueueItemForExecution({
   const patchPlanner = buildPatchPlanner({
     task: item.task,
     targetFile:
-      item.targetFile ||
-      item.file ||
+      resolvedTargetFile ||
       implementationPlanner.targetFile ||
       null,
     work: item.work || [],
@@ -99,6 +128,7 @@ function adaptQueueItemForExecution({
     item,
     step,
     adapter,
+    targetResolution,
     implementationPlanner,
     patchPlanner,
     readyForPatchPlanning: Boolean(patchPlanner.planReady),

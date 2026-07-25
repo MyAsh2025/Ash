@@ -291,6 +291,29 @@ async function main() {
       await client.chat.completions.create({
         model,
         temperature: 0.1,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "ash_implementation_result",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                executableCodeTemplate: {
+                  type: "string"
+                },
+                summary: {
+                  type: "string"
+                }
+              },
+              required: [
+                "executableCodeTemplate",
+                "summary"
+              ],
+              additionalProperties: false
+            }
+          }
+        },
         messages: [
           {
             role: "developer",

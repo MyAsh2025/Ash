@@ -1,5 +1,9 @@
 "use strict";
 
+const {
+  locateFullSymbolRange
+} = require("./target-locator");
+
 const UNSAFE_REPLACE_ANCHORS = new Set([
   "TODO",
   "FIXME",
@@ -9,7 +13,8 @@ const UNSAFE_REPLACE_ANCHORS = new Set([
 
 const SAFE_SYMBOL_OPERATIONS = new Set([
   "insert-before",
-  "insert-after"
+  "insert-after",
+  "replace"
 ]);
 
 function normalizePath(value = "") {
@@ -164,11 +169,40 @@ function buildSymbolEdit({
   const operation =
     requestedOperation || "insert-before";
 
+  const symbolRange =
+    operation === "replace"
+      ? locateFullSymbolRange({
+          filePath: repositoryTargetFile,
+          targetSymbol
+        })
+      : null;
+
+  if (
+    operation === "replace" &&
+    (
+      symbolRange?.verified !== true ||
+      typeof symbolRange.source !== "string" ||
+      symbolRange.source.length === 0
+    )
+  ) {
+    return null;
+  }
+
+  const anchorPattern =
+    operation === "replace"
+      ? symbolRange.source
+      : symbolAnchor.pattern;
+
+  const anchorLine =
+    operation === "replace"
+      ? symbolRange.startLine
+      : symbolAnchor.line;
+
   return {
     file: repositoryTargetFile,
     operation,
-    anchorPattern: symbolAnchor.pattern,
-    anchorLine: symbolAnchor.line,
+    anchorPattern,
+    anchorLine,
     purpose:
       `Implement concrete work near target symbol ${targetSymbol}.`,
     targetSymbol,
@@ -188,7 +222,24 @@ function buildSymbolEdit({
           UNSAFE_REPLACE_ANCHORS
         ),
       selectedAnchorClass:
-        "symbol-declaration",
+        operation === "replace"
+          ? "verified-full-symbol-range"
+          : "symbol-declaration",
+      symbolRange:
+        symbolRange
+          ? {
+              startLine:
+                symbolRange.startLine,
+              endLine:
+                symbolRange.endLine,
+              startOffset:
+                symbolRange.startOffset,
+              endOffset:
+                symbolRange.endOffset,
+              verified:
+                symbolRange.verified === true
+            }
+          : null,
       requestedOperation:
         patchPlanner?.recommendedOperation ||
         null,
@@ -460,7 +511,7 @@ function buildEditPlanner({
   return {
     mode: "edit-planner-runtime",
     version:
-      "ash-local-runtime-v0.3-symbol-aware-structural-anchors",
+      "ash-local-runtime-v0.4-verified-full-symbol-replace",
     required,
     targetLocated:
       targetLocator?.located === true,
