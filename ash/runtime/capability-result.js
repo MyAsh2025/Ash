@@ -123,7 +123,67 @@ function classifyCapabilityResult({
   }
 
   if (executableCapability === "repair_patch") {
-    const repairType = innerResult?.classification?.type || null;
+    const repairType =
+      innerResult?.classification?.type || null;
+
+    const previousSelectedTask =
+      resolveSelectedTask(
+        classificationContext?.previousClassification ||
+        {}
+      );
+
+    if (
+      repairType === "autonomous_repair_required"
+    ) {
+      const repairClassification =
+        innerResult?.classification || {};
+
+      const selectedTask = {
+        ...(previousSelectedTask || {}),
+        task:
+          previousSelectedTask?.task ||
+          "Repair generated implementation",
+        repairAction: "repair_patch",
+        failureStage:
+          repairClassification.failureStage ||
+          previousSelectedTask?.failureStage ||
+          null,
+        issues:
+          repairClassification.issues ||
+          previousSelectedTask?.issues ||
+          [],
+        validatedOperations:
+          repairClassification.validatedOperations ||
+          previousSelectedTask?.validatedOperations ||
+          [],
+        previousTask:
+          repairClassification.previousTask ||
+          previousSelectedTask ||
+          null,
+        originalTask:
+          repairClassification.originalTask ||
+          previousSelectedTask?.originalTask ||
+          previousSelectedTask ||
+          null,
+        repairAware: true
+      };
+
+      return {
+        mode: "capability-result-runtime",
+        version:
+          "ash-local-runtime-v0.2-autonomous-repair-routing",
+        action,
+        executableCapability,
+        success: true,
+        classification:
+          "autonomous_repair_ready",
+        nextAction:
+          "run_development_pipeline",
+        selectedTask,
+        reason:
+          "Autonomous repair context is ready for development pipeline regeneration."
+      };
+    }
 
     return {
       mode: "capability-result-runtime",
@@ -131,9 +191,15 @@ function classifyCapabilityResult({
       action,
       executableCapability,
       success: Boolean(innerResult?.success),
-      classification: repairType || "repair_evaluated",
-      nextAction: innerResult?.repaired ? "verify_patch" : "continue",
-      reason: innerResult?.reason || "Repair result evaluated."
+      classification:
+        repairType || "repair_evaluated",
+      nextAction:
+        innerResult?.repaired
+          ? "verify_patch"
+          : "continue",
+      reason:
+        innerResult?.reason ||
+        "Repair result evaluated."
     };
   }
 

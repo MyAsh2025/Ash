@@ -98,10 +98,27 @@ function runCapabilityLoop({
     }
 
     for (const action of expansion.actions) {
-      queue.push(createLoopStep(action, {
+      const nextInput = {
         previousAction: step.action,
         previousClassification: classification
-      }));
+      };
+
+      if (classification?.selectedTask) {
+        nextInput.selectedTask =
+          classification.selectedTask;
+
+        nextInput.generatedTask = {
+          nextTask:
+            classification.selectedTask
+        };
+      }
+
+      queue.push(
+        createLoopStep(
+          action,
+          nextInput
+        )
+      );
     }
 
     if (queue.length === 0) {

@@ -1,4 +1,14 @@
-function classifyPatchFailure({ patchResult = null, verifyResult = null }) {
+function classifyPatchFailure({
+  patchResult = null,
+  verifyResult = null,
+  repairAction = null,
+  failureStage = null,
+  errorMessage = null,
+  issues = [],
+  validatedOperations = [],
+  previousTask = null,
+  originalTask = null
+}) {
   if (patchResult && patchResult.success === false) {
     if (patchResult.reason === "Anchor pattern not found.") {
       return {
@@ -42,6 +52,38 @@ function classifyPatchFailure({ patchResult = null, verifyResult = null }) {
     };
   }
 
+  const normalizedIssues =
+    Array.isArray(issues)
+      ? issues.filter(Boolean)
+      : [];
+
+  const normalizedValidatedOperations =
+    Array.isArray(validatedOperations)
+      ? validatedOperations
+      : [];
+
+  const autonomousRepairRequested =
+    repairAction === "repair_patch" ||
+    Boolean(failureStage) ||
+    normalizedIssues.length > 0;
+
+  if (autonomousRepairRequested) {
+    return {
+      type: "autonomous_repair_required",
+      repairAction: "regenerate_implementation",
+      reason:
+        errorMessage ||
+        normalizedIssues[0] ||
+        "Autonomous development failure requires implementation regeneration.",
+      failureStage: failureStage || null,
+      issues: normalizedIssues,
+      validatedOperations:
+        normalizedValidatedOperations,
+      previousTask: previousTask || null,
+      originalTask: originalTask || null
+    };
+  }
+
   return {
     type: "no_failure",
     repairAction: "none",
@@ -49,8 +91,78 @@ function classifyPatchFailure({ patchResult = null, verifyResult = null }) {
   };
 }
 
-function repairPatch({ patchResult = null, verifyResult = null }) {
-  const classification = classifyPatchFailure({ patchResult, verifyResult });
+function resolveRepairContext(input = {}) {
+  const generatedTask =
+    input?.generatedTask?.nextTask || null;
+
+  const selectedTask =
+    input?.selectedTask || null;
+
+  const repairTask =
+    selectedTask ||
+    generatedTask ||
+    null;
+
+  if (!repairTask) {
+    return input;
+  }
+
+  return {
+    ...input,
+    ...repairTask,
+    patchResult:
+      input.patchResult ||
+      repairTask.patchResult ||
+      null,
+    verifyResult:
+      input.verifyResult ||
+      repairTask.verifyResult ||
+      null,
+    repairAction:
+      repairTask.repairAction ||
+      input.repairAction ||
+      null,
+    failureStage:
+      repairTask.failureStage ||
+      input.failureStage ||
+      null,
+    errorMessage:
+      repairTask.errorMessage ||
+      input.errorMessage ||
+      null,
+    issues:
+      Array.isArray(repairTask.issues)
+        ? repairTask.issues
+        : Array.isArray(input.issues)
+          ? input.issues
+          : [],
+    validatedOperations:
+      Array.isArray(
+        repairTask.validatedOperations
+      )
+        ? repairTask.validatedOperations
+        : Array.isArray(
+            input.validatedOperations
+          )
+          ? input.validatedOperations
+          : [],
+    previousTask:
+      repairTask.previousTask ||
+      input.previousTask ||
+      null,
+    originalTask:
+      repairTask.originalTask ||
+      input.originalTask ||
+      null
+  };
+}
+
+function repairPatch(input = {}) {
+  const repairContext =
+    resolveRepairContext(input);
+
+  const classification =
+    classifyPatchFailure(repairContext);
 
   return {
     capability: "repair_patch",
@@ -71,5 +183,6 @@ function repairPatch({ patchResult = null, verifyResult = null }) {
 
 module.exports = {
   repairPatch,
-  classifyPatchFailure
+  classifyPatchFailure,
+  resolveRepairContext
 };

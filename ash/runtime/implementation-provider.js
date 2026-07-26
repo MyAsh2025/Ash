@@ -105,6 +105,23 @@ function buildProviderInput({
     recommendedOperation:
       implementationPlanner?.recommendedOperation ||
       null,
+    repairAction:
+      implementationPlanner?.repairAction ||
+      null,
+    failureStage:
+      implementationPlanner?.failureStage ||
+      null,
+    issues:
+      Array.isArray(
+        implementationPlanner?.issues
+      )
+        ? implementationPlanner.issues
+        : [],
+    originalTask:
+      implementationPlanner?.originalTask ||
+      null,
+    repairAware:
+      implementationPlanner?.repairAware === true,
     surroundingContext:
       targetLocator?.surroundingContext || null
   };

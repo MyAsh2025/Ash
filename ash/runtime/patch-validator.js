@@ -1,7 +1,12 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
+const { spawnSync } = require("child_process");
+const {
+  applyOperationToText
+} = require("./patch-apply-engine");
 
 const SUPPORTED_OPERATIONS = new Set([
   "insert-before",
@@ -16,11 +21,22 @@ const UNSAFE_REPLACE_ANCHORS = new Set([
   "stub"
 ]);
 
+const JAVASCRIPT_EXTENSIONS = new Set([
+  ".js",
+  ".cjs",
+  ".mjs"
+]);
+
 function escapeRegularExpression(value = "") {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
 }
 
-function isDiagnosticOnlyGeneratedCode(generatedCode = "") {
+function isDiagnosticOnlyGeneratedCode(
+  generatedCode = ""
+) {
   return (
     generatedCode.includes(
       "function describeGeneratedImplementation()"
@@ -40,7 +56,9 @@ function isUnsafeReplaceOperation(operation = {}) {
   );
 }
 
-function buildDeclarationPatterns(targetSymbol = "") {
+function buildDeclarationPatterns(
+  targetSymbol = ""
+) {
   const escapedSymbol =
     escapeRegularExpression(targetSymbol);
 
@@ -71,7 +89,10 @@ function containsSymbolDeclaration(
 
   return buildDeclarationPatterns(
     targetSymbol.trim()
-  ).some((pattern) => pattern.test(source));
+  ).some(
+    (pattern) =>
+      pattern.test(source)
+  );
 }
 
 function isDuplicateTargetSymbolGeneration({
@@ -103,6 +124,98 @@ function isDuplicateTargetSymbolGeneration({
   );
 }
 
+function validateJavaScriptSyntax({
+  source = "",
+  targetFile = ""
+} = {}) {
+  const extension =
+    path.extname(
+      String(targetFile || "")
+    ).toLowerCase();
+
+  if (!JAVASCRIPT_EXTENSIONS.has(extension)) {
+    return {
+      checked: false,
+      success: true,
+      status: null,
+      stderr: "",
+      reason:
+        "Target file is not a JavaScript source file."
+    };
+  }
+
+  const tempDirectory =
+    fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        "ash-patch-validator-"
+      )
+    );
+
+  const tempFile =
+    path.join(
+      tempDirectory,
+      `candidate${extension}`
+    );
+
+  try {
+    fs.writeFileSync(
+      tempFile,
+      source,
+      "utf8"
+    );
+
+    const result =
+      spawnSync(
+        process.execPath,
+        [
+          "--check",
+          tempFile
+        ],
+        {
+          encoding: "utf8",
+          shell: false
+        }
+      );
+
+    const success =
+      result.status === 0;
+
+    return {
+      checked: true,
+      success,
+      status:
+        typeof result.status === "number"
+          ? result.status
+          : null,
+      stderr:
+        result.stderr || "",
+      reason: success
+        ? "Virtual JavaScript source passed syntax validation."
+        : "Virtual JavaScript source failed syntax validation."
+    };
+  } catch (error) {
+    return {
+      checked: true,
+      success: false,
+      status: null,
+      stderr:
+        error?.message ||
+        String(error),
+      reason:
+        "Virtual JavaScript syntax validation could not complete."
+    };
+  } finally {
+    fs.rmSync(
+      tempDirectory,
+      {
+        recursive: true,
+        force: true
+      }
+    );
+  }
+}
+
 function validatePatchOperations(codeGenerator) {
   const operations = Array.isArray(
     codeGenerator?.operations
@@ -113,20 +226,42 @@ function validatePatchOperations(codeGenerator) {
   const validatedOperations = [];
   const issues = [];
 
+  /*
+   * Preserve virtual file state across multiple
+   * operations targeting the same file.
+   *
+   * This mirrors actual sequential patch application
+   * without writing anything to the repository.
+   */
+  const virtualFileTexts =
+    new Map();
+
   for (const operation of operations) {
-    const targetFile = operation.file || "";
-    const absolutePath = path.join(
-      process.cwd(),
-      targetFile
-    );
+    const targetFile =
+      operation.file || "";
+
+    const absolutePath =
+      path.join(
+        process.cwd(),
+        targetFile
+      );
 
     const fileExists =
       targetFile.length > 0 &&
       fs.existsSync(absolutePath);
 
-    const targetFileText = fileExists
-      ? fs.readFileSync(absolutePath, "utf8")
-      : "";
+    const originalFileText =
+      fileExists
+        ? fs.readFileSync(
+            absolutePath,
+            "utf8"
+          )
+        : "";
+
+    const targetFileText =
+      virtualFileTexts.has(targetFile)
+        ? virtualFileTexts.get(targetFile)
+        : originalFileText;
 
     const anchorPattern =
       operation.anchorPattern || "";
@@ -134,58 +269,148 @@ function validatePatchOperations(codeGenerator) {
     const anchorExists =
       fileExists &&
       anchorPattern.length > 0 &&
-      targetFileText.includes(anchorPattern);
+      targetFileText.includes(
+        anchorPattern
+      );
 
     const supportedOperation =
       SUPPORTED_OPERATIONS.has(
         operation.operation
       );
 
-    const requiredChecks = Array.isArray(
-      operation.payload?.requiredChecks
-    )
-      ? operation.payload.requiredChecks
-      : [];
+    const requiredChecks =
+      Array.isArray(
+        operation.payload?.requiredChecks
+      )
+        ? operation.payload.requiredChecks
+        : [];
 
     const generatedCode =
-      operation.payload?.generatedCode || "";
+      operation.payload?.generatedCode ||
+      "";
 
     const targetSymbol =
-      typeof operation.payload?.targetSymbol ===
-        "string" &&
-      operation.payload.targetSymbol.trim().length > 0
-        ? operation.payload.targetSymbol.trim()
+      typeof operation.payload
+        ?.targetSymbol === "string" &&
+      operation.payload.targetSymbol
+        .trim()
+        .length > 0
+        ? operation.payload
+            .targetSymbol
+            .trim()
         : null;
 
     const unsafeReplaceOperation =
-      isUnsafeReplaceOperation(operation);
+      isUnsafeReplaceOperation(
+        operation
+      );
 
     const diagnosticOnlyGeneratedCode =
-      isDiagnosticOnlyGeneratedCode(generatedCode);
+      isDiagnosticOnlyGeneratedCode(
+        generatedCode
+      );
 
     const duplicateTargetSymbolGeneration =
       isDuplicateTargetSymbolGeneration({
-        operation: operation.operation,
+        operation:
+          operation.operation,
         targetFileText,
         generatedCode,
         targetSymbol
       });
 
+    const virtualApplyEligible =
+      fileExists &&
+      anchorExists &&
+      supportedOperation &&
+      generatedCode.length > 0;
+
+    const virtualApply =
+      virtualApplyEligible
+        ? applyOperationToText(
+            targetFileText,
+            operation
+          )
+        : {
+            success: false,
+            text:
+              targetFileText,
+            reason:
+              "Virtual patch prerequisites are not satisfied."
+          };
+
+    const syntaxValidation =
+      virtualApply.success === true
+        ? validateJavaScriptSyntax({
+            source:
+              virtualApply.text,
+            targetFile
+          })
+        : {
+            checked: false,
+            success: false,
+            status: null,
+            stderr: "",
+            reason:
+              "Syntax validation requires a successful virtual patch."
+          };
+
     const validation = {
-      file: targetFile,
-      operation: operation.operation || null,
+      file:
+        targetFile,
+
+      operation:
+        operation.operation || null,
+
       anchorPattern,
+
       targetSymbol,
+
       fileExists,
+
       anchorExists,
+
       supportedOperation,
+
       hasRequiredChecks:
         requiredChecks.length > 0,
+
       hasGeneratedCode:
         generatedCode.length > 0,
+
       unsafeReplaceOperation,
+
       diagnosticOnlyGeneratedCode,
+
       duplicateTargetSymbolGeneration,
+
+      virtualApplySuccess:
+        virtualApply.success === true,
+
+      virtualApplyChanged:
+        virtualApply.success === true &&
+        targetFileText !==
+          virtualApply.text,
+
+      syntaxChecked:
+        syntaxValidation.checked ===
+        true,
+
+      syntaxValid:
+        syntaxValidation.success ===
+        true,
+
+      syntaxStatus:
+        syntaxValidation.status,
+
+      syntaxError:
+        syntaxValidation.success === true
+          ? null
+          : (
+              syntaxValidation.stderr ||
+              syntaxValidation.reason
+            ),
+
       readyForSafePatch:
         fileExists &&
         anchorExists &&
@@ -194,7 +419,9 @@ function validatePatchOperations(codeGenerator) {
         generatedCode.length > 0 &&
         !unsafeReplaceOperation &&
         !diagnosticOnlyGeneratedCode &&
-        !duplicateTargetSymbolGeneration
+        !duplicateTargetSymbolGeneration &&
+        virtualApply.success === true &&
+        syntaxValidation.success === true
     };
 
     if (!validation.fileExists) {
@@ -227,27 +454,78 @@ function validatePatchOperations(codeGenerator) {
       );
     }
 
-    if (validation.unsafeReplaceOperation) {
+    if (
+      validation.unsafeReplaceOperation
+    ) {
       issues.push(
         `Unsafe replace anchor for generated code: ${anchorPattern}`
       );
     }
 
-    if (validation.diagnosticOnlyGeneratedCode) {
+    if (
+      validation
+        .diagnosticOnlyGeneratedCode
+    ) {
       issues.push(
         `Invalid generated code: diagnostic-only implementation for ${targetFile}`
       );
     }
 
     if (
-      validation.duplicateTargetSymbolGeneration
+      validation
+        .duplicateTargetSymbolGeneration
     ) {
       issues.push(
         `Invalid generated code: duplicate declaration of target symbol ${targetSymbol} in ${targetFile}`
       );
     }
 
-    validatedOperations.push(validation);
+    if (
+      virtualApplyEligible &&
+      !validation.virtualApplySuccess
+    ) {
+      issues.push(
+        `Virtual patch application failed for ${targetFile}: ${virtualApply.reason}`
+      );
+    }
+
+    if (
+      validation.virtualApplySuccess &&
+      !validation.syntaxValid
+    ) {
+      const syntaxMessage =
+        String(
+          validation.syntaxError || ""
+        )
+          .trim()
+          .split(/\r?\n/)
+          .filter(Boolean)
+          .slice(0, 3)
+          .join(" ");
+
+      issues.push(
+        [
+          `Invalid generated code: virtual patched file failed syntax validation for ${targetFile}.`,
+          syntaxMessage
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+    }
+
+    if (
+      validation.virtualApplySuccess &&
+      validation.syntaxValid
+    ) {
+      virtualFileTexts.set(
+        targetFile,
+        virtualApply.text
+      );
+    }
+
+    validatedOperations.push(
+      validation
+    );
   }
 
   const readyForSafePatch =
@@ -258,23 +536,37 @@ function validatePatchOperations(codeGenerator) {
     );
 
   return {
-    mode: "patch-validator-runtime",
+    mode:
+      "patch-validator-runtime",
+
     version:
-      "ash-local-runtime-v0.2-duplicate-symbol-guard",
-    success: readyForSafePatch,
+      "ash-local-runtime-v0.3-virtual-syntax-validation",
+
+    success:
+      readyForSafePatch,
+
     readyForSafePatch,
+
     validatedOperations,
-    issueCount: issues.length,
+
+    issueCount:
+      issues.length,
+
     issues,
-    reason: readyForSafePatch
-      ? "Structured patch operations passed validation."
-      : "Structured patch operations are not ready for safe patch.",
-    validatedAt: new Date().toISOString()
+
+    reason:
+      readyForSafePatch
+        ? "Structured patch operations passed validation including virtual syntax validation."
+        : "Structured patch operations are not ready for safe patch.",
+
+    validatedAt:
+      new Date().toISOString()
   };
 }
 
 module.exports = {
   validatePatchOperations,
+  validateJavaScriptSyntax,
   containsSymbolDeclaration,
   isDuplicateTargetSymbolGeneration,
   isDiagnosticOnlyGeneratedCode,

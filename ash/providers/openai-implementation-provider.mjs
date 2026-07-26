@@ -109,6 +109,38 @@ function normalizeProviderInput(rawInput) {
     strategy:
       safeString(rawInput?.strategy),
 
+    repairAction:
+      safeString(rawInput?.repairAction),
+
+    failureStage:
+      safeString(rawInput?.failureStage),
+
+    issues:
+      safeStringArray(rawInput?.issues),
+
+    repairAware:
+      rawInput?.repairAware === true,
+
+    originalTask:
+      rawInput?.originalTask &&
+      typeof rawInput.originalTask === "object"
+        ? {
+            task:
+              safeString(
+                rawInput.originalTask.task
+              ),
+            targetFile:
+              safeString(
+                rawInput.originalTask.targetFile ||
+                rawInput.originalTask.file
+              ),
+            targetSymbol:
+              safeString(
+                rawInput.originalTask.targetSymbol
+              )
+          }
+        : null,
+
     surroundingContext: {
       text:
         safeString(surroundingContext.text),
@@ -163,9 +195,12 @@ function buildDeveloperPrompt() {
     "- Do not return TODO, FIXME, XXX, placeholder, stub, or pseudocode.",
     "- Preserve the surrounding file style and CommonJS/ESM convention.",
     "- Implement only the requested symbol or smallest safe replacement block.",
+    "- For symbol replacement, return only the replacement symbol or requested replacement block.",
+    "- Do not append module.exports, export statements, unrelated declarations, or trailing file content unless they are part of the requested replacement block.",
+    "- When repair context is provided, correct the reported failure instead of repeating the failed implementation.",
     "- Do not invent unrelated files, dependencies, or architectural layers.",
     "- Do not include a complete file unless the target requires it.",
-    "- The code must be syntactically valid for the target file.",
+    "- The code must be syntactically valid when substituted into the provided surrounding source context.",
     "- JSON string escaping must be valid."
   ].join("\n");
 }
@@ -177,6 +212,23 @@ function buildUserPrompt(input) {
     `Target symbol: ${input.targetSymbol}`,
     `Symbol type: ${input.symbolType}`,
     `Strategy: ${input.strategy || "(not provided)"}`,
+    `Repair mode: ${input.repairAware ? "yes" : "no"}`,
+    `Repair action: ${input.repairAction || "(not provided)"}`,
+    `Failure stage: ${input.failureStage || "(not provided)"}`,
+    "",
+    "Repair issues:",
+    input.issues.length > 0
+      ? input.issues
+          .map(
+            (item, index) =>
+              `${index + 1}. ${item}`
+          )
+          .join("\n")
+      : "(not provided)",
+    "",
+    "Original task:",
+    input.originalTask?.task ||
+      "(not provided)",
     "",
     "Expected behavior:",
     input.expectedBehavior.length > 0

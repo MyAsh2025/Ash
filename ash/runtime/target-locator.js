@@ -308,6 +308,130 @@ function findOpeningBrace({
   return -1;
 }
 
+function findFunctionBodyOpeningBrace({
+  sourceText = "",
+  startOffset = 0
+} = {}) {
+  if (
+    typeof sourceText !== "string" ||
+    startOffset < 0 ||
+    startOffset >= sourceText.length
+  ) {
+    return -1;
+  }
+
+  let quote = null;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  let parameterDepth = 0;
+  let parameterListStarted = false;
+
+  for (
+    let index = startOffset;
+    index < sourceText.length;
+    index += 1
+  ) {
+    const character = sourceText[index];
+    const nextCharacter =
+      sourceText[index + 1] || "";
+
+    if (lineComment) {
+      if (character === "\n") {
+        lineComment = false;
+      }
+
+      continue;
+    }
+
+    if (blockComment) {
+      if (
+        character === "*" &&
+        nextCharacter === "/"
+      ) {
+        blockComment = false;
+        index += 1;
+      }
+
+      continue;
+    }
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (character === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (character === quote) {
+        quote = null;
+      }
+
+      continue;
+    }
+
+    if (
+      character === "/" &&
+      nextCharacter === "/"
+    ) {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (
+      character === "/" &&
+      nextCharacter === "*"
+    ) {
+      blockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (
+      character === '"' ||
+      character === "'" ||
+      character === "`"
+    ) {
+      quote = character;
+      continue;
+    }
+
+    if (character === "(") {
+      parameterDepth += 1;
+      parameterListStarted = true;
+      continue;
+    }
+
+    if (
+      character === ")" &&
+      parameterListStarted
+    ) {
+      parameterDepth -= 1;
+
+      if (parameterDepth < 0) {
+        return -1;
+      }
+
+      continue;
+    }
+
+    if (
+      character === "{" &&
+      parameterListStarted &&
+      parameterDepth === 0
+    ) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
 function findMatchingClosingBrace({
   sourceText = "",
   openingBraceOffset = -1
@@ -472,7 +596,7 @@ function locateFullSymbolRange({
   }
 
   const openingBraceOffset =
-    findOpeningBrace({
+    findFunctionBodyOpeningBrace({
       sourceText,
       startOffset
     });
