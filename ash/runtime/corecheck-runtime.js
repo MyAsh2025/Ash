@@ -82,17 +82,34 @@ function runGitDiffCheck() {
       ["status", "--short"]
     );
 
+  const diffCheck =
+    runCommand(
+      "git",
+      ["diff", "--check"]
+    );
+
   return {
     mode: "git-diff-check-runtime",
     success:
       diff.success &&
-      status.success,
+      status.success &&
+      diffCheck.success,
     clean:
       status.stdout.trim().length === 0,
     diffStat:
       diff.stdout.trim(),
     statusShort:
-      status.stdout.trim()
+      status.stdout.trim(),
+    diffCheck: {
+      success:
+        diffCheck.success,
+      stdout:
+        diffCheck.stdout.trim(),
+      stderr:
+        diffCheck.stderr.trim(),
+      error:
+        diffCheck.error
+    }
   };
 }
 

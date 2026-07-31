@@ -659,6 +659,145 @@ function locateFullSymbolRange({
   };
 }
 
+function locateVerifiedLocalAnchor({
+  filePath = null,
+  targetSymbol = null,
+  pattern = null,
+  root = process.cwd()
+} = {}) {
+  const normalizedPattern =
+    typeof pattern === "string"
+      ? pattern.trim()
+      : "";
+
+  if (!normalizedPattern) {
+    return null;
+  }
+
+  const symbolRange =
+    locateFullSymbolRange({
+      filePath,
+      targetSymbol,
+      root
+    });
+
+  if (
+    !symbolRange ||
+    symbolRange.verified !== true ||
+    typeof symbolRange.source !== "string" ||
+    symbolRange.source.length === 0
+  ) {
+    return null;
+  }
+
+  const matches = [];
+
+  const linePattern =
+    /.*(?:\r\n|\n|\r|$)/g;
+
+  let lineMatch;
+
+  while (
+    (
+      lineMatch =
+        linePattern.exec(
+          symbolRange.source
+        )
+    ) !== null
+  ) {
+    const rawLine =
+      lineMatch[0];
+
+    const lineContent =
+      rawLine.replace(
+        /(?:\r\n|\n|\r)$/,
+        ""
+      );
+
+    if (
+      lineContent.trim() ===
+      normalizedPattern
+    ) {
+      const contentOffset =
+        lineContent.indexOf(
+          normalizedPattern
+        );
+
+      if (contentOffset < 0) {
+        return null;
+      }
+
+      matches.push(
+        lineMatch.index +
+        contentOffset
+      );
+    }
+
+    if (rawLine.length === 0) {
+      break;
+    }
+  }
+
+  if (matches.length !== 1) {
+    return null;
+  }
+
+  const uniqueRelativeOffset =
+    matches[0];
+
+  const absoluteOffset =
+    symbolRange.startOffset +
+    uniqueRelativeOffset;
+
+  const sourceText =
+    fs.readFileSync(
+      path.isAbsolute(filePath)
+        ? filePath
+        : path.join(root, filePath),
+      "utf8"
+    );
+
+  return {
+    targetSymbol:
+      symbolRange.targetSymbol,
+    symbolType:
+      symbolRange.symbolType,
+
+    pattern:
+      normalizedPattern,
+
+    relativeOffset:
+      uniqueRelativeOffset,
+
+    absoluteOffset,
+
+    line:
+      countLinesBefore(
+        sourceText,
+        absoluteOffset
+      ),
+
+    symbolRange: {
+      startOffset:
+        symbolRange.startOffset,
+      endOffset:
+        symbolRange.endOffset,
+      startLine:
+        symbolRange.startLine,
+      endLine:
+        symbolRange.endLine,
+      verified:
+        symbolRange.verified === true
+    },
+
+    uniqueInsideVerifiedSymbol:
+      true,
+
+    verified:
+      true
+  };
+}
+
 function normalizeTaskTerms(task = "") {
   const normalizedTask =
     String(task || "")
@@ -1124,6 +1263,32 @@ function buildTargetLocator({
       symbolAnchors
     });
 
+  const localRepairIntent =
+    patchPlanner?.localRepairIntent &&
+    typeof patchPlanner.localRepairIntent === "object"
+      ? patchPlanner.localRepairIntent
+      : null;
+
+  const localAnchorPattern =
+    typeof localRepairIntent?.localAnchorPattern === "string"
+      ? localRepairIntent.localAnchorPattern.trim()
+      : "";
+
+  const verifiedLocalAnchor =
+    localRepairIntent?.requireVerifiedLocalAnchor === true &&
+    repositoryTargetFile &&
+    targetSymbol &&
+    localAnchorPattern
+      ? locateVerifiedLocalAnchor({
+          filePath:
+            repositoryTargetFile,
+          targetSymbol,
+          pattern:
+            localAnchorPattern,
+          root
+        })
+      : null;
+
   return {
     mode: "target-locator-runtime",
     version:
@@ -1140,6 +1305,12 @@ function buildTargetLocator({
       symbolAnchors.length > 0,
     symbolAnchors,
     surroundingContext,
+    verifiedLocalAnchor:
+      verifiedLocalAnchor
+        ? {
+            ...verifiedLocalAnchor
+          }
+        : null,
     results,
     located:
       results.length > 0 &&
@@ -1162,6 +1333,7 @@ module.exports = {
   normalizePatternList,
   buildSurroundingContext,
   locateFullSymbolRange,
+  locateVerifiedLocalAnchor,
   resolveRepositoryTargetFromTask,
   collectRepositoryJavaScriptFiles,
   normalizeTaskTerms

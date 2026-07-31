@@ -1,7 +1,8 @@
 "use strict";
 
 const {
-  locateFullSymbolRange
+  locateFullSymbolRange,
+  locateVerifiedLocalAnchor
 } = require("./target-locator");
 
 const UNSAFE_REPLACE_ANCHORS = new Set([
@@ -188,15 +189,52 @@ function buildSymbolEdit({
     return null;
   }
 
+  const localRepairIntent =
+    patchPlanner?.localRepairIntent &&
+    typeof patchPlanner.localRepairIntent === "object"
+      ? patchPlanner.localRepairIntent
+      : null;
+
+  const verifiedLocalAnchorRequired =
+    localRepairIntent?.requireVerifiedLocalAnchor === true;
+
+  const localAnchorPattern =
+    typeof localRepairIntent?.localAnchorPattern === "string"
+      ? localRepairIntent.localAnchorPattern.trim()
+      : "";
+
+  const verifiedLocalAnchor =
+    verifiedLocalAnchorRequired &&
+    operation !== "replace" &&
+    localAnchorPattern
+      ? locateVerifiedLocalAnchor({
+          filePath: repositoryTargetFile,
+          targetSymbol,
+          pattern: localAnchorPattern
+        })
+      : null;
+
+  if (
+    verifiedLocalAnchorRequired &&
+    operation !== "replace" &&
+    verifiedLocalAnchor?.verified !== true
+  ) {
+    return null;
+  }
+
   const anchorPattern =
     operation === "replace"
       ? symbolRange.source
-      : symbolAnchor.pattern;
+      : verifiedLocalAnchorRequired
+        ? verifiedLocalAnchor.pattern
+        : symbolAnchor.pattern;
 
   const anchorLine =
     operation === "replace"
       ? symbolRange.startLine
-      : symbolAnchor.line;
+      : verifiedLocalAnchorRequired
+        ? verifiedLocalAnchor.line
+        : symbolAnchor.line;
 
   return {
     file: repositoryTargetFile,
@@ -224,7 +262,21 @@ function buildSymbolEdit({
       selectedAnchorClass:
         operation === "replace"
           ? "verified-full-symbol-range"
-          : "symbol-declaration",
+          : verifiedLocalAnchorRequired
+            ? "verified-local-symbol-anchor"
+            : "symbol-declaration",
+      verifiedLocalAnchorRequired,
+      verifiedLocalAnchor:
+        verifiedLocalAnchor
+          ? {
+              verified:
+                verifiedLocalAnchor.verified === true,
+              anchorPattern:
+                verifiedLocalAnchor.pattern || null,
+              anchorLine:
+                verifiedLocalAnchor.line || null
+            }
+          : null,
       symbolRange:
         symbolRange
           ? {

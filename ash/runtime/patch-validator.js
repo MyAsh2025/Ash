@@ -124,6 +124,162 @@ function isDuplicateTargetSymbolGeneration({
   );
 }
 
+function extractCommonJsExportNames(
+  source = ""
+) {
+  if (typeof source !== "string") {
+    return [];
+  }
+
+  const match =
+    source.match(
+      /module\.exports\s*=\s*\{([\s\S]*?)\};/
+    );
+
+  if (!match) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      match[1]
+        .split(",")
+        .map((entry) =>
+          entry
+            .trim()
+            .split(":")[0]
+            .trim()
+        )
+        .filter((name) =>
+          /^[A-Za-z_$][\w$]*$/.test(name)
+        )
+    )
+  );
+}
+
+function findMissingCommonJsExports({
+  beforeSource = "",
+  afterSource = ""
+} = {}) {
+  const beforeExports =
+    extractCommonJsExportNames(beforeSource);
+
+  if (beforeExports.length === 0) {
+    return [];
+  }
+
+  const afterExports =
+    new Set(
+      extractCommonJsExportNames(afterSource)
+    );
+
+  return beforeExports.filter(
+    (name) => !afterExports.has(name)
+  );
+}
+function findMissingExportedDeclarations({
+  beforeSource = "",
+  afterSource = ""
+} = {}) {
+  const beforeExports =
+    extractCommonJsExportNames(beforeSource);
+
+  return beforeExports.filter(
+    (name) =>
+      containsSymbolDeclaration(
+        beforeSource,
+        name
+      ) &&
+      !containsSymbolDeclaration(
+        afterSource,
+        name
+      )
+  );
+}
+function evaluateDestructiveReplace({
+  operation = null,
+  anchorPattern = "",
+  generatedCode = ""
+} = {}) {
+  if (
+    operation !== "replace" ||
+    typeof anchorPattern !== "string" ||
+    typeof generatedCode !== "string"
+  ) {
+    return {
+      destructive: false,
+      checked: false,
+      reason:
+        "Destructive replace check is not applicable."
+    };
+  }
+
+  const original =
+    anchorPattern.trim();
+
+  const replacement =
+    generatedCode.trim();
+
+  if (
+    original.length === 0 ||
+    replacement.length === 0
+  ) {
+    return {
+      destructive: false,
+      checked: false,
+      reason:
+        "Destructive replace check requires non-empty source."
+    };
+  }
+
+  const originalLines =
+    original.split(/\r?\n/).length;
+
+  const replacementLines =
+    replacement.split(/\r?\n/).length;
+
+  const characterRatio =
+    replacement.length /
+    original.length;
+
+  const lineRatio =
+    replacementLines /
+    originalLines;
+
+  const substantialOriginal =
+    original.length >= 1000 ||
+    originalLines >= 40;
+
+  const severeCharacterReduction =
+    characterRatio < 0.4;
+
+  const severeLineReduction =
+    lineRatio < 0.4;
+
+  const destructive =
+    substantialOriginal &&
+    severeCharacterReduction &&
+    severeLineReduction;
+
+  return {
+    destructive,
+    checked: true,
+    substantialOriginal,
+    originalCharacters:
+      original.length,
+    replacementCharacters:
+      replacement.length,
+    characterRatio,
+    originalLines,
+    replacementLines,
+    lineRatio,
+    reason:
+      destructive
+        ? "Large replace operation would remove most of the existing implementation."
+        : "Replace size remains within the structural safety threshold."
+  };
+}
+
 function validateJavaScriptSyntax({
   source = "",
   targetFile = ""
@@ -355,6 +511,39 @@ function validatePatchOperations(codeGenerator) {
               "Syntax validation requires a successful virtual patch."
           };
 
+    const missingCommonJsExports =
+      virtualApply.success === true
+        ? findMissingCommonJsExports({
+            beforeSource:
+              targetFileText,
+            afterSource:
+              virtualApply.text
+          })
+        : [];
+
+    const missingExportedDeclarations =
+      virtualApply.success === true
+        ? findMissingExportedDeclarations({
+            beforeSource:
+              targetFileText,
+            afterSource:
+              virtualApply.text
+          })
+        : [];
+
+    const semanticStructurePreserved =
+      missingCommonJsExports.length === 0 &&
+      missingExportedDeclarations.length === 0;
+
+    const destructiveReplace =
+      evaluateDestructiveReplace({
+        operation:
+          operation.operation,
+        anchorPattern:
+          operation.anchorPattern,
+        generatedCode
+      });
+
     const validation = {
       file:
         targetFile,
@@ -411,6 +600,21 @@ function validatePatchOperations(codeGenerator) {
               syntaxValidation.reason
             ),
 
+      semanticStructurePreserved,
+
+      missingCommonJsExports,
+
+      destructiveReplaceChecked:
+        destructiveReplace.checked,
+
+      destructiveReplace:
+        destructiveReplace.destructive,
+
+      destructiveReplaceMetrics:
+        destructiveReplace,
+
+      missingExportedDeclarations,
+
       readyForSafePatch:
         fileExists &&
         anchorExists &&
@@ -421,7 +625,9 @@ function validatePatchOperations(codeGenerator) {
         !diagnosticOnlyGeneratedCode &&
         !duplicateTargetSymbolGeneration &&
         virtualApply.success === true &&
-        syntaxValidation.success === true
+        syntaxValidation.success === true &&
+        semanticStructurePreserved &&
+        !destructiveReplace.destructive
     };
 
     if (!validation.fileExists) {
@@ -514,8 +720,30 @@ function validatePatchOperations(codeGenerator) {
     }
 
     if (
+      validation.destructiveReplace
+    ) {
+      issues.push(
+        `Destructive replace rejected for ${targetFile}: replacement retains only ${Math.round(
+          destructiveReplace.characterRatio * 100
+        )}% of characters and ${Math.round(
+          destructiveReplace.lineRatio * 100
+        )}% of lines from a substantial existing implementation.`
+      );
+    }
+
+    if (
       validation.virtualApplySuccess &&
-      validation.syntaxValid
+      !validation.semanticStructurePreserved
+    ) {
+      issues.push(
+        `Semantic structure regression in ${targetFile}: removed exports=${missingCommonJsExports.join(", ") || "none"}; missing exported declarations=${missingExportedDeclarations.join(", ") || "none"}`
+      );
+    }
+
+    if (
+      validation.virtualApplySuccess &&
+      validation.syntaxValid &&
+      validation.semanticStructurePreserved
     ) {
       virtualFileTexts.set(
         targetFile,
@@ -569,6 +797,10 @@ module.exports = {
   validateJavaScriptSyntax,
   containsSymbolDeclaration,
   isDuplicateTargetSymbolGeneration,
+  extractCommonJsExportNames,
+  findMissingCommonJsExports,
+  findMissingExportedDeclarations,
+  evaluateDestructiveReplace,
   isDiagnosticOnlyGeneratedCode,
   isUnsafeReplaceOperation
 };

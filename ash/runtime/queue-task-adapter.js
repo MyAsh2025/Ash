@@ -85,8 +85,14 @@ function adaptQueueItemForExecution({
       item.repairAction || null,
     failureStage:
       item.failureStage || null,
+    errorMessage:
+      item.errorMessage || null,
     issues:
       item.issues || [],
+    validatedOperations:
+      Array.isArray(item.validatedOperations)
+        ? item.validatedOperations
+        : [],
     previousTask:
       item.previousTask || null
   });
@@ -113,6 +119,10 @@ function adaptQueueItemForExecution({
     recommendedOperation:
       implementationPlanner.recommendedOperation ||
       item.recommendedOperation ||
+      null,
+    localRepairIntent:
+      implementationPlanner.localRepairIntent ||
+      item.localRepairIntent ||
       null,
     executionPolicy: {
       plannedActions: ["prepare_patch_plan"]

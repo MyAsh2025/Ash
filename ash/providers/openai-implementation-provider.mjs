@@ -109,14 +109,101 @@ function normalizeProviderInput(rawInput) {
     strategy:
       safeString(rawInput?.strategy),
 
+    recommendedOperation:
+      safeString(rawInput?.recommendedOperation),
+
+    localRepairIntent:
+      rawInput?.localRepairIntent &&
+      typeof rawInput.localRepairIntent === "object"
+        ? {
+            mode:
+              safeString(rawInput.localRepairIntent.mode),
+            preserveExistingTarget:
+              rawInput.localRepairIntent.preserveExistingTarget === true,
+            allowTargetRedeclaration:
+              rawInput.localRepairIntent.allowTargetRedeclaration === true,
+            requireVerifiedLocalAnchor:
+              rawInput.localRepairIntent.requireVerifiedLocalAnchor === true,
+            localAnchorPattern:
+              safeString(rawInput.localRepairIntent.localAnchorPattern),
+            preferredOperation:
+              safeString(rawInput.localRepairIntent.preferredOperation),
+            integrationGoal:
+              safeString(rawInput.localRepairIntent.integrationGoal),
+            minimizeStructuralChange:
+              rawInput.localRepairIntent.minimizeStructuralChange === true,
+            safeStopRequired:
+              rawInput.localRepairIntent.safeStopRequired === true
+          }
+        : null,
+
     repairAction:
       safeString(rawInput?.repairAction),
 
     failureStage:
       safeString(rawInput?.failureStage),
 
+    errorMessage:
+      safeString(rawInput?.errorMessage),
+
     issues:
       safeStringArray(rawInput?.issues),
+
+    validatedOperations:
+      Array.isArray(rawInput?.validatedOperations)
+        ? rawInput.validatedOperations
+            .filter(
+              (operation) =>
+                operation &&
+                typeof operation === "object"
+            )
+            .map(
+              (operation) => ({
+                file:
+                  safeString(operation.file),
+                operation:
+                  safeString(operation.operation),
+                targetSymbol:
+                  safeString(
+                    operation.targetSymbol ||
+                    operation.payload?.targetSymbol
+                  ),
+                readyForSafePatch:
+                  operation.readyForSafePatch === true,
+                destructiveReplaceChecked:
+                  operation.destructiveReplaceChecked === true,
+                destructiveReplace:
+                  operation.destructiveReplace === true,
+                destructiveReplaceMetrics:
+                  operation.destructiveReplaceMetrics &&
+                  typeof operation.destructiveReplaceMetrics === "object"
+                    ? {
+                        characterRatio:
+                          Number.isFinite(
+                            operation.destructiveReplaceMetrics
+                              .characterRatio
+                          )
+                            ? operation.destructiveReplaceMetrics
+                                .characterRatio
+                            : null,
+                        lineRatio:
+                          Number.isFinite(
+                            operation.destructiveReplaceMetrics
+                              .lineRatio
+                          )
+                            ? operation.destructiveReplaceMetrics
+                                .lineRatio
+                            : null,
+                        reason:
+                          safeString(
+                            operation.destructiveReplaceMetrics
+                              .reason
+                          )
+                      }
+                    : null
+              })
+            )
+        : [],
 
     repairAware:
       rawInput?.repairAware === true,
@@ -195,7 +282,11 @@ function buildDeveloperPrompt() {
     "- Do not return TODO, FIXME, XXX, placeholder, stub, or pseudocode.",
     "- Preserve the surrounding file style and CommonJS/ESM convention.",
     "- Implement only the requested symbol or smallest safe replacement block.",
-    "- For symbol replacement, return only the replacement symbol or requested replacement block.",
+    "- Follow the requested operation exactly.",
+    "- For replace, return only the complete replacement target symbol or requested replacement block.",
+    "- For insert-before, return only code that can be inserted immediately before the target symbol. Do not redeclare or replace the target symbol.",
+    "- For insert-after, return only code that can be inserted immediately after the target symbol. Do not redeclare or replace the target symbol.",
+    "- When the operation is insert-before or insert-after, generating the target symbol declaration itself is invalid.",
     "- Do not append module.exports, export statements, unrelated declarations, or trailing file content unless they are part of the requested replacement block.",
     "- When repair context is provided, correct the reported failure instead of repeating the failed implementation.",
     "- Do not invent unrelated files, dependencies, or architectural layers.",
@@ -205,16 +296,82 @@ function buildDeveloperPrompt() {
   ].join("\n");
 }
 
+function resolveVerifiedLocalAnchorSymbol(input) {
+  const localAnchorPattern =
+    typeof input?.localRepairIntent?.localAnchorPattern === "string"
+      ? input.localRepairIntent.localAnchorPattern.trim()
+      : "";
+
+  const localAnchorDeclaration =
+    localAnchorPattern.match(
+      /^\s*(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/
+    );
+
+  return localAnchorDeclaration?.[1] || null;
+}
+
 function buildUserPrompt(input) {
+  const verifiedLocalAnchorSymbol =
+    resolveVerifiedLocalAnchorSymbol(input);
+
+  const localRepairConstraints =
+    input.repairAware &&
+    input.localRepairIntent?.requireVerifiedLocalAnchor === true
+      ? [
+          `Existing verified local anchor: ${
+            input.localRepairIntent.localAnchorPattern ||
+            "(not provided)"
+          }`,
+          `Existing local anchor symbol: ${
+            verifiedLocalAnchorSymbol ||
+            "(not resolved)"
+          }`,
+          "The verified local anchor already exists in the target source.",
+          "Do not reproduce, replace, or redeclare the verified local anchor declaration.",
+          verifiedLocalAnchorSymbol
+            ? `Do not declare ${verifiedLocalAnchorSymbol} in executableCodeTemplate.`
+            : "Do not declare the verified local anchor symbol in executableCodeTemplate.",
+          input.recommendedOperation === "insert-before"
+            ? "Return only the new code that belongs immediately BEFORE the existing verified local anchor."
+            : input.recommendedOperation === "insert-after"
+              ? "Return only the new code that belongs immediately AFTER the existing verified local anchor."
+              : "Return only the minimal local augmentation required by the requested operation.",
+          "The existing anchor declaration itself must not appear in executableCodeTemplate.",
+          "If a safe local augmentation cannot be produced without redeclaring the anchor, do not repeat the rejected implementation."
+        ].join("\n")
+      : "(not required)";
+
   return [
     `Task: ${input.task || "(not provided)"}`,
     `Target file: ${input.targetFile}`,
     `Target symbol: ${input.targetSymbol}`,
     `Symbol type: ${input.symbolType}`,
     `Strategy: ${input.strategy || "(not provided)"}`,
+    `Recommended operation: ${input.recommendedOperation || "(not provided)"}`,
     `Repair mode: ${input.repairAware ? "yes" : "no"}`,
     `Repair action: ${input.repairAction || "(not provided)"}`,
     `Failure stage: ${input.failureStage || "(not provided)"}`,
+    "",
+    "Previous repair failure:",
+    input.errorMessage || "(not provided)",
+    "",
+    "Corrective local repair constraints:",
+    localRepairConstraints,
+    "",
+    "Local repair intent:",
+    input.localRepairIntent
+      ? [
+          `Mode: ${input.localRepairIntent.mode || "(not provided)"}`,
+          `Preserve existing target: ${input.localRepairIntent.preserveExistingTarget ? "yes" : "no"}`,
+          `Allow target redeclaration: ${input.localRepairIntent.allowTargetRedeclaration ? "yes" : "no"}`,
+          `Require verified local anchor: ${input.localRepairIntent.requireVerifiedLocalAnchor ? "yes" : "no"}`,
+          `Local anchor pattern: ${input.localRepairIntent.localAnchorPattern || "(not provided)"}`,
+          `Preferred operation: ${input.localRepairIntent.preferredOperation || "(not provided)"}`,
+          `Integration goal: ${input.localRepairIntent.integrationGoal || "(not provided)"}`,
+          `Minimize structural change: ${input.localRepairIntent.minimizeStructuralChange ? "yes" : "no"}`,
+          `Safe stop required: ${input.localRepairIntent.safeStopRequired ? "yes" : "no"}`
+        ].join("\n")
+      : "(not provided)",
     "",
     "Repair issues:",
     input.issues.length > 0
@@ -222,6 +379,35 @@ function buildUserPrompt(input) {
           .map(
             (item, index) =>
               `${index + 1}. ${item}`
+          )
+          .join("\n")
+      : "(not provided)",
+    "",
+    "Validated operation failures:",
+    input.validatedOperations.length > 0
+      ? input.validatedOperations
+          .map(
+            (operation, index) =>
+              [
+                `${index + 1}. File: ${operation.file || "(unknown)"}`,
+                `   Operation: ${operation.operation || "(unknown)"}`,
+                `   Target symbol: ${operation.targetSymbol || "(unknown)"}`,
+                `   Ready for safe patch: ${operation.readyForSafePatch ? "yes" : "no"}`,
+                `   Destructive replace checked: ${operation.destructiveReplaceChecked ? "yes" : "no"}`,
+                `   Destructive replace: ${operation.destructiveReplace ? "yes" : "no"}`,
+                `   Character retention ratio: ${
+                  operation.destructiveReplaceMetrics
+                    ?.characterRatio ?? "(not provided)"
+                }`,
+                `   Line retention ratio: ${
+                  operation.destructiveReplaceMetrics
+                    ?.lineRatio ?? "(not provided)"
+                }`,
+                `   Validator reason: ${
+                  operation.destructiveReplaceMetrics
+                    ?.reason || "(not provided)"
+                }`
+              ].join("\n")
           )
           .join("\n")
       : "(not provided)",

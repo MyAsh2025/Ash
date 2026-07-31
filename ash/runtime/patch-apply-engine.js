@@ -3,6 +3,66 @@
 const fs = require("fs");
 const path = require("path");
 
+function resolveVerifiedAnchorLineStart({
+  text = "",
+  anchor = "",
+  anchorLine = null
+} = {}) {
+  if (
+    typeof text !== "string" ||
+    typeof anchor !== "string" ||
+    anchor.length === 0 ||
+    !Number.isInteger(anchorLine) ||
+    anchorLine <= 0
+  ) {
+    return {
+      success: false,
+      index: -1,
+      reason: "Verified anchor line is unavailable."
+    };
+  }
+
+  let lineStart = 0;
+
+  for (let line = 1; line < anchorLine; line += 1) {
+    const newlineIndex = text.indexOf("\n", lineStart);
+
+    if (newlineIndex < 0) {
+      return {
+        success: false,
+        index: -1,
+        reason: "Verified anchor line is outside the target text."
+      };
+    }
+
+    lineStart = newlineIndex + 1;
+  }
+
+  const newlineIndex = text.indexOf("\n", lineStart);
+
+  const lineEnd =
+    newlineIndex >= 0
+      ? newlineIndex
+      : text.length;
+
+  const lineText =
+    text.slice(lineStart, lineEnd);
+
+  if (!lineText.includes(anchor)) {
+    return {
+      success: false,
+      index: -1,
+      reason: "Verified anchor was not found on the expected anchor line."
+    };
+  }
+
+  return {
+    success: true,
+    index: lineStart,
+    reason: "Verified anchor line resolved."
+  };
+}
+
 function applyOperationToText(text, operation) {
   const anchor = operation.anchorPattern;
   const generatedCode = operation.payload?.generatedCode || "";
@@ -35,10 +95,34 @@ function applyOperationToText(text, operation) {
   }
 
   if (operation.operation === "insert-before") {
+    const verifiedAnchor =
+      resolveVerifiedAnchorLineStart({
+        text,
+        anchor,
+        anchorLine: operation.anchorLine
+      });
+
+    if (!verifiedAnchor.success) {
+      return {
+        success: false,
+        text,
+        reason: verifiedAnchor.reason
+      };
+    }
+
+    const insertion =
+      generatedCode.endsWith("\n")
+        ? generatedCode
+        : `${generatedCode}\n`;
+
     return {
       success: true,
-      text: text.replace(anchor, `${generatedCode}${anchor}`),
-      reason: "Inserted generated code before anchor."
+      text:
+        text.slice(0, verifiedAnchor.index) +
+        insertion +
+        text.slice(verifiedAnchor.index),
+      reason:
+        "Inserted generated code before verified anchor line."
     };
   }
 

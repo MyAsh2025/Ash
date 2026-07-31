@@ -21,7 +21,8 @@ function buildPatchPlanner({
   targetSymbol = null,
   symbolType = null,
   expectedBehavior = [],
-  recommendedOperation = null
+  recommendedOperation = null,
+  localRepairIntent = null
 } = {}) {
   const evaluatedRules = evaluateRules({ bootstrap });
   const planningRules = evaluatedRules.planning || {};
@@ -55,6 +56,14 @@ function buildPatchPlanner({
       ? recommendedOperation.trim()
       : null;
 
+  const normalizedLocalRepairIntent =
+    localRepairIntent &&
+    typeof localRepairIntent === "object"
+      ? {
+          ...localRepairIntent
+        }
+      : null;
+
   const needsPatchPlanning =
     plannedActions.includes("prepare_patch_plan") ||
     String(task || "").toLowerCase().includes("develop") ||
@@ -86,6 +95,8 @@ function buildPatchPlanner({
     expectedBehavior: normalizedExpectedBehavior,
     recommendedOperation:
       normalizedRecommendedOperation,
+    localRepairIntent:
+      normalizedLocalRepairIntent,
     concreteTargetReady:
       Boolean(repositoryTargetFile) &&
       Boolean(normalizedTargetSymbol),

@@ -1,5 +1,117 @@
 "use strict";
 
+function escapeRegularExpression(value = "") {
+  return String(value).replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+}
+
+function containsTargetSymbolDeclaration(
+  source = "",
+  targetSymbol = ""
+) {
+  if (
+    typeof source !== "string" ||
+    typeof targetSymbol !== "string" ||
+    targetSymbol.trim().length === 0
+  ) {
+    return false;
+  }
+
+  const escapedSymbol =
+    escapeRegularExpression(
+      targetSymbol.trim()
+    );
+
+  return [
+    new RegExp(
+      `\\bfunction\\s+${escapedSymbol}\\s*\\(`
+    ),
+    new RegExp(
+      `\\bclass\\s+${escapedSymbol}\\b`
+    ),
+    new RegExp(
+      `\\b(?:const|let|var)\\s+${escapedSymbol}\\s*=`
+    )
+  ].some((pattern) => pattern.test(source));
+}
+
+function findProviderContractViolation({
+  providerInput = null,
+  executableCodeTemplate = ""
+} = {}) {
+  const operation =
+    providerInput?.recommendedOperation;
+
+  if (
+    operation !== "insert-before" &&
+    operation !== "insert-after"
+  ) {
+    return null;
+  }
+
+  const targetSymbol =
+    providerInput?.targetSymbol;
+
+  const existingSource =
+    providerInput?.surroundingContext?.text ||
+    "";
+
+  if (
+    targetSymbol &&
+    containsTargetSymbolDeclaration(
+      existingSource,
+      targetSymbol
+    ) &&
+    containsTargetSymbolDeclaration(
+      executableCodeTemplate,
+      targetSymbol
+    )
+  ) {
+    return (
+      `Provider contract violation: insert operation ` +
+      `would redeclare existing target symbol ` +
+      `${targetSymbol}.`
+    );
+  }
+
+  const verifiedLocalAnchor =
+    providerInput?.verifiedLocalAnchor &&
+    providerInput.verifiedLocalAnchor.verified === true
+      ? providerInput.verifiedLocalAnchor
+      : null;
+
+  const localAnchorPattern =
+    typeof verifiedLocalAnchor?.pattern === "string"
+      ? verifiedLocalAnchor.pattern.trim()
+      : "";
+
+  const localAnchorDeclaration =
+    localAnchorPattern.match(
+      /^\s*(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/
+    );
+
+  const localAnchorSymbol =
+    localAnchorDeclaration?.[1] || null;
+
+  if (
+    localAnchorSymbol &&
+    containsTargetSymbolDeclaration(
+      executableCodeTemplate,
+      localAnchorSymbol
+    )
+  ) {
+    return (
+      `Provider contract violation: insert operation ` +
+      `would redeclare verified local anchor symbol ` +
+      `${localAnchorSymbol}.`
+    );
+  }
+
+  return null;
+}
+
 function normalizeTemplate(value = null) {
   if (!value || typeof value !== "object") {
     return {
@@ -105,11 +217,21 @@ function buildProviderInput({
     recommendedOperation:
       implementationPlanner?.recommendedOperation ||
       null,
+    localRepairIntent:
+      implementationPlanner?.localRepairIntent &&
+      typeof implementationPlanner.localRepairIntent === "object"
+        ? {
+            ...implementationPlanner.localRepairIntent
+          }
+        : null,
     repairAction:
       implementationPlanner?.repairAction ||
       null,
     failureStage:
       implementationPlanner?.failureStage ||
+      null,
+    errorMessage:
+      implementationPlanner?.errorMessage ||
       null,
     issues:
       Array.isArray(
@@ -117,13 +239,26 @@ function buildProviderInput({
       )
         ? implementationPlanner.issues
         : [],
+    validatedOperations:
+      Array.isArray(
+        implementationPlanner?.validatedOperations
+      )
+        ? implementationPlanner.validatedOperations
+        : [],
     originalTask:
       implementationPlanner?.originalTask ||
       null,
     repairAware:
       implementationPlanner?.repairAware === true,
     surroundingContext:
-      targetLocator?.surroundingContext || null
+      targetLocator?.surroundingContext || null,
+    verifiedLocalAnchor:
+      targetLocator?.verifiedLocalAnchor &&
+      typeof targetLocator.verifiedLocalAnchor === "object"
+        ? {
+            ...targetLocator.verifiedLocalAnchor
+          }
+        : null
   };
 }
 
@@ -352,6 +487,30 @@ function resolveImplementationProvider({
       reason:
         providerResult.reason ||
         "Implementation provider did not produce executable code."
+    };
+  }
+
+  const providerContractViolation =
+    findProviderContractViolation({
+      providerInput,
+      executableCodeTemplate:
+        providerResult.executableCodeTemplate
+    });
+
+  if (providerContractViolation) {
+    return {
+      mode: "implementation-provider-runtime",
+      version:
+        "ash-local-runtime-v0.1-provider-boundary",
+      success: false,
+      providerConfigured: true,
+      providerName:
+        providerResult.providerName || null,
+      implementationPlanner,
+      providerInput,
+      providerResult,
+      reason:
+        providerContractViolation
     };
   }
 

@@ -585,7 +585,9 @@ function buildImplementationPlanner({
   implementationTemplate = null,
   repairAction = null,
   failureStage = null,
+  errorMessage = null,
   issues = [],
+  validatedOperations = [],
   previousTask = null
 } = {}) {
   const normalizedWork = normalizeWork(work);
@@ -629,6 +631,69 @@ function buildImplementationPlanner({
       ? originalClassification
       : currentClassification;
 
+  const previousDestructiveReplace =
+    repairing &&
+    (() => {
+      let currentTask = {
+        validatedOperations,
+        previousTask
+      };
+
+      while (currentTask) {
+        const operations =
+          Array.isArray(currentTask.validatedOperations)
+            ? currentTask.validatedOperations
+            : [];
+
+        const destructiveReplaceFound =
+          operations.some(
+            (operation) =>
+              operation?.destructiveReplaceChecked === true &&
+              operation?.destructiveReplace === true &&
+              (
+                operation?.operation === "replace" ||
+                operation?.operation == null
+              )
+          );
+
+        if (destructiveReplaceFound) {
+          return true;
+        }
+
+        currentTask =
+          currentTask.previousTask || null;
+      }
+
+      return false;
+    })();
+
+  const destructiveRepairStrategy =
+    "preserve_existing_target_with_local_augmentation";
+
+  const localRepairIntent =
+    previousDestructiveReplace
+      ? {
+          mode:
+            "preserve-existing-target-local-repair",
+          preserveExistingTarget:
+            true,
+          allowTargetRedeclaration:
+            false,
+          requireVerifiedLocalAnchor:
+            true,
+          localAnchorPattern:
+            "const requestedRecommendedOperation =",
+          preferredOperation:
+            "insert-before",
+          integrationGoal:
+            "local-augmentation",
+          minimizeStructuralChange:
+            true,
+          safeStopRequired:
+            true
+        }
+      : null;
+
   const resolvedTargetFile =
     targetFile ||
     originalTask?.targetFile ||
@@ -670,7 +735,7 @@ function buildImplementationPlanner({
           []
     );
 
-  const resolvedExpectedBehavior =
+  const baseExpectedBehavior =
     inheritedExpectedBehavior.length > 0
       ? inheritedExpectedBehavior
       : inferExpectedBehavior({
@@ -682,6 +747,25 @@ function buildImplementationPlanner({
             originalTask?.strategy ||
             selectedClassification.strategy
         });
+
+  const repairExpectedBehavior =
+    previousDestructiveReplace
+      ? [
+          `Preserve the existing implementation of ${resolvedTargetSymbol || "the target symbol"} rather than replacing or redeclaring it.`,
+          "Repair the previous destructive replacement by using only a minimal local augmentation when a safe augmentation is possible.",
+          `Do not redeclare ${resolvedTargetSymbol || "the existing target symbol"} during insert operations.`,
+          "Minimize structural impact and preserve unrelated existing behavior.",
+          "If the requested repair cannot be completed safely with a local augmentation, stop instead of generating a destructive replacement."
+        ]
+      : [];
+
+  const resolvedExpectedBehavior =
+    Array.from(
+      new Set([
+        ...baseExpectedBehavior,
+        ...repairExpectedBehavior
+      ])
+    );
 
   const normalizedTemplate =
     normalizeImplementationTemplate(
@@ -696,11 +780,13 @@ function buildImplementationPlanner({
     selectedClassification.implementationType;
 
   const resolvedStrategy =
-    strategy ||
-    originalTask?.strategy ||
-    selectedClassification.strategy;
+    previousDestructiveReplace
+      ? destructiveRepairStrategy
+      : strategy ||
+        originalTask?.strategy ||
+        selectedClassification.strategy;
 
-  const resolvedRecommendedOperation =
+  const requestedRecommendedOperation =
     recommendedOperation ||
     originalTask?.recommendedOperation ||
     (
@@ -710,6 +796,12 @@ function buildImplementationPlanner({
         ? "replace"
         : selectedClassification.recommendedOperation
     );
+
+  const resolvedRecommendedOperation =
+    previousDestructiveReplace &&
+    requestedRecommendedOperation === "replace"
+      ? "insert-before"
+      : requestedRecommendedOperation;
 
   const resolvedConfidence =
     confidence ||
@@ -739,6 +831,12 @@ function buildImplementationPlanner({
       resolvedStrategy,
     recommendedOperation:
       resolvedRecommendedOperation,
+    requestedRecommendedOperation,
+    repairOperationAdjusted:
+      previousDestructiveReplace &&
+      requestedRecommendedOperation === "replace",
+    previousDestructiveReplace,
+    localRepairIntent,
     confidence:
       resolvedConfidence,
     targetSymbol:
@@ -758,9 +856,7 @@ function buildImplementationPlanner({
         normalizedTemplate.symbolType ||
         resolvedSymbolType,
       expectedBehavior:
-        normalizedTemplate.expectedBehavior.length > 0
-          ? normalizedTemplate.expectedBehavior
-          : resolvedExpectedBehavior
+        resolvedExpectedBehavior
     },
     concretePlanReady,
     executableTemplateReady,
@@ -770,7 +866,15 @@ function buildImplementationPlanner({
     repairAware: repairing,
     repairAction,
     failureStage,
+    errorMessage:
+      typeof errorMessage === "string"
+        ? errorMessage
+        : null,
     issues: normalizeWork(issues),
+    validatedOperations:
+      Array.isArray(validatedOperations)
+        ? validatedOperations
+        : [],
     originalTask: originalTask || null,
     inheritedFromPreviousTask:
       repairing &&
