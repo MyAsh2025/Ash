@@ -4,6 +4,26 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
+const DEFAULT_CORECHECK_FILES = Object.freeze([
+  "./ash-auto-dev.js",
+  "./ash/runtime/autonomous-development-manager.js",
+  "./ash/runtime/development-pipeline-runtime.js",
+  "./ash/runtime/queue-task-adapter.js",
+  "./ash/runtime/implementation-planner.js",
+  "./ash/runtime/implementation-provider.js",
+  "./ash/runtime/implementation-provider-command.js",
+  "./ash/runtime/implementation-provider-registry.js",
+  "./ash/runtime/target-locator.js",
+  "./ash/runtime/edit-planner.js",
+  "./ash/runtime/patch-planner.js",
+  "./ash/runtime/patch-generator.js",
+  "./ash/runtime/code-generator.js",
+  "./ash/runtime/patch-validator.js",
+  "./ash/runtime/patch-apply-engine.js",
+  "./ash/runtime/corecheck-runtime.js",
+  "./ash/providers/openai-implementation-provider.mjs"
+]);
+
 const PROVIDER_BOUNDARY_FILES = Object.freeze({
   provider:
     "./ash/runtime/implementation-provider.js",
@@ -665,8 +685,18 @@ function runCoreCheck({
   projectPath = process.cwd(),
   providerBoundaryRequired = true
 } = {}) {
+  const nodeCheckFiles =
+    Array.isArray(files) &&
+    files.some(
+      (file) =>
+        typeof file === "string" &&
+        file.trim().length > 0
+    )
+      ? files
+      : DEFAULT_CORECHECK_FILES;
+
   const nodeCheck =
-    runNodeCheck(files);
+    runNodeCheck(nodeCheckFiles);
 
   const gitDiffCheck =
     runGitDiffCheck();
