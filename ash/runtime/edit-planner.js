@@ -97,23 +97,43 @@ function findPreferredSymbolAnchor({
     symbolAnchors.find(
       (anchor) =>
         anchor?.pattern ===
+          normalizedTargetSymbol &&
+        typeof anchor?.text === "string" &&
+        (
+          anchor.text.trim().startsWith(
+            `function ${normalizedTargetSymbol}`
+          ) ||
+          anchor.text.trim().startsWith(
+            `class ${normalizedTargetSymbol}`
+          )
+        )
+    ) ||
+    symbolAnchors.find(
+      (anchor) =>
+        anchor?.pattern ===
         `function ${normalizedTargetSymbol}`
     ) ||
     symbolAnchors.find(
       (anchor) =>
         anchor?.pattern ===
         `class ${normalizedTargetSymbol}`
+    ) ||
+    symbolAnchors.find(
+      (anchor) =>
+        anchor?.pattern ===
+          `${normalizedTargetSymbol}(` &&
+        typeof anchor?.text === "string" &&
+        (
+          anchor.text.trim().startsWith(
+            `function ${normalizedTargetSymbol}`
+          ) ||
+          anchor.text.trim().startsWith(
+            `class ${normalizedTargetSymbol}`
+          )
+        )
     );
 
-  if (declarationAnchor) {
-    return declarationAnchor;
-  }
-
-  return symbolAnchors.find(
-    (anchor) =>
-      anchor?.pattern ===
-      `${normalizedTargetSymbol}(`
-  ) || null;
+  return declarationAnchor || null;
 }
 
 function buildChecks() {

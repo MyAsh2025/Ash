@@ -571,6 +571,134 @@ function classifyImplementation({
   };
 }
 
+function findInheritedRepairTargetSymbol(
+  task = null
+) {
+  let currentTask =
+    task && typeof task === "object"
+      ? task
+      : null;
+
+  const visited =
+    new Set();
+
+  const taskChain = [];
+
+  while (
+    currentTask &&
+    !visited.has(currentTask)
+  ) {
+    visited.add(currentTask);
+    taskChain.push(currentTask);
+
+    currentTask =
+      currentTask.previousTask &&
+      typeof currentTask.previousTask === "object"
+        ? currentTask.previousTask
+        : null;
+  }
+
+  const validatedOperationCandidates =
+    taskChain.flatMap(
+      (chainTask, taskDepth) => {
+        const operations =
+          Array.isArray(
+            chainTask.validatedOperations
+          )
+            ? chainTask.validatedOperations
+            : [];
+
+        return operations
+          .map(
+            (
+              operation,
+              operationIndex
+            ) => ({
+              operation,
+              taskDepth,
+              operationIndex
+            })
+          )
+          .filter(
+            ({ operation }) =>
+              typeof operation?.targetSymbol === "string" &&
+              operation.targetSymbol.trim().length > 0
+          );
+      }
+    );
+
+  const destructiveOperation =
+    validatedOperationCandidates.find(
+      ({ operation }) =>
+        operation.destructiveReplaceChecked === true &&
+        operation.destructiveReplace === true
+    );
+
+  if (destructiveOperation) {
+    return {
+      targetSymbol:
+        destructiveOperation
+          .operation
+          .targetSymbol
+          .trim(),
+      source:
+        "destructive-validated-operation-target-symbol",
+      taskDepth:
+        destructiveOperation.taskDepth,
+      operationIndex:
+        destructiveOperation.operationIndex
+    };
+  }
+
+  const validatedOperation =
+    validatedOperationCandidates[0];
+
+  if (validatedOperation) {
+    return {
+      targetSymbol:
+        validatedOperation
+          .operation
+          .targetSymbol
+          .trim(),
+      source:
+        "validated-operation-target-symbol",
+      taskDepth:
+        validatedOperation.taskDepth,
+      operationIndex:
+        validatedOperation.operationIndex
+    };
+  }
+
+  for (
+    let taskDepth = 0;
+    taskDepth < taskChain.length;
+    taskDepth += 1
+  ) {
+    const directTargetSymbol =
+      typeof taskChain[taskDepth]
+        ?.targetSymbol === "string"
+        ? taskChain[taskDepth]
+            .targetSymbol
+            .trim()
+        : "";
+
+    if (directTargetSymbol) {
+      return {
+        targetSymbol:
+          directTargetSymbol,
+        source:
+          "previous-task-target-symbol",
+        taskDepth
+      };
+    }
+  }
+
+  return {
+    targetSymbol: null,
+    source: null
+  };
+}
+
 function buildImplementationPlanner({
   task = "",
   targetFile = null,
@@ -680,13 +808,13 @@ function buildImplementationPlanner({
           allowTargetRedeclaration:
             false,
           requireVerifiedLocalAnchor:
-            true,
+            false,
           localAnchorPattern:
-            "const requestedRecommendedOperation =",
+            null,
           preferredOperation:
             "insert-before",
           integrationGoal:
-            "local-augmentation",
+            "symbol-declaration-augmentation",
           minimizeStructuralChange:
             true,
           safeStopRequired:
@@ -700,6 +828,28 @@ function buildImplementationPlanner({
     originalTask?.file ||
     null;
 
+  const inheritedRepairTargetSymbol =
+    repairing
+      ? findInheritedRepairTargetSymbol({
+          validatedOperations:
+            Array.isArray(validatedOperations)
+              ? validatedOperations
+              : [],
+          targetSymbol:
+            typeof targetSymbol === "string" &&
+            targetSymbol.trim().length > 0
+              ? targetSymbol.trim()
+              : null,
+          previousTask:
+            previousTask ||
+            originalTask ||
+            null
+        })
+      : {
+          targetSymbol: null,
+          source: null
+        };
+
   const inferredTargetSymbol =
     inferExportedFunctionSymbol({
       targetFile: resolvedTargetFile,
@@ -707,12 +857,15 @@ function buildImplementationPlanner({
     });
 
   const resolvedTargetSymbol =
-    targetSymbol ||
-    originalTask?.targetSymbol ||
-    implementationTemplate?.targetSymbol ||
-    originalTask?.implementationTemplate?.targetSymbol ||
-    inferredTargetSymbol.targetSymbol ||
-    null;
+    repairing &&
+    inheritedRepairTargetSymbol.targetSymbol
+      ? inheritedRepairTargetSymbol.targetSymbol
+      : targetSymbol ||
+        originalTask?.targetSymbol ||
+        implementationTemplate?.targetSymbol ||
+        originalTask?.implementationTemplate?.targetSymbol ||
+        inferredTargetSymbol.targetSymbol ||
+        null;
 
   const resolvedSymbolType =
     symbolType ||
@@ -844,7 +997,9 @@ function buildImplementationPlanner({
     symbolType:
       resolvedSymbolType,
     targetSymbolInference:
-      inferredTargetSymbol,
+      inheritedRepairTargetSymbol.targetSymbol
+        ? inheritedRepairTargetSymbol
+        : inferredTargetSymbol,
     expectedBehavior:
       resolvedExpectedBehavior,
     implementationTemplate: {
