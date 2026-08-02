@@ -974,72 +974,524 @@ function collectRepositoryJavaScriptFiles({
   ).sort();
 }
 
-function tokenizeRepositoryFile(file = "") {
-  return String(file || "")
+function tokenizeSemanticValue(value = "") {
+  const ignoredTerms =
+    new Set([
+      "async",
+      "class",
+      "const",
+      "false",
+      "function",
+      "let",
+      "module",
+      "null",
+      "require",
+      "return",
+      "true",
+      "undefined",
+      "var"
+    ]);
+
+  return String(value || "")
     .replace(/\\/g, "/")
     .replace(/\.js$/i, "")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
     .toLowerCase()
     .split(/[^a-z0-9_$]+/)
+    .map((term) => term.trim())
+    .filter(
+      (term) =>
+        term.length >= 3 &&
+        !ignoredTerms.has(term)
+    );
+}
+
+function buildCompoundSemanticTerms(terms = []) {
+  const normalizedTerms =
+    Array.isArray(terms)
+      ? terms.filter(Boolean)
+      : [];
+
+  const compoundTerms = [];
+
+  for (
+    let index = 0;
+    index < normalizedTerms.length - 1;
+    index += 1
+  ) {
+    compoundTerms.push(
+      `${normalizedTerms[index]}-${normalizedTerms[index + 1]}`
+    );
+  }
+
+  for (
+    let index = 0;
+    index < normalizedTerms.length - 2;
+    index += 1
+  ) {
+    compoundTerms.push(
+      `${normalizedTerms[index]}-${normalizedTerms[index + 1]}-${normalizedTerms[index + 2]}`
+    );
+  }
+
+  return Array.from(
+    new Set(compoundTerms)
+  );
+}
+
+function buildActionResponsibilityProfiles(
+  symbols = []
+) {
+  const actionTerms =
+    new Set([
+      "build",
+      "create",
+      "execute",
+      "find",
+      "generate",
+      "hydrate",
+      "infer",
+      "locate",
+      "normalize",
+      "parse",
+      "register",
+      "resolve",
+      "run",
+      "validate"
+    ]);
+
+  return symbols
+    .map((symbol) => {
+      const terms =
+        tokenizeSemanticValue(symbol);
+
+      const actionIndex =
+        terms.findIndex(
+          (term) =>
+            actionTerms.has(term)
+        );
+
+      if (
+        actionIndex < 0 ||
+        actionIndex >= terms.length - 1
+      ) {
+        return null;
+      }
+
+      return {
+        symbol,
+        action:
+          terms[actionIndex],
+        objectTerms:
+          Array.from(
+            new Set(
+              terms.slice(
+                actionIndex + 1
+              )
+            )
+          )
+      };
+    })
     .filter(Boolean);
+}
+
+function extractTaskActionProfile(task = "") {
+  const terms =
+    tokenizeSemanticValue(task);
+
+  const actionTerms =
+    new Set([
+      "build",
+      "create",
+      "execute",
+      "find",
+      "generate",
+      "hydrate",
+      "infer",
+      "locate",
+      "normalize",
+      "parse",
+      "register",
+      "resolve",
+      "run",
+      "validate"
+    ]);
+
+  const actionIndex =
+    terms.findIndex(
+      (term) =>
+        actionTerms.has(term)
+    );
+
+  if (
+    actionIndex < 0 ||
+    actionIndex >= terms.length - 1
+  ) {
+    return null;
+  }
+
+  return {
+    action:
+      terms[actionIndex],
+    objectTerms:
+      Array.from(
+        new Set(
+          terms.slice(
+            actionIndex + 1
+          )
+        )
+      )
+  };
+}
+
+function scoreActionResponsibility({
+  taskProfile = null,
+  profiles = [],
+  baseWeight = 0,
+  overlapWeight = 0
+} = {}) {
+  if (!taskProfile) {
+    return null;
+  }
+
+  let bestMatch = null;
+
+  for (const profile of profiles) {
+    if (
+      profile.action !==
+      taskProfile.action
+    ) {
+      continue;
+    }
+
+    const objectTerms =
+      new Set(
+        profile.objectTerms
+      );
+
+    const matchedObjectTerms =
+      taskProfile.objectTerms.filter(
+        (term) =>
+          objectTerms.has(term)
+      );
+
+    if (
+      matchedObjectTerms.length === 0
+    ) {
+      continue;
+    }
+
+    const weight =
+      baseWeight +
+      (
+        matchedObjectTerms.length *
+        overlapWeight
+      );
+
+    if (
+      !bestMatch ||
+      weight > bestMatch.weight
+    ) {
+      bestMatch = {
+        symbol:
+          profile.symbol,
+        action:
+          profile.action,
+        matchedObjectTerms,
+        weight
+      };
+    }
+  }
+
+  return bestMatch;
+}
+
+function tokenizeRepositoryFile(file = "") {
+  return tokenizeSemanticValue(file);
+}
+
+function collectDeclaredResponsibilitySymbols(
+  sourceText = ""
+) {
+  const symbols = new Set();
+
+  const declarationPatterns = [
+    /(?:^|\n)\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
+    /(?:^|\n)\s*class\s+([A-Za-z_$][\w$]*)/g,
+    /(?:^|\n)\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/g
+  ];
+
+  for (
+    const declarationPattern of
+    declarationPatterns
+  ) {
+    let match;
+
+    while (
+      (
+        match =
+          declarationPattern.exec(sourceText)
+      )
+    ) {
+      if (match[1]) {
+        symbols.add(match[1]);
+      }
+    }
+  }
+
+  return Array.from(symbols);
+}
+
+function collectExportedResponsibilitySymbols(
+  sourceText = ""
+) {
+  const symbols = new Set();
+
+  const directExportPattern =
+    /(?:^|\n)\s*exports\.([A-Za-z_$][\w$]*)\s*=/g;
+
+  let directExportMatch;
+
+  while (
+    (
+      directExportMatch =
+        directExportPattern.exec(sourceText)
+    )
+  ) {
+    if (directExportMatch[1]) {
+      symbols.add(directExportMatch[1]);
+    }
+  }
+
+  const moduleExportsPattern =
+    /module\.exports\s*=\s*\{([\s\S]*?)\}\s*;?/g;
+
+  let moduleExportsMatch;
+
+  while (
+    (
+      moduleExportsMatch =
+        moduleExportsPattern.exec(sourceText)
+    )
+  ) {
+    const exportBody =
+      moduleExportsMatch[1] || "";
+
+    const exportEntryPattern =
+      /(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=[:,]|$)/gm;
+
+    let exportEntryMatch;
+
+    while (
+      (
+        exportEntryMatch =
+          exportEntryPattern.exec(exportBody)
+      )
+    ) {
+      if (exportEntryMatch[1]) {
+        symbols.add(exportEntryMatch[1]);
+      }
+    }
+  }
+
+  return Array.from(symbols);
+}
+
+function buildRepositoryResponsibility({
+  file = "",
+  sourceText = ""
+} = {}) {
+  const declaredSymbols =
+    collectDeclaredResponsibilitySymbols(
+      sourceText
+    );
+
+  const exportedSymbols =
+    collectExportedResponsibilitySymbols(
+      sourceText
+    );
+
+  const declaredSymbolSet =
+    new Set(declaredSymbols);
+
+  const implementedExportedSymbols =
+    exportedSymbols.filter(
+      (symbol) =>
+        declaredSymbolSet.has(symbol)
+    );
+
+  const reExportedSymbols =
+    exportedSymbols.filter(
+      (symbol) =>
+        !declaredSymbolSet.has(symbol)
+    );
+
+  const declaredTerms =
+    new Set(
+      declaredSymbols.flatMap(
+        (symbol) =>
+          tokenizeSemanticValue(symbol)
+      )
+    );
+
+  const implementedExportedTerms =
+    new Set(
+      implementedExportedSymbols.flatMap(
+        (symbol) =>
+          tokenizeSemanticValue(symbol)
+      )
+    );
+
+  const reExportedTerms =
+    new Set(
+      reExportedSymbols.flatMap(
+        (symbol) =>
+          tokenizeSemanticValue(symbol)
+      )
+    );
+
+  const fileSemanticTerms =
+    tokenizeRepositoryFile(file);
+
+  const declaredCompoundTerms =
+    declaredSymbols.flatMap(
+      (symbol) =>
+        buildCompoundSemanticTerms(
+          tokenizeSemanticValue(symbol)
+        )
+    );
+
+  const implementedExportedCompoundTerms =
+    implementedExportedSymbols.flatMap(
+      (symbol) =>
+        buildCompoundSemanticTerms(
+          tokenizeSemanticValue(symbol)
+        )
+    );
+
+  const reExportedCompoundTerms =
+    reExportedSymbols.flatMap(
+      (symbol) =>
+        buildCompoundSemanticTerms(
+          tokenizeSemanticValue(symbol)
+        )
+    );
+
+  const fileCompoundTerms =
+    buildCompoundSemanticTerms(
+      fileSemanticTerms
+    );
+
+  const compoundTerms =
+    new Set([
+      ...fileCompoundTerms,
+      ...declaredCompoundTerms,
+      ...implementedExportedCompoundTerms
+    ]);
+
+  const responsibilityTerms =
+    new Set([
+      ...fileSemanticTerms,
+      ...declaredTerms,
+      ...implementedExportedTerms,
+      ...compoundTerms
+    ]);
+
+  const declaredActionProfiles =
+    buildActionResponsibilityProfiles(
+      declaredSymbols
+    );
+
+  const implementedActionProfiles =
+    buildActionResponsibilityProfiles(
+      implementedExportedSymbols
+    );
+
+  const reExportedActionProfiles =
+    buildActionResponsibilityProfiles(
+      reExportedSymbols
+    );
+
+  return {
+    file,
+    declaredSymbols,
+    exportedSymbols,
+    implementedExportedSymbols,
+    reExportedSymbols,
+    declaredActionProfiles,
+    implementedActionProfiles,
+    reExportedActionProfiles,
+    declaredTerms:
+      Array.from(declaredTerms).sort(),
+    exportedTerms:
+      Array.from(
+        implementedExportedTerms
+      ).sort(),
+    implementedExportedTerms:
+      Array.from(
+        implementedExportedTerms
+      ).sort(),
+    reExportedTerms:
+      Array.from(
+        reExportedTerms
+      ).sort(),
+    compoundTerms:
+      Array.from(compoundTerms).sort(),
+    reExportedCompoundTerms:
+      Array.from(
+        new Set(
+          reExportedCompoundTerms
+        )
+      ).sort(),
+    responsibilityTerms:
+      Array.from(
+        responsibilityTerms
+      ).sort()
+  };
+}
+
+function findExpandedTermMatch({
+  taskTerm = "",
+  candidateTerms = new Set()
+} = {}) {
+  const expandedTerms =
+    expandTaskTerm(taskTerm);
+
+  if (candidateTerms.has(taskTerm)) {
+    return {
+      matchedTerm: taskTerm,
+      alias: false
+    };
+  }
+
+  const aliasMatch =
+    expandedTerms.find(
+      (expandedTerm) =>
+        expandedTerm !== taskTerm &&
+        candidateTerms.has(expandedTerm)
+    );
+
+  if (!aliasMatch) {
+    return null;
+  }
+
+  return {
+    matchedTerm: aliasMatch,
+    alias: true
+  };
 }
 
 function scoreRepositoryTarget({
   file,
   taskTerms,
+  task = "",
   root = process.cwd()
 } = {}) {
   const fileTerms =
     new Set(
       tokenizeRepositoryFile(file)
     );
-
-  let score = 0;
-  const matches = [];
-
-  for (const taskTerm of taskTerms) {
-    const expandedTerms =
-      expandTaskTerm(taskTerm);
-
-    if (fileTerms.has(taskTerm)) {
-      score += 10;
-
-      matches.push({
-        taskTerm,
-        matchedTerm: taskTerm,
-        type: "file-term",
-        weight: 10
-      });
-
-      continue;
-    }
-
-    const aliasMatch =
-      expandedTerms.find(
-        (expandedTerm) =>
-          expandedTerm !== taskTerm &&
-          fileTerms.has(expandedTerm)
-      );
-
-    if (aliasMatch) {
-      score += 7;
-
-      matches.push({
-        taskTerm,
-        matchedTerm: aliasMatch,
-        type: "file-alias",
-        weight: 7
-      });
-    }
-  }
-
-  if (score === 0) {
-    return {
-      file,
-      score,
-      matches
-    };
-  }
 
   const absolutePath =
     path.join(root, file);
@@ -1051,18 +1503,239 @@ function scoreRepositoryTarget({
       fs.readFileSync(
         absolutePath,
         "utf8"
-      ).toLowerCase();
+      );
   } catch (error) {
     return {
       file,
-      score,
-      matches
+      score: 0,
+      matches: [],
+      responsibility: null
     };
   }
 
+  const responsibility =
+    buildRepositoryResponsibility({
+      file,
+      sourceText
+    });
+
+  const declaredTerms =
+    new Set(
+      responsibility.declaredTerms
+    );
+
+  const exportedTerms =
+    new Set(
+      responsibility
+        .implementedExportedTerms ||
+      responsibility.exportedTerms ||
+      []
+    );
+
+  const reExportedTerms =
+    new Set(
+      responsibility.reExportedTerms ||
+      []
+    );
+
+  const compoundTerms =
+    new Set(
+      responsibility.compoundTerms || []
+    );
+
+  const reExportedCompoundTerms =
+    new Set(
+      responsibility
+        .reExportedCompoundTerms ||
+      []
+    );
+
+  const taskCompoundTerms =
+    buildCompoundSemanticTerms(
+      taskTerms
+    );
+
+  const lowerSourceText =
+    sourceText.toLowerCase();
+
+  const taskActionProfile =
+    extractTaskActionProfile(task);
+
+  let score = 0;
+  const matches = [];
+
+  const implementedActionMatch =
+    scoreActionResponsibility({
+      taskProfile:
+        taskActionProfile,
+      profiles:
+        responsibility
+          .implementedActionProfiles ||
+        [],
+      baseWeight: 8,
+      overlapWeight: 6
+    });
+
+  const declaredActionMatch =
+    scoreActionResponsibility({
+      taskProfile:
+        taskActionProfile,
+      profiles:
+        responsibility
+          .declaredActionProfiles ||
+        [],
+      baseWeight: 6,
+      overlapWeight: 5
+    });
+
+  const reExportedActionMatch =
+    scoreActionResponsibility({
+      taskProfile:
+        taskActionProfile,
+      profiles:
+        responsibility
+          .reExportedActionProfiles ||
+        [],
+      baseWeight: 0,
+      overlapWeight: 1
+    });
+
+  const actionMatch =
+    implementedActionMatch ||
+    declaredActionMatch ||
+    reExportedActionMatch;
+
+  if (actionMatch) {
+    score += actionMatch.weight;
+
+    matches.push({
+      taskTerm:
+        [
+          actionMatch.action,
+          ...actionMatch
+            .matchedObjectTerms
+        ].join("-"),
+      matchedTerm:
+        actionMatch.symbol,
+      type:
+        implementedActionMatch
+          ? "implemented-action-responsibility"
+          : declaredActionMatch
+            ? "declared-action-responsibility"
+            : "re-exported-action-responsibility",
+      weight:
+        actionMatch.weight
+    });
+  }
+
   for (const taskTerm of taskTerms) {
+    const fileMatch =
+      findExpandedTermMatch({
+        taskTerm,
+        candidateTerms: fileTerms
+      });
+
+    if (fileMatch) {
+      const weight =
+        fileMatch.alias ? 5 : 8;
+
+      score += weight;
+
+      matches.push({
+        taskTerm,
+        matchedTerm:
+          fileMatch.matchedTerm,
+        type:
+          fileMatch.alias
+            ? "file-alias"
+            : "file-term",
+        weight
+      });
+    }
+
+    const exportMatch =
+      findExpandedTermMatch({
+        taskTerm,
+        candidateTerms: exportedTerms
+      });
+
+    if (exportMatch) {
+      const weight =
+        exportMatch.alias ? 7 : 10;
+
+      score += weight;
+
+      matches.push({
+        taskTerm,
+        matchedTerm:
+          exportMatch.matchedTerm,
+        type:
+          exportMatch.alias
+            ? "exported-symbol-alias"
+            : "exported-symbol-term",
+        weight
+      });
+    }
+
+    const declarationMatch =
+      findExpandedTermMatch({
+        taskTerm,
+        candidateTerms: declaredTerms
+      });
+
     if (
-      sourceText.includes(taskTerm)
+      declarationMatch &&
+      !exportMatch
+    ) {
+      const weight =
+        declarationMatch.alias ? 5 : 8;
+
+      score += weight;
+
+      matches.push({
+        taskTerm,
+        matchedTerm:
+          declarationMatch.matchedTerm,
+        type:
+          declarationMatch.alias
+            ? "declared-symbol-alias"
+            : "declared-symbol-term",
+        weight
+      });
+    }
+
+    if (
+      !exportMatch &&
+      !declarationMatch
+    ) {
+      const reExportMatch =
+        findExpandedTermMatch({
+          taskTerm,
+          candidateTerms:
+            reExportedTerms
+        });
+
+      if (reExportMatch) {
+        const weight =
+          reExportMatch.alias ? 1 : 2;
+
+        score += weight;
+
+        matches.push({
+          taskTerm,
+          matchedTerm:
+            reExportMatch.matchedTerm,
+          type:
+            reExportMatch.alias
+              ? "re-exported-symbol-alias"
+              : "re-exported-symbol-term",
+          weight
+        });
+      }
+    }
+
+    if (
+      lowerSourceText.includes(taskTerm)
     ) {
       score += 1;
 
@@ -1075,10 +1748,99 @@ function scoreRepositoryTarget({
     }
   }
 
+  for (
+    const taskCompoundTerm of
+    taskCompoundTerms
+  ) {
+    if (
+      compoundTerms.has(
+        taskCompoundTerm
+      )
+    ) {
+      score += 12;
+
+      matches.push({
+        taskTerm:
+          taskCompoundTerm,
+        matchedTerm:
+          taskCompoundTerm,
+        type:
+          "compound-responsibility-term",
+        weight:
+          12
+      });
+
+      continue;
+    }
+
+    if (
+      reExportedCompoundTerms.has(
+        taskCompoundTerm
+      )
+    ) {
+      score += 2;
+
+      matches.push({
+        taskTerm:
+          taskCompoundTerm,
+        matchedTerm:
+          taskCompoundTerm,
+        type:
+          "re-exported-compound-term",
+        weight:
+          2
+      });
+    }
+  }
+
+  const matchedTaskTerms =
+    new Set(
+      matches.map(
+        (match) => match.taskTerm
+      )
+    );
+
+  const symbolMatchCount =
+    matches.filter(
+      (match) =>
+        match.type.startsWith(
+          "exported-symbol"
+        ) ||
+        match.type.startsWith(
+          "declared-symbol"
+        )
+    ).length;
+
+  if (
+    symbolMatchCount >= 2 &&
+    matchedTaskTerms.size >= 2
+  ) {
+    const clusterWeight =
+      Math.min(
+        8,
+        symbolMatchCount * 2
+      );
+
+    score += clusterWeight;
+
+    matches.push({
+      taskTerm:
+        Array.from(
+          matchedTaskTerms
+        ).join("+"),
+      matchedTerm:
+        "responsibility-cluster",
+      type:
+        "responsibility-cluster",
+      weight: clusterWeight
+    });
+  }
+
   return {
     file,
     score,
-    matches
+    matches,
+    responsibility
   };
 }
 
@@ -1109,6 +1871,7 @@ function resolveRepositoryTargetFromTask({
         scoreRepositoryTarget({
           file,
           taskTerms,
+          task,
           root
         })
       )
