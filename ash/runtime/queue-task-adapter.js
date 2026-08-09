@@ -94,7 +94,11 @@ function adaptQueueItemForExecution({
         ? item.validatedOperations
         : [],
     previousTask:
-      item.previousTask || null
+      item.previousTask || null,
+    coreContext:
+      bootstrap?.ashCore?.coreContext ||
+      bootstrap?.startupGate?.ashCore?.coreContext ||
+      null
   });
 
   const patchPlanner = buildPatchPlanner({

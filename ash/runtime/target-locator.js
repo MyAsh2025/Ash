@@ -635,17 +635,63 @@ function locateFullSymbolRange({
     return null;
   }
 
+  const localDeclarations =
+    Array.from(
+      new Set(
+        Array.from(
+          source.matchAll(
+            /(?:^|\n)\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\b/g
+          ),
+          (match) =>
+            match[1]
+        )
+      )
+    );
+
   return {
     targetSymbol:
       targetSymbol.trim(),
     symbolType: "function",
+    localDeclarations,
     startOffset,
+    openingBraceOffset,
+    bodyStartOffset:
+      openingBraceOffset + 1,
     endOffset,
     startLine:
       countLinesBefore(
         sourceText,
         startOffset
       ),
+    openingBraceLine:
+      countLinesBefore(
+        sourceText,
+        openingBraceOffset
+      ),
+    bodyStartLine:
+      countLinesBefore(
+        sourceText,
+        openingBraceOffset
+      ),
+    openingBraceLineText:
+      sourceText
+        .slice(
+          sourceText.lastIndexOf(
+            "\n",
+            openingBraceOffset
+          ) + 1,
+          sourceText.indexOf(
+            "\n",
+            openingBraceOffset
+          ) >= 0
+            ? sourceText.indexOf(
+                "\n",
+                openingBraceOffset
+              )
+            : sourceText.length
+        )
+        .replace(/\r$/, "")
+        .trim(),
     endLine:
       countLinesBefore(
         sourceText,
@@ -656,6 +702,74 @@ function locateFullSymbolRange({
       source.length > 0,
     verified:
       source.length > 0
+  };
+}
+
+function locateFunctionBodyAnchor({
+  filePath = null,
+  targetSymbol = null,
+  root = process.cwd()
+} = {}) {
+  const symbolRange =
+    locateFullSymbolRange({
+      filePath,
+      targetSymbol,
+      root
+    });
+
+  if (
+    !symbolRange ||
+    symbolRange.verified !== true ||
+    typeof symbolRange.openingBraceLineText !== "string" ||
+    symbolRange.openingBraceLineText.length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    verified: true,
+    anchorType:
+      "function-body-opening",
+    targetSymbol:
+      symbolRange.targetSymbol,
+    symbolType:
+      symbolRange.symbolType,
+    pattern:
+      symbolRange.openingBraceLineText,
+    line:
+      symbolRange.openingBraceLine,
+    offset:
+      symbolRange.openingBraceOffset,
+    insertionOffset:
+      symbolRange.bodyStartOffset,
+    operation:
+      "insert-after",
+    existingLocalDeclarations:
+      Array.isArray(
+        symbolRange.localDeclarations
+      )
+        ? [
+            ...symbolRange.localDeclarations
+          ]
+        : [],
+    symbolRange: {
+      startOffset:
+        symbolRange.startOffset,
+      openingBraceOffset:
+        symbolRange.openingBraceOffset,
+      bodyStartOffset:
+        symbolRange.bodyStartOffset,
+      endOffset:
+        symbolRange.endOffset,
+      startLine:
+        symbolRange.startLine,
+      openingBraceLine:
+        symbolRange.openingBraceLine,
+      endLine:
+        symbolRange.endLine,
+      verified:
+        symbolRange.verified === true
+    }
   };
 }
 
@@ -1482,6 +1596,278 @@ function findExpandedTermMatch({
   };
 }
 
+function inferTaskResponsibilityIntent({
+  taskTerms = [],
+  task = ""
+} = {}) {
+  const normalizedTask =
+    String(task || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9_$]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const normalizedTerms =
+    Array.from(
+      new Set([
+        ...(
+          Array.isArray(taskTerms)
+            ? taskTerms
+            : []
+        ),
+        ...normalizedTask
+          .split(" ")
+          .filter(Boolean)
+      ])
+    );
+
+  const compoundProfiles = {
+    validation: [
+      "patch validator",
+      "validate patch",
+      "reject placeholder",
+      "reject example",
+      "invalid generated code",
+      "unsafe generated code",
+      "generated code validation",
+      "does not match the resolved target symbol",
+      "duplicate target symbol"
+    ],
+    provider: [
+      "implementation provider",
+      "openai provider",
+      "openai implementation provider",
+      "generate implementation",
+      "implementation generation",
+      "executable code template"
+    ],
+    planning: [
+      "implementation planner",
+      "patch planner",
+      "implementation strategy",
+      "patch planning",
+      "expected behavior"
+    ],
+    targeting: [
+      "target discovery",
+      "target locator",
+      "repository target",
+      "resolve repository target",
+      "target resolution",
+      "target symbol discovery",
+      "infer target symbol"
+    ],
+    editing: [
+      "edit planner",
+      "symbol edit",
+      "function body anchor",
+      "local anchor",
+      "insert after",
+      "insert before"
+    ]
+  };
+
+  const profiles = {
+    validation: {
+      reject: 12,
+      validate: 10,
+      validator: 10,
+      invalid: 8,
+      unsafe: 8,
+      placeholder: 8,
+      example: 5,
+      duplicate: 6,
+      comment: 5,
+      diagnostic: 5,
+      mismatch: 6,
+      match: 2
+    },
+    provider: {
+      provider: 10,
+      openai: 10,
+      generate: 8,
+      generated: 8,
+      executable: 6,
+      template: 5,
+      implementation: 4,
+      implementations: 4
+    },
+    planning: {
+      plan: 10,
+      planner: 10,
+      planning: 10,
+      strategy: 8,
+      expected: 4,
+      behavior: 4
+    },
+    targeting: {
+      locate: 10,
+      locator: 10,
+      discovery: 8,
+      discover: 8,
+      resolve: 7,
+      resolved: 4,
+      infer: 5,
+      target: 3,
+      symbol: 3
+    },
+    editing: {
+      edit: 10,
+      anchor: 7,
+      insert: 7,
+      replace: 7,
+      patch: 4
+    }
+  };
+
+  const scores =
+    Object.entries(profiles)
+      .map(([role, weights]) => {
+        const termScore =
+          normalizedTerms.reduce(
+            (total, term) =>
+              total +
+              (
+                weights[term] ||
+                weights[
+                  term.endsWith("s")
+                    ? term.slice(0, -1)
+                    : ""
+                ] ||
+                0
+              ),
+            0
+          );
+
+        const matchedCompoundPhrases =
+          (
+            compoundProfiles[role] ||
+            []
+          ).filter(
+            (phrase) =>
+              normalizedTask.includes(
+                phrase
+              )
+          );
+
+        const compoundScore =
+          matchedCompoundPhrases.reduce(
+            (total, phrase) =>
+              total +
+              (
+                phrase.split(" ").length >= 3
+                  ? 30
+                  : 24
+              ),
+            0
+          );
+
+        return {
+          role,
+          score:
+            termScore +
+            compoundScore,
+          termScore,
+          compoundScore,
+          matchedCompoundPhrases
+        };
+      })
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          left.role.localeCompare(
+            right.role
+          )
+      );
+
+  const best =
+    scores[0] || null;
+
+  const second =
+    scores[1] || null;
+
+  const confident =
+    Boolean(
+      best &&
+      best.score >= 12 &&
+      (
+        !second ||
+        best.score - second.score >= 4
+      )
+    );
+
+  return {
+    role:
+      confident
+        ? best.role
+        : null,
+    confident,
+    score:
+      best?.score || 0,
+    scores
+  };
+}
+
+function classifyRepositoryFileResponsibility(
+  file = ""
+) {
+  const normalizedFile =
+    String(file || "")
+      .replace(/\\/g, "/")
+      .toLowerCase();
+
+  if (
+    normalizedFile.endsWith(
+      "/patch-validator.js"
+    )
+  ) {
+    return "validation";
+  }
+
+  if (
+    normalizedFile.endsWith(
+      "/implementation-provider.js"
+    ) ||
+    normalizedFile.endsWith(
+      "/implementation-provider-command.js"
+    ) ||
+    normalizedFile.endsWith(
+      "/openai-implementation-provider.mjs"
+    )
+  ) {
+    return "provider";
+  }
+
+  if (
+    normalizedFile.endsWith(
+      "/implementation-planner.js"
+    ) ||
+    normalizedFile.endsWith(
+      "/patch-planner.js"
+    )
+  ) {
+    return "planning";
+  }
+
+  if (
+    normalizedFile.endsWith(
+      "/target-locator.js"
+    )
+  ) {
+    return "targeting";
+  }
+
+  if (
+    normalizedFile.endsWith(
+      "/edit-planner.js"
+    )
+  ) {
+    return "editing";
+  }
+
+  return null;
+}
+
 function scoreRepositoryTarget({
   file,
   taskTerms,
@@ -1560,6 +1946,17 @@ function scoreRepositoryTarget({
 
   const taskActionProfile =
     extractTaskActionProfile(task);
+
+  const responsibilityIntent =
+    inferTaskResponsibilityIntent({
+      taskTerms,
+      task
+    });
+
+  const fileResponsibility =
+    classifyRepositoryFileResponsibility(
+      file
+    );
 
   let score = 0;
   const matches = [];
@@ -1789,6 +2186,50 @@ function scoreRepositoryTarget({
           "re-exported-compound-term",
         weight:
           2
+      });
+    }
+  }
+
+  if (
+    responsibilityIntent.confident &&
+    responsibilityIntent.role
+  ) {
+    if (
+      fileResponsibility ===
+      responsibilityIntent.role
+    ) {
+      const responsibilityWeight =
+        40;
+
+      score +=
+        responsibilityWeight;
+
+      matches.push({
+        taskTerm:
+          responsibilityIntent.role,
+        matchedTerm:
+          fileResponsibility,
+        type:
+          "primary-task-responsibility",
+        weight:
+          responsibilityWeight
+      });
+    } else if (fileResponsibility) {
+      const conflictPenalty =
+        -8;
+
+      score +=
+        conflictPenalty;
+
+      matches.push({
+        taskTerm:
+          responsibilityIntent.role,
+        matchedTerm:
+          fileResponsibility,
+        type:
+          "conflicting-task-responsibility",
+        weight:
+          conflictPenalty
       });
     }
   }
@@ -2052,6 +2493,18 @@ function buildTargetLocator({
         })
       : null;
 
+  const functionBodyAnchor =
+    localRepairIntent?.preserveExistingTarget === true &&
+    repositoryTargetFile &&
+    targetSymbol
+      ? locateFunctionBodyAnchor({
+          filePath:
+            repositoryTargetFile,
+          targetSymbol,
+          root
+        })
+      : null;
+
   return {
     mode: "target-locator-runtime",
     version:
@@ -2072,6 +2525,12 @@ function buildTargetLocator({
       verifiedLocalAnchor
         ? {
             ...verifiedLocalAnchor
+          }
+        : null,
+    functionBodyAnchor:
+      functionBodyAnchor
+        ? {
+            ...functionBodyAnchor
           }
         : null,
     results,
@@ -2096,6 +2555,7 @@ module.exports = {
   normalizePatternList,
   buildSurroundingContext,
   locateFullSymbolRange,
+  locateFunctionBodyAnchor,
   locateVerifiedLocalAnchor,
   resolveRepositoryTargetFromTask,
   collectRepositoryJavaScriptFiles,

@@ -4,6 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const { locateFullSymbolRange, locateVerifiedLocalAnchor } = require("./target-locator");
 const {
   applyOperationToText
 } = require("./patch-apply-engine");
@@ -31,6 +32,37 @@ function escapeRegularExpression(value = "") {
   return value.replace(
     /[.*+?^${}()|[\]\\]/g,
     "\\$&"
+  );
+}
+
+function stripJavaScriptComments(
+  source = ""
+) {
+  if (typeof source !== "string") {
+    return "";
+  }
+
+  return source
+    .replace(
+      /\/\*[\s\S]*?\*\//g,
+      ""
+    )
+    .replace(
+      /^\s*\/\/.*$/gm,
+      ""
+    )
+    .trim();
+}
+
+function isCommentOnlyGeneratedCode(
+  generatedCode = ""
+) {
+  return (
+    typeof generatedCode === "string" &&
+    generatedCode.trim().length > 0 &&
+    stripJavaScriptComments(
+      generatedCode
+    ).length === 0
   );
 }
 
@@ -372,6 +404,110 @@ function validateJavaScriptSyntax({
   }
 }
 
+function findPlaceholderImplementationComment(
+  generatedCode = ""
+) {
+  if (typeof generatedCode !== "string") {
+    return null;
+  }
+
+  const patterns = [
+    /\/\*[\s\S]{0,160}\btask object as defined\b[\s\S]{0,160}\*\//i,
+    /\/\*[\s\S]{0,160}\bimplementation(?: goes)? here\b[\s\S]{0,160}\*\//i,
+    /\/\*[\s\S]{0,160}\bimplement(?:ation)?[^*]{0,80}\bhere\b[\s\S]{0,160}\*\//i,
+    /^\s*\/\/\s*(?:TODO|FIXME)\b.*$/im
+  ];
+
+  const matchedPattern =
+    patterns.find(
+      (pattern) =>
+        pattern.test(
+          generatedCode
+        )
+    );
+
+  if (!matchedPattern) {
+    return null;
+  }
+
+  return (
+    generatedCode.match(
+      matchedPattern
+    )?.[0]?.trim() ||
+    "placeholder implementation comment"
+  );
+}
+
+function findIllustrativePlaceholderValue(
+  generatedCode = ""
+) {
+  if (
+    typeof generatedCode !== "string" ||
+    generatedCode.trim().length === 0
+  ) {
+    return null;
+  }
+
+  const patterns = [
+    /<\s*target symbol name\s*>/i,
+    /<\s*symbol type(?:\s*,\s*e\.?g\.?\s*,?\s*function)?\s*>/i,
+    /<\s*describe expected behavior(?:\s+in detail)?\s*>/i,
+    /<\s*(?:implementation|code|executable code) template\s*>/i,
+    /\bdescribe expected behavior(?:\s+in detail)?\b/i,
+    /\breplace with (?:your|the) implementation\b/i,
+    /\byour implementation here\b/i,
+    /\bimplement the function logic here\b/i,
+    /\bsample implementation\b/i,
+    /\bplaceholder implementation\b/i
+  ];
+
+  const matchedPattern =
+    patterns.find(
+      (pattern) =>
+        pattern.test(generatedCode)
+    );
+
+  if (!matchedPattern) {
+    return null;
+  }
+
+  return (
+    generatedCode.match(
+      matchedPattern
+    )?.[0]?.trim() ||
+    "illustrative placeholder value"
+  );
+}
+
+function isTargetSymbolRemovedByReplace({
+  operation = null,
+  targetFileText = "",
+  virtualFileText = "",
+  targetSymbol = null
+} = {}) {
+  if (
+    operation !== "replace" ||
+    typeof targetSymbol !== "string" ||
+    targetSymbol.trim().length === 0
+  ) {
+    return false;
+  }
+
+  const normalizedTargetSymbol =
+    targetSymbol.trim();
+
+  return (
+    containsSymbolDeclaration(
+      targetFileText,
+      normalizedTargetSymbol
+    ) &&
+    !containsSymbolDeclaration(
+      virtualFileText,
+      normalizedTargetSymbol
+    )
+  );
+}
+
 function validatePatchOperations(codeGenerator) {
   const operations = Array.isArray(
     codeGenerator?.operations
@@ -434,6 +570,12 @@ function validatePatchOperations(codeGenerator) {
         operation.operation
       );
 
+    const planningPolicy =
+      operation.payload?.planningPolicy &&
+      typeof operation.payload.planningPolicy === "object"
+        ? operation.payload.planningPolicy
+        : null;
+
     const requiredChecks =
       Array.isArray(
         operation.payload?.requiredChecks
@@ -463,6 +605,11 @@ function validatePatchOperations(codeGenerator) {
 
     const diagnosticOnlyGeneratedCode =
       isDiagnosticOnlyGeneratedCode(
+        generatedCode
+      );
+
+    const commentOnlyGeneratedCode =
+      isCommentOnlyGeneratedCode(
         generatedCode
       );
 
@@ -543,8 +690,65 @@ function validatePatchOperations(codeGenerator) {
           operation.anchorPattern,
         generatedCode
       });
+    const placeholderImplementationComment =
+      findPlaceholderImplementationComment(
+        generatedCode
+      );
+
+    const illustrativePlaceholderValue =
+      findIllustrativePlaceholderValue(
+        generatedCode
+      );
+
+    const targetSymbolRemovedByReplace =
+      isTargetSymbolRemovedByReplace({
+        operation:
+          operation.operation,
+        targetFileText,
+        virtualFileText:
+          virtualApply.text || "",
+        targetSymbol
+      });
+
+
+    const observedSymbolRange =
+      targetSymbol
+        ? locateFullSymbolRange({
+            filePath: targetFile,
+            targetSymbol
+          })
+        : null;
+
+    const observedLocalAnchor =
+      targetSymbol && anchorPattern
+        ? locateVerifiedLocalAnchor({
+            filePath: targetFile,
+            targetSymbol,
+            pattern: anchorPattern
+          })
+        : null;
+
+    const planningPolicyVerified =
+      !planningPolicy ||
+      (
+        (!planningPolicy.symbolRange ||
+          (observedSymbolRange?.verified === true &&
+           observedSymbolRange.startLine === planningPolicy.symbolRange.startLine &&
+           observedSymbolRange.endLine === planningPolicy.symbolRange.endLine)) &&
+        (!planningPolicy.verifiedLocalAnchorRequired ||
+          (observedLocalAnchor?.verified === true &&
+           observedLocalAnchor.line === planningPolicy.verifiedLocalAnchor?.anchorLine &&
+           observedLocalAnchor.pattern === planningPolicy.verifiedLocalAnchor?.anchorPattern))
+      );
 
     const validation = {
+      planningPolicy,
+
+      observedSymbolRange,
+
+      observedLocalAnchor,
+
+      planningPolicyVerified,
       file:
         targetFile,
 
@@ -571,7 +775,16 @@ function validatePatchOperations(codeGenerator) {
 
       diagnosticOnlyGeneratedCode,
 
-      duplicateTargetSymbolGeneration,
+
+      commentOnlyGeneratedCode,
+
+
+      placeholderImplementationComment,
+
+      illustrativePlaceholderValue,
+
+      targetSymbolRemovedByReplace,
+duplicateTargetSymbolGeneration,
 
       virtualApplySuccess:
         virtualApply.success === true,
@@ -617,18 +830,33 @@ function validatePatchOperations(codeGenerator) {
 
       readyForSafePatch:
         fileExists &&
+        planningPolicyVerified &&
         anchorExists &&
         supportedOperation &&
         requiredChecks.length > 0 &&
         generatedCode.length > 0 &&
         !unsafeReplaceOperation &&
         !diagnosticOnlyGeneratedCode &&
+                !commentOnlyGeneratedCode &&
+        !placeholderImplementationComment &&
+        !illustrativePlaceholderValue &&
+        !targetSymbolRemovedByReplace &&
         !duplicateTargetSymbolGeneration &&
         virtualApply.success === true &&
+        targetFileText !== virtualApply.text &&
         syntaxValidation.success === true &&
         semanticStructurePreserved &&
         !destructiveReplace.destructive
     };
+
+    if (
+      validation.virtualApplySuccess &&
+      !validation.virtualApplyChanged
+    ) {
+      issues.push(
+        `Generated patch makes no effective change in ${targetFile}.`
+      );
+    }
 
     if (!validation.fileExists) {
       issues.push(
@@ -667,6 +895,41 @@ function validatePatchOperations(codeGenerator) {
         `Unsafe replace anchor for generated code: ${anchorPattern}`
       );
     }
+    if (
+      validation.commentOnlyGeneratedCode
+    ) {
+      issues.push(
+        `Invalid generated code: comment-only implementation for ${targetFile}`
+      );
+    }
+    if (
+      validation
+        .placeholderImplementationComment
+    ) {
+      issues.push(
+        `Invalid generated code: placeholder implementation comment in ${targetFile}: ${validation.placeholderImplementationComment}`
+      );
+    }
+
+    if (
+      validation
+        .illustrativePlaceholderValue
+    ) {
+      issues.push(
+        `Invalid generated code: unresolved illustrative placeholder in ${targetFile}: ${validation.illustrativePlaceholderValue}`
+      );
+    }
+
+    if (
+      validation
+        .targetSymbolRemovedByReplace
+    ) {
+      issues.push(
+        `Invalid replace operation: target symbol ${targetSymbol} would be removed from ${targetFile}`
+      );
+    }
+
+
 
     if (
       validation
@@ -802,5 +1065,10 @@ module.exports = {
   findMissingExportedDeclarations,
   evaluateDestructiveReplace,
   isDiagnosticOnlyGeneratedCode,
-  isUnsafeReplaceOperation
+  isCommentOnlyGeneratedCode,
+
+  findPlaceholderImplementationComment,
+  findIllustrativePlaceholderValue,
+  isTargetSymbolRemovedByReplace,
+isUnsafeReplaceOperation
 };

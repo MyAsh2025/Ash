@@ -15,6 +15,35 @@ function normalizeExpectedBehavior(value) {
     : [];
 }
 
+function isIllustrativeExecutableTemplate(
+  value = ""
+) {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0
+  ) {
+    return false;
+  }
+
+  return (
+    /<\s*(?:target symbol name|symbol type(?:\s*,\s*e\.?g\.?\s*,?\s*function)?|describe expected behavior(?:\s+in detail)?|(?:implementation|code|executable code) template(?:\s+for implementation)?)\s*>/i.test(
+      value
+    ) ||
+    /\bdescribe expected behavior(?:\s+in detail)?\b/i.test(
+      value
+    ) ||
+    /\breplace with (?:your|the) implementation\b/i.test(
+      value
+    ) ||
+    /\byour implementation here\b/i.test(
+      value
+    ) ||
+    /\bimplement the function logic here\b/i.test(
+      value
+    )
+  );
+}
+
 function normalizeExecutableCodeTemplate(
   implementationPlanner
 ) {
@@ -24,9 +53,16 @@ function normalizeExecutableCodeTemplate(
   const executableCodeTemplate =
     implementationTemplate?.executableCodeTemplate;
 
-  return typeof executableCodeTemplate === "string"
-    ? executableCodeTemplate.trim()
-    : "";
+  const normalizedTemplate =
+    typeof executableCodeTemplate === "string"
+      ? executableCodeTemplate.trim()
+      : "";
+
+  return isIllustrativeExecutableTemplate(
+    normalizedTemplate
+  )
+    ? ""
+    : normalizedTemplate;
 }
 
 function normalizeGenerationContext(context = {}) {
@@ -151,10 +187,18 @@ function validateConcreteGenerationPlan({
   }
 
   if (!generationContext.targetSymbol) {
+    generationContext.informationAcquisitionRequired = true;
+    generationContext.missingFact = "targetSymbol";
+    generationContext.informationAcquisitionReason =
+      "A concrete target symbol is required before implementation generation. Acquire or derive verified target information instead of guessing.";
     return "Concrete target symbol is missing.";
   }
 
   if (generationContext.expectedBehavior.length === 0) {
+    generationContext.informationAcquisitionRequired = true;
+    generationContext.missingFact = "expectedBehavior";
+    generationContext.informationAcquisitionReason =
+      "Verified expected behavior is required before implementation generation. Acquire or derive the required behavior instead of guessing.";
     return "Expected implementation behavior is missing.";
   }
 
@@ -227,11 +271,12 @@ function buildGeneratedCodeForOperation(
       generatedCode: "",
       missingReason: [
         planError,
+        generationContext.informationAcquisitionReason,
         buildMissingPlanReason({
           operation,
           generationContext
         })
-      ].join(" "),
+      ].filter(Boolean).join(" "),
       generationReady: false
     };
   }
@@ -321,5 +366,7 @@ function generateCodeForPatch(
 }
 
 module.exports = {
-  generateCodeForPatch
+  generateCodeForPatch,
+  normalizeExecutableCodeTemplate,
+  isIllustrativeExecutableTemplate
 };

@@ -289,8 +289,29 @@ function buildCoreContext({
           "before creation"
         ]
       ),
-      measureAutonomyOverRuntimeCount: true
-    },
+      measureAutonomyOverRuntimeCount: true,
+      directExecutionPathVerification: includesAny(
+        allText,
+        [
+          "Direct Execution-Path Verification",
+          "推測修正より直接確認",
+          "実行経路を確認してから編集"
+        ]
+      ),
+      summarizeLargeVerificationOutput: includesAny(
+        allText,
+        [
+          "大量確認と大量表示を混同しない",
+          "最終判定、重要な根拠、異常箇所だけを表示",
+          "検証は自動化"
+        ]
+      ),
+      saveMeansImmediateActivation:
+        typeof loadedFiles.developmentRules?.content === "string" &&
+        loadedFiles.developmentRules.content.includes(
+          "保存 = 永続化 + 即時有効化 + 実行経路への反映 + 検証"
+        )
+},
     coreCheckRules: {
       beforePatch: includesAny(
         allText,
@@ -445,6 +466,13 @@ function loadAshCore(options = {}) {
   const exists = fs.existsSync(ashCorePath);
 
   const baseFiles = {
+    developmentRules: {
+      fileName: "development_rules.md",
+      path: path.join(
+        ashCorePath,
+        "development_rules.md"
+      )
+    },
     activeRuntimeIndex: {
       fileName: "active_runtime_index.md",
       path: path.join(

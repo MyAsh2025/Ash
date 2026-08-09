@@ -15,7 +15,10 @@ function inferExportedFunctionSymbol({
 
   if (
     !normalizedTargetFile ||
-    !normalizedTargetFile.toLowerCase().endsWith(".js")
+    !(
+      normalizedTargetFile.toLowerCase().endsWith(".js") ||
+      normalizedTargetFile.toLowerCase().endsWith(".mjs")
+    )
   ) {
     return {
       targetSymbol: null,
@@ -58,6 +61,14 @@ function inferExportedFunctionSymbol({
 
   const exportedSymbols =
     new Set();
+
+  for (
+    const match of sourceText.matchAll(
+      /(?:^|\n)\s*export\s+(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g
+    )
+  ) {
+    exportedSymbols.add(match[1]);
+  }
 
   const moduleExportsMatch =
     sourceText.match(
@@ -471,6 +482,35 @@ function inferExpectedBehavior({
   return [...new Set(behaviors)];
 }
 
+function isIllustrativeExecutableTemplate(
+  value = ""
+) {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0
+  ) {
+    return false;
+  }
+
+  return (
+    /<\s*(?:target symbol name|symbol type(?:\s*,\s*e\.?g\.?\s*,?\s*function)?|describe expected behavior(?:\s+in detail)?|(?:implementation|code|executable code) template(?:\s+for implementation)?)\s*>/i.test(
+      value
+    ) ||
+    /\bdescribe expected behavior(?:\s+in detail)?\b/i.test(
+      value
+    ) ||
+    /\breplace with (?:your|the) implementation\b/i.test(
+      value
+    ) ||
+    /\byour implementation here\b/i.test(
+      value
+    ) ||
+    /\bimplement the function logic here\b/i.test(
+      value
+    )
+  );
+}
+
 function normalizeImplementationTemplate(value = null) {
   if (!value || typeof value !== "object") {
     return {
@@ -716,7 +756,8 @@ function buildImplementationPlanner({
   errorMessage = null,
   issues = [],
   validatedOperations = [],
-  previousTask = null
+  previousTask = null,
+  coreContext = null
 } = {}) {
   const normalizedWork = normalizeWork(work);
 
@@ -808,13 +849,13 @@ function buildImplementationPlanner({
           allowTargetRedeclaration:
             false,
           requireVerifiedLocalAnchor:
-            false,
+            true,
           localAnchorPattern:
             null,
           preferredOperation:
-            "insert-before",
+            "insert-after",
           integrationGoal:
-            "symbol-declaration-augmentation",
+            "function-body-augmentation",
           minimizeStructuralChange:
             true,
           safeStopRequired:
@@ -939,21 +980,22 @@ function buildImplementationPlanner({
         originalTask?.strategy ||
         selectedClassification.strategy;
 
+  const verifiedExistingTarget =
+    Boolean(inferredTargetSymbol.targetSymbol) &&
+    resolvedTargetSymbol ===
+      inferredTargetSymbol.targetSymbol;
+
   const requestedRecommendedOperation =
-    recommendedOperation ||
-    originalTask?.recommendedOperation ||
-    (
-      inferredTargetSymbol.targetSymbol &&
-      resolvedTargetSymbol ===
-        inferredTargetSymbol.targetSymbol
-        ? "replace"
-        : selectedClassification.recommendedOperation
-    );
+    verifiedExistingTarget
+      ? "replace"
+      : recommendedOperation ||
+        originalTask?.recommendedOperation ||
+        selectedClassification.recommendedOperation;
 
   const resolvedRecommendedOperation =
     previousDestructiveReplace &&
     requestedRecommendedOperation === "replace"
-      ? "insert-before"
+      ? "insert-after"
       : requestedRecommendedOperation;
 
   const resolvedConfidence =
@@ -968,7 +1010,10 @@ function buildImplementationPlanner({
 
   const executableTemplateReady =
     typeof normalizedTemplate.executableCodeTemplate === "string" &&
-    normalizedTemplate.executableCodeTemplate.trim().length > 0;
+    normalizedTemplate.executableCodeTemplate.trim().length > 0 &&
+    !isIllustrativeExecutableTemplate(
+      normalizedTemplate.executableCodeTemplate
+    );
 
   return {
     mode: "implementation-planner-runtime",
@@ -1048,6 +1093,16 @@ function buildImplementationPlanner({
             : resolvedTargetFile
               ? `Implementation plan prepared for ${resolvedTargetFile}.`
               : "Implementation plan prepared from task text.",
+    coreContext:
+      coreContext &&
+      typeof coreContext === "object"
+        ? coreContext
+        : null,
+    developmentPrinciples:
+      coreContext?.developmentPrinciples &&
+      typeof coreContext.developmentPrinciples === "object"
+        ? coreContext.developmentPrinciples
+        : null,
     plannedAt: new Date().toISOString()
   };
 }

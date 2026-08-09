@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -7,12 +8,25 @@ function ensureDir(dirPath) {
   }
 }
 
-function getRuntimeStateDir() {
-  return path.join(process.cwd(), "ash", "runtime-state");
+function getRuntimeStateDir(
+  projectPath = process.cwd()
+) {
+  return path.join(
+    projectPath,
+    "ash",
+    "runtime-state"
+  );
 }
 
-function getLatestRuntimeStatePath() {
-  return path.join(getRuntimeStateDir(), "latest-runtime.json");
+function getLatestRuntimeStatePath(
+  projectPath = process.cwd()
+) {
+  return path.join(
+    getRuntimeStateDir(
+      projectPath
+    ),
+    "latest-runtime.json"
+  );
 }
 
 function writeRuntimeState(runtimeResult = {}) {
@@ -104,11 +118,310 @@ function readRuntimeState() {
   };
 }
 
+
+function buildAutonomousTaskIdentity(
+  task = null
+) {
+  if (
+    !task ||
+    typeof task !== "object"
+  ) {
+    return null;
+  }
+
+  return JSON.stringify({
+    task:
+      task.task || null,
+
+    source:
+      task.source || null,
+
+    targetFile:
+      task.targetFile ||
+      task.file ||
+      null,
+
+    targetSymbol:
+      task.targetSymbol || null,
+
+    work:
+      Array.isArray(
+        task.work
+      )
+        ? task.work
+        : []
+  });
+}
+
+function resolveAutonomousTargetFingerprint({
+  task = null,
+  projectPath = process.cwd()
+} = {}) {
+  const targetFile =
+    task?.targetFile ||
+    task?.file ||
+    null;
+
+  if (
+    typeof targetFile !== "string" ||
+    targetFile.trim().length === 0
+  ) {
+    return null;
+  }
+
+  const absolutePath =
+    path.resolve(
+      projectPath,
+      targetFile
+    );
+
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+
+  const stat =
+    fs.statSync(
+      absolutePath
+    );
+
+  if (!stat.isFile()) {
+    return null;
+  }
+
+  return crypto
+    .createHash("sha256")
+    .update(
+      fs.readFileSync(
+        absolutePath
+      )
+    )
+    .digest("hex");
+}
+
+function readAutonomousCompletedTasks({
+  projectPath = process.cwd()
+} = {}) {
+  const latestPath =
+    getLatestRuntimeStatePath(
+      projectPath
+    );
+
+  if (!fs.existsSync(latestPath)) {
+    return {
+      mode:
+        "autonomous-completion-state-reader",
+      version:
+        "ash-local-runtime-v0.1-fingerprint",
+      exists:
+        false,
+      path:
+        latestPath,
+      tasks: [],
+      records: []
+    };
+  }
+
+  const state =
+    JSON.parse(
+      fs.readFileSync(
+        latestPath,
+        "utf8"
+      )
+    );
+
+  const records =
+    Array.isArray(
+      state
+        ?.autonomousDevelopment
+        ?.completedTasks
+    )
+      ? state
+          .autonomousDevelopment
+          .completedTasks
+      : [];
+
+  const activeRecords =
+    records.filter(
+      (record) => {
+        if (
+          !record ||
+          typeof record !== "object" ||
+          !record.task
+        ) {
+          return false;
+        }
+
+        const currentFingerprint =
+          resolveAutonomousTargetFingerprint({
+            task:
+              record.task,
+            projectPath
+          });
+
+        return (
+          typeof record.targetFingerprint ===
+            "string" &&
+          record.targetFingerprint.length > 0 &&
+          currentFingerprint ===
+            record.targetFingerprint
+        );
+      }
+    );
+
+  return {
+    mode:
+      "autonomous-completion-state-reader",
+    version:
+      "ash-local-runtime-v0.1-fingerprint",
+    exists:
+      true,
+    path:
+      latestPath,
+    tasks:
+      activeRecords.map(
+        (record) =>
+          record.task
+      ),
+    records:
+      activeRecords
+  };
+}
+
+function writeAutonomousCompletedTask({
+  task = null,
+  projectPath = process.cwd()
+} = {}) {
+  const identity =
+    buildAutonomousTaskIdentity(
+      task
+    );
+
+  const targetFingerprint =
+    resolveAutonomousTargetFingerprint({
+      task,
+      projectPath
+    });
+
+  if (
+    !identity ||
+    !targetFingerprint
+  ) {
+    return {
+      mode:
+        "autonomous-completion-state-writer",
+      version:
+        "ash-local-runtime-v0.1-fingerprint",
+      saved:
+        false,
+      reason:
+        "A concrete task identity and target-file fingerprint are required."
+    };
+  }
+
+  const stateDir =
+    getRuntimeStateDir(
+      projectPath
+    );
+
+  ensureDir(
+    stateDir
+  );
+
+  const latestPath =
+    getLatestRuntimeStatePath(
+      projectPath
+    );
+
+  let state = {
+    mode:
+      "persistent-runtime-state",
+    version:
+      "ash-local-runtime-v0.1",
+    latestRuntime:
+      null
+  };
+
+  if (fs.existsSync(latestPath)) {
+    state =
+      JSON.parse(
+        fs.readFileSync(
+          latestPath,
+          "utf8"
+        )
+      );
+  }
+
+  const existingRecords =
+    Array.isArray(
+      state
+        ?.autonomousDevelopment
+        ?.completedTasks
+    )
+      ? state
+          .autonomousDevelopment
+          .completedTasks
+      : [];
+
+  const retainedRecords =
+    existingRecords.filter(
+      (record) =>
+        buildAutonomousTaskIdentity(
+          record?.task
+        ) !== identity
+    );
+
+  const record = {
+    identity,
+    task,
+    targetFingerprint,
+    completedAt:
+      new Date().toISOString()
+  };
+
+  state.autonomousDevelopment = {
+    mode:
+      "autonomous-development-completion-state",
+    version:
+      "ash-local-runtime-v0.1-fingerprint",
+    completedTasks: [
+      ...retainedRecords,
+      record
+    ]
+  };
+
+  state.savedAt =
+    new Date().toISOString();
+
+  fs.writeFileSync(
+    latestPath,
+    JSON.stringify(
+      state,
+      null,
+      2
+    ),
+    "utf8"
+  );
+
+  return {
+    mode:
+      "autonomous-completion-state-writer",
+    version:
+      "ash-local-runtime-v0.1-fingerprint",
+    saved:
+      true,
+    path:
+      latestPath,
+    record
+  };
+}
+
 module.exports = {
   writeRuntimeState,
   readRuntimeState,
   getRuntimeStateDir,
-  getLatestRuntimeStatePath
+  getLatestRuntimeStatePath,
+  readAutonomousCompletedTasks,
+  writeAutonomousCompletedTask
 };
 
 

@@ -170,13 +170,34 @@ function parseProviderOutput({
     parsed.success === false ||
     !executableCodeTemplate
   ) {
-    return {
-      ...buildFailure({
+    const commandFailure =
+      buildFailure({
         command,
         reason:
           normalizeText(parsed.reason) ||
           "Command implementation provider did not produce executable code."
-      }),
+      });
+
+    return {
+      ...parsed,
+      ...commandFailure,
+      providerName:
+        normalizeText(
+          parsed.providerName
+        ) ||
+        commandFailure.providerName,
+      metadata: {
+        ...(
+          parsed.metadata &&
+          typeof parsed.metadata ===
+            "object"
+            ? parsed.metadata
+            : {}
+        ),
+        ...commandFailure.metadata,
+        outputFormat:
+          "json-object-failure"
+      },
       providerResult: parsed
     };
   }

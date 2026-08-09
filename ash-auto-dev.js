@@ -260,9 +260,41 @@ const logPath = path.join(
 
 fs.writeFileSync(logPath, JSON.stringify(result, null, 2), "utf8");
 
-const firstCycle = result.cycles?.[0] || null;
-const pipelineStep = firstCycle?.capabilityLoop?.steps?.find((step) => step.action === "development_pipeline");
-const pipeline = pipelineStep?.dispatchResult?.result?.result || null;
+const finalCycle =
+  Array.isArray(result.cycles) &&
+  result.cycles.length > 0
+    ? result.cycles[result.cycles.length - 1]
+    : null;
+
+const finalPipelineCycle =
+  Array.isArray(result.cycles)
+    ? [...result.cycles]
+        .reverse()
+        .find(
+          (cycle) =>
+            cycle?.capabilityLoop?.steps?.some(
+              (step) =>
+                step.action ===
+                "development_pipeline"
+            )
+        ) || null
+    : null;
+
+const pipelineStep =
+  finalPipelineCycle
+    ?.capabilityLoop
+    ?.steps
+    ?.find(
+      (step) =>
+        step.action ===
+        "development_pipeline"
+    );
+
+const pipeline =
+  pipelineStep
+    ?.dispatchResult
+    ?.result
+    ?.result || null;
 
 console.log(JSON.stringify({
   mode: "ash-auto-dev-runner",
@@ -273,14 +305,23 @@ console.log(JSON.stringify({
   failedAction: result.failedAction || null,
   cycles: result.cycles?.length || 0,
   requestedTask,
-  selectedTask: firstCycle?.selectedTask || null,
-  capabilityLoop: firstCycle?.capabilityLoop?.success || null,
-  pipelineSuccess: pipeline?.success || null,
-  applyMode: pipeline?.applyMode || null,
-  effectiveDryRun: pipeline?.effectiveDryRun,
-  applied: pipeline?.patchApplyEngine?.applied || false,
-  coreCheck: firstCycle?.coreCheck?.success || null,
-  checkpointRecommended: firstCycle?.coreCheck?.checkpointRecommended || false,
+  selectedTask:
+    finalCycle?.selectedTask || null,
+  capabilityLoop:
+    finalCycle?.capabilityLoop?.success ?? null,
+  pipelineSuccess:
+    pipeline?.success ?? null,
+  applyMode:
+    pipeline?.applyMode || null,
+  effectiveDryRun:
+    pipeline?.effectiveDryRun,
+  applied:
+    pipeline?.patchApplyEngine?.applied || false,
+  coreCheck:
+    finalCycle?.coreCheck?.success ?? null,
+  checkpointRecommended:
+    finalCycle?.coreCheck
+      ?.checkpointRecommended || false,
   logPath
 }, null, 2));
 

@@ -187,8 +187,16 @@ function buildSymbolEdit({
     return null;
   }
 
+  const functionBodyRepairRequested =
+    patchPlanner?.localRepairIntent
+      ?.preserveExistingTarget === true &&
+    targetLocator?.functionBodyAnchor
+      ?.verified === true;
+
   const operation =
-    requestedOperation || "insert-before";
+    functionBodyRepairRequested
+      ? "insert-after"
+      : requestedOperation || "insert-before";
 
   const symbolRange =
     operation === "replace"
@@ -224,15 +232,17 @@ function buildSymbolEdit({
       : "";
 
   const verifiedLocalAnchor =
-    verifiedLocalAnchorRequired &&
-    operation !== "replace" &&
-    localAnchorPattern
-      ? locateVerifiedLocalAnchor({
-          filePath: repositoryTargetFile,
-          targetSymbol,
-          pattern: localAnchorPattern
-        })
-      : null;
+    functionBodyRepairRequested
+      ? targetLocator.functionBodyAnchor
+      : verifiedLocalAnchorRequired &&
+          operation !== "replace" &&
+          localAnchorPattern
+        ? locateVerifiedLocalAnchor({
+            filePath: repositoryTargetFile,
+            targetSymbol,
+            pattern: localAnchorPattern
+          })
+        : null;
 
   if (
     verifiedLocalAnchorRequired &&
@@ -282,9 +292,11 @@ function buildSymbolEdit({
       selectedAnchorClass:
         operation === "replace"
           ? "verified-full-symbol-range"
-          : verifiedLocalAnchorRequired
-            ? "verified-local-symbol-anchor"
-            : "symbol-declaration",
+          : functionBodyRepairRequested
+            ? "verified-function-body-anchor"
+            : verifiedLocalAnchorRequired
+              ? "verified-local-symbol-anchor"
+              : "symbol-declaration",
       verifiedLocalAnchorRequired,
       verifiedLocalAnchor:
         verifiedLocalAnchor

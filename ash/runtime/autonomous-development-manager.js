@@ -1,5 +1,10 @@
 "use strict";
 
+const {
+  readAutonomousCompletedTasks,
+  writeAutonomousCompletedTask
+} = require("./runtime-state");
+
 function extractExplicitTargetSymbol(task = "") {
   const text = String(task || "").trim();
 
@@ -62,7 +67,7 @@ function extractExplicitTargetFile(task = "") {
     }
   }
 
-  const pathMatch = text.match(/\b(ash[\/\\][A-Za-z0-9._\/\\-]+\.(?:js|json|md|ps1|txt))\b/i);
+  const pathMatch = text.match(/\b(ash[\/\\][A-Za-z0-9._\/\\-]+\.(?:js|mjs|json|md|ps1|txt))\b/i);
   return pathMatch ? pathMatch[1].replace(/\\/g, "/") : null;
 }
 const { observeRepository } = require("./repository-observation-runtime");
@@ -164,7 +169,22 @@ function runAutonomousDevelopmentManager({
 } = {}) {
   const cycles = [];
   let pendingRepairTask = null;
-  let lastCompletedReportOnlyTask = null;
+  let explicitUserTaskConsumed = false;
+  const persistedCompletion =
+    readAutonomousCompletedTasks({
+      projectPath:
+        context.projectPath ||
+        process.cwd()
+    });
+
+  const completedTasks =
+    Array.isArray(
+      persistedCompletion?.tasks
+    )
+      ? [
+          ...persistedCompletion.tasks
+        ]
+      : [];
 
   for (let i = 0; i < maxCycles; i++) {
     const repositoryObservation = observeRepository({
@@ -173,21 +193,11 @@ function runAutonomousDevelopmentManager({
 
     const taskDiscovery = discoverTaskFromRepository({
       observation: repositoryObservation,
-      excludedTask: lastCompletedReportOnlyTask
+      excludedTasks: completedTasks
     });
 
-    if (!taskDiscovery.discovered) {
-      return {
-        mode: "autonomous-development-manager-runtime",
-        version: "ash-local-runtime-v0.1",
-        success: true,
-        stopped: true,
-        stopReason: "no_repository_task",
-        cycles,
-        finalObservation: repositoryObservation,
-        ranAt: new Date().toISOString()
-      };
-    }
+    const noRepositoryTaskAvailable =
+      !taskDiscovery.discovered;
 
     const hasExplicitUserTask =
       task &&
@@ -222,10 +232,37 @@ function runAutonomousDevelopmentManager({
           }
         : null;
 
+    const availableExplicitUserTask =
+      explicitUserTask &&
+      explicitUserTaskConsumed !== true
+        ? explicitUserTask
+        : null;
+
     const discoveredTask =
       pendingRepairTask ||
-      explicitUserTask ||
+      availableExplicitUserTask ||
       taskDiscovery.task;
+    if (
+      !discoveredTask &&
+      noRepositoryTaskAvailable
+    ) {
+      return {
+        mode: "autonomous-development-manager-runtime",
+        version: "ash-local-runtime-v0.1",
+        success: true,
+        stopped: true,
+        stopReason: "no_repository_task",
+        cycles,
+        finalObservation: repositoryObservation,
+        ranAt: new Date().toISOString()
+      };
+    }
+
+    if (
+      discoveredTask === explicitUserTask
+    ) {
+      explicitUserTaskConsumed = true;
+    }
 
     pendingRepairTask = null;
 
@@ -315,10 +352,65 @@ function runAutonomousDevelopmentManager({
       };
     }
 
-    if (discoveredTask?.reportOnly === true) {
-      lastCompletedReportOnlyTask = discoveredTask;
-    } else {
-      lastCompletedReportOnlyTask = null;
+    const developmentStep =
+      [...(capabilityLoop?.steps || [])]
+        .reverse()
+        .find(
+          (step) =>
+            step?.action ===
+            "development_pipeline"
+        ) || null;
+
+    const pipelineResult =
+      developmentStep
+        ?.dispatchResult
+        ?.result
+        ?.result ||
+      null;
+
+    const completedByRealApply =
+      discoveredTask?.reportOnly !== true &&
+      dryRun !== true &&
+      capabilityLoop.success === true &&
+      coreCheck.success === true &&
+      pipelineResult?.success === true &&
+      pipelineResult?.dryRun === false &&
+      pipelineResult?.effectiveDryRun === false &&
+      pipelineResult
+        ?.patchApplyEngine
+        ?.success === true &&
+      pipelineResult
+        ?.patchApplyEngine
+        ?.applied === true;
+
+    if (
+      discoveredTask?.reportOnly === true ||
+      completedByRealApply
+    ) {
+      completedTasks.push(
+        discoveredTask
+      );
+    }
+
+    if (completedByRealApply) {
+      const completionPersistence =
+        writeAutonomousCompletedTask({
+          task:
+            discoveredTask,
+          projectPath:
+            context.projectPath ||
+            process.cwd()
+        });
+
+      if (
+        completionPersistence?.saved !==
+        true
+      ) {
+        throw new Error(
+          completionPersistence?.reason ||
+          "Autonomous completion state was not persisted."
+        );
+      }
     }
   }
 

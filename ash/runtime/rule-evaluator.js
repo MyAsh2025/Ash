@@ -52,7 +52,8 @@ function evaluateRules({
   const runtimeExecutionAllowed =
     coreAvailable &&
     requiredCoreComplete &&
-    activeRuntimeStackComplete;
+    activeRuntimeStackComplete &&
+    developmentPrinciples.saveMeansImmediateActivation === true;
 
   return {
     mode: "rule-evaluator",
@@ -123,8 +124,14 @@ function evaluateRules({
       measureAutonomyOverRuntimeCount:
         developmentPrinciples.measureAutonomyOverRuntimeCount === true,
       verifiedTargetEditing:
-        developmentPrinciples.verifiedTargetEditing === true
-    },
+        developmentPrinciples.verifiedTargetEditing === true,
+      directExecutionPathVerification:
+        developmentPrinciples.directExecutionPathVerification === true,
+      summarizeLargeVerificationOutput:
+        developmentPrinciples.summarizeLargeVerificationOutput === true,
+      saveMeansImmediateActivation:
+        developmentPrinciples.saveMeansImmediateActivation === true
+},
     workflow: {
       autoExecutable: workflow?.autoExecutable === true,
       taskCount: taskRuntime?.tasks?.length || 0
@@ -148,8 +155,11 @@ function evaluateRules({
         runtimeEnforcement.enforcementBeforeOutput !== true
           ? ["runtime-enforcement-rule-unavailable"]
           : []
-      )
-    ],
+      ),
+      ...(developmentPrinciples.saveMeansImmediateActivation !== true
+        ? ["save-activation-development-contract-unavailable"]
+        : [])
+],
     evaluatedAt: new Date().toISOString()
   };
 }
