@@ -37,8 +37,9 @@ function extractExplicitTargetSymbol(task = "") {
      * "target symbol: name" syntax.
      */
     const resemblesCodeSymbol =
-      /[A-Z_$]/.test(candidate) ||
-      candidate.includes("_");
+      /[a-z][A-Z]/.test(candidate) ||
+      candidate.includes("_") ||
+      candidate.includes("$");
 
     if (resemblesCodeSymbol) {
       return candidate;

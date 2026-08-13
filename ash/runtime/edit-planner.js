@@ -190,8 +190,12 @@ function buildSymbolEdit({
   const functionBodyRepairRequested =
     patchPlanner?.localRepairIntent
       ?.preserveExistingTarget === true &&
+    patchPlanner?.localRepairIntent
+      ?.requireVerifiedLocalAnchor === true &&
     targetLocator?.functionBodyAnchor
-      ?.verified === true;
+      ?.verified === true &&
+    targetLocator?.functionBodyAnchor
+      ?.anchorType === "function-body-opening";
 
   const operation =
     functionBodyRepairRequested

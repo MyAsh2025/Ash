@@ -1838,6 +1838,40 @@ function findImmediateGenerationViolation({
     );
   }
 
+  const currentTargetSource =
+    safeString(
+      input?.currentTargetSource
+    );
+
+  const generatedFunctionPrefix =
+    /^\s*async\s+function\s*\*/.test(
+      currentTargetSource
+    )
+      ? "async function* __ashGeneratedBodySyntaxProbe() {"
+      : /^\s*async\s+function\b/.test(
+          currentTargetSource
+        )
+        ? "async function __ashGeneratedBodySyntaxProbe() {"
+        : /^\s*function\s*\*/.test(
+            currentTargetSource
+          )
+          ? "function* __ashGeneratedBodySyntaxProbe() {"
+          : "function __ashGeneratedBodySyntaxProbe() {";
+
+  try {
+    new Function(
+      `${generatedFunctionPrefix}\n${executableCodeTemplate}\n}`
+    );
+  } catch (error) {
+    return (
+      "The generated implementation is not valid JavaScript " +
+      "for insertion inside the existing function body. " +
+      `Syntax error: ${
+        safeString(error?.message) ||
+        "unknown syntax error"
+      }.`
+    );
+  }
   return null;
 }
 
