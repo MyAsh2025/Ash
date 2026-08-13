@@ -373,6 +373,66 @@ function inferExportedFunctionSymbol({
         : `No unique exported function candidate was found in ${normalizedTargetFile}.`
   };
 }
+
+function isDeclaredFunctionTarget({
+  targetFile = null,
+  targetSymbol = null,
+  root = process.cwd()
+} = {}) {
+  const normalizedTargetFile =
+    typeof targetFile === "string"
+      ? targetFile.trim()
+      : "";
+
+  const normalizedTargetSymbol =
+    typeof targetSymbol === "string"
+      ? targetSymbol.trim()
+      : "";
+
+  if (
+    !normalizedTargetFile ||
+    !normalizedTargetSymbol ||
+    !(
+      normalizedTargetFile.toLowerCase().endsWith(".js") ||
+      normalizedTargetFile.toLowerCase().endsWith(".mjs")
+    ) ||
+    !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(
+      normalizedTargetSymbol
+    )
+  ) {
+    return false;
+  }
+
+  const absoluteTargetFile =
+    path.isAbsolute(normalizedTargetFile)
+      ? normalizedTargetFile
+      : path.join(root, normalizedTargetFile);
+
+  if (!fs.existsSync(absoluteTargetFile)) {
+    return false;
+  }
+
+  const sourceText =
+    fs.readFileSync(
+      absoluteTargetFile,
+      "utf8"
+    );
+
+  const declaredFunctions =
+    new Set(
+      Array.from(
+        sourceText.matchAll(
+          /(?:^|\n)\s*(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g
+        ),
+        (match) => match[1]
+      )
+    );
+
+  return declaredFunctions.has(
+    normalizedTargetSymbol
+  );
+}
+
 function normalizeWork(work = []) {
   return Array.isArray(work)
     ? work.filter(Boolean)
@@ -981,9 +1041,20 @@ function buildImplementationPlanner({
         selectedClassification.strategy;
 
   const verifiedExistingTarget =
-    Boolean(inferredTargetSymbol.targetSymbol) &&
-    resolvedTargetSymbol ===
-      inferredTargetSymbol.targetSymbol;
+    Boolean(resolvedTargetSymbol) &&
+    (
+      resolvedTargetSymbol ===
+        inferredTargetSymbol.targetSymbol ||
+      inferredTargetSymbol.candidates?.includes(
+        resolvedTargetSymbol
+      ) === true ||
+      isDeclaredFunctionTarget({
+        targetFile:
+          resolvedTargetFile,
+        targetSymbol:
+          resolvedTargetSymbol
+      })
+    );
 
   const requestedRecommendedOperation =
     verifiedExistingTarget

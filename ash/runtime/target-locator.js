@@ -448,6 +448,38 @@ function findMatchingClosingBrace({
   let escaped = false;
   let lineComment = false;
   let blockComment = false;
+  let regexLiteral = false;
+  let regexCharacterClass = false;
+
+  function findPreviousSignificantCharacter(
+    index
+  ) {
+    for (
+      let cursor = index - 1;
+      cursor >= openingBraceOffset;
+      cursor -= 1
+    ) {
+      const candidate = sourceText[cursor];
+
+      if (!/\s/.test(candidate)) {
+        return candidate;
+      }
+    }
+
+    return "";
+  }
+
+  function canStartRegexLiteral(index) {
+    const previous =
+      findPreviousSignificantCharacter(index);
+
+    return (
+      previous === "" ||
+      /[=(:,![{;?&|+\-*%^~<>]/.test(
+        previous
+      )
+    );
+  }
 
   for (
     let index = openingBraceOffset;
@@ -473,6 +505,43 @@ function findMatchingClosingBrace({
       ) {
         blockComment = false;
         index += 1;
+      }
+
+      continue;
+    }
+
+    if (regexLiteral) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (character === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (
+        character === "[" &&
+        !regexCharacterClass
+      ) {
+        regexCharacterClass = true;
+        continue;
+      }
+
+      if (
+        character === "]" &&
+        regexCharacterClass
+      ) {
+        regexCharacterClass = false;
+        continue;
+      }
+
+      if (
+        character === "/" &&
+        !regexCharacterClass
+      ) {
+        regexLiteral = false;
       }
 
       continue;
@@ -511,6 +580,16 @@ function findMatchingClosingBrace({
     ) {
       blockComment = true;
       index += 1;
+      continue;
+    }
+
+    if (
+      character === "/" &&
+      canStartRegexLiteral(index)
+    ) {
+      regexLiteral = true;
+      regexCharacterClass = false;
+      escaped = false;
       continue;
     }
 

@@ -1708,39 +1708,54 @@ function findImmediateGenerationViolation({
     return outputShapeViolation;
   }
 
+  const completeFunctionContractRequired =
+    safeString(
+      input?.requiredOutputShape
+    ) === "complete-function";
+
   const returnContractReconstructionViolation =
-    findReturnContractReconstructionViolation({
-      input,
-      executableCodeTemplate
-    });
+    completeFunctionContractRequired
+      ? findReturnContractReconstructionViolation({
+          input,
+          executableCodeTemplate
+        })
+      : null;
 
   if (returnContractReconstructionViolation) {
     return returnContractReconstructionViolation;
   }
+
   const nestedReturnContractViolation =
-    findNestedReturnContractViolation({
-      input,
-      executableCodeTemplate
-    });
+    completeFunctionContractRequired
+      ? findNestedReturnContractViolation({
+          input,
+          executableCodeTemplate
+        })
+      : null;
 
   if (nestedReturnContractViolation) {
     return nestedReturnContractViolation;
   }
+
   const returnContractShapeViolation =
-    findReturnContractShapeViolation({
-      input,
-      executableCodeTemplate
-    });
+    completeFunctionContractRequired
+      ? findReturnContractShapeViolation({
+          input,
+          executableCodeTemplate
+        })
+      : null;
 
   if (returnContractShapeViolation) {
     return returnContractShapeViolation;
   }
 
   const requiredPropertyViolation =
-    findRequiredPropertyPreservationViolation({
-      input,
-      executableCodeTemplate
-    });
+    completeFunctionContractRequired
+      ? findRequiredPropertyPreservationViolation({
+          input,
+          executableCodeTemplate
+        })
+      : null;
 
   if (requiredPropertyViolation) {
     return requiredPropertyViolation;
@@ -1827,10 +1842,18 @@ function findImmediateGenerationViolation({
 }
 
 function buildViolationCorrectionGuidance(
-  violation = ""
+  violation = "",
+  input = null
 ) {
   const normalizedViolation =
     safeString(violation).toLowerCase();
+
+  const requiredReturnProperties =
+    extractRequiredReturnProperties(
+      safeString(
+        input?.currentTargetSource
+      )
+    );
 
   if (
     normalizedViolation.includes(
@@ -1936,6 +1959,9 @@ function buildViolationCorrectionGuidance(
       "- The replacement function must retain its top-level return { ... } object.",
       "- Return the complete named function declaration.",
       "- Preserve the existing top-level returned properties.",
+      requiredReturnProperties.length > 0
+        ? `- Required top-level returned properties: ${requiredReturnProperties.join(", ")}.`
+        : "",
       "- Do not replace the result with a helper call, metadata wrapper, or generated-code string."
     ].join("\n");
   }
@@ -2042,7 +2068,8 @@ function buildImmediateRetryPrompt({
     "",
     `Violation: ${violation}`,
     buildViolationCorrectionGuidance(
-      violation
+      violation,
+      input
     ),
     "",
     "",
