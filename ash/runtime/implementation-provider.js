@@ -793,10 +793,8 @@ function extractCurrentTargetSource({
     declarationMatch[0].search(/\S/);
 
   const openingBrace =
-    sourceText.indexOf(
-      "{",
-      declarationMatch.index
-    );
+    declarationMatch.index +
+    declarationMatch[0].lastIndexOf("{");
 
   if (openingBrace < 0) {
     return "";
@@ -910,14 +908,18 @@ function buildProviderInput({
   implementationPlanner = null,
   targetLocator = null
 } = {}) {
+  const completeTargetSource =
+    resolveCompleteProviderSourceText({
+      implementationPlanner,
+      targetLocator
+    });
+
   return {
+    completeTargetSource,
     currentTargetSource:
       extractCurrentTargetSource({
         sourceText:
-          resolveCompleteProviderSourceText({
-            implementationPlanner,
-            targetLocator
-          }),
+          completeTargetSource,
         targetSymbol:
           implementationPlanner?.targetSymbol ||
           targetLocator?.targetSymbol ||

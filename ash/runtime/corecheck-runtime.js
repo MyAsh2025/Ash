@@ -6,6 +6,7 @@ const { spawnSync } = require("child_process");
 
 const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash-auto-dev.js",
+  "./ash-dev-verify.js",
   "./ash/runtime/autonomous-development-manager.js",
   "./ash/runtime/development-pipeline-runtime.js",
   "./ash/runtime/queue-task-adapter.js",
@@ -21,6 +22,23 @@ const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash/runtime/patch-validator.js",
   "./ash/runtime/patch-apply-engine.js",
   "./ash/runtime/corecheck-runtime.js",
+  "./ash/runtime/autonomous-development-repair-routing-regression-test.js",
+  "./ash/runtime/autonomous-development-pending-repair-bootstrap-regression-test.js",
+  "./ash/runtime/corecheck-apply-rollback-regression-test.js",
+  "./ash/runtime/autonomous-manager-corecheck-rollback-integration-regression-test.js",
+  "./ash/runtime/implementation-planner-initial-local-augmentation-regression-test.js",
+  "./ash/runtime/implementation-planner-repair-evidence-regression-test.js",
+  "./ash/runtime/implementation-provider-current-target-source-regression-test.js",
+  "./ash/runtime/implementation-provider-progress-regression-test.js",
+  "./ash/runtime/patch-validator-contract-retention-regression-test.js",
+  "./ash/runtime/openai-provider-enforcement-contract-regression-test.js",
+  "./ash/runtime/openai-provider-retry-evidence-integration-regression-test.js",
+  "./ash/runtime/completion-evidence.js",
+  "./ash/runtime/existing-repair-completion-evidence-regression-test.js",
+  "./ash/runtime/completion-coverage-kind-regression-test.js",
+  "./ash/runtime/existing-repair-cli-integration-regression-test.js",
+  "./ash/runtime/completion-corecheck-integration-regression-test.js",
+  "./ash/runtime/development-completion-contract-regression-test.js",
   "./ash/providers/openai-implementation-provider.mjs"
 ]);
 
@@ -679,11 +697,174 @@ function runProviderBoundaryCheck({
   };
 }
 
+
+function getPermanentRegressionChecks() {
+  return [
+    {
+      id: "autonomous-development-repair-routing",
+      file: "./ash/runtime/autonomous-development-repair-routing-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/autonomous-development-manager.js"], targetSymbols: ["extractCapabilityFailure", "buildRepairTask"] }
+    },
+    {
+      id: "autonomous-development-pending-repair-bootstrap",
+      file: "./ash/runtime/autonomous-development-pending-repair-bootstrap-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/autonomous-development-manager.js"], targetSymbols: ["runAutonomousDevelopmentManager"] }
+    },
+    {
+      id: "corecheck-apply-rollback",
+      file: "./ash/runtime/corecheck-apply-rollback-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/patch-apply-engine.js"], targetSymbols: ["rollbackAppliedPatch"] }
+    },
+    {
+      id: "autonomous-manager-corecheck-rollback-integration",
+      file: "./ash/runtime/autonomous-manager-corecheck-rollback-integration-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/autonomous-development-manager.js"], targetSymbols: ["runAutonomousDevelopmentManager"] }
+    },
+    {
+      id: "implementation-planner-initial-local-augmentation",
+      file: "./ash/runtime/implementation-planner-initial-local-augmentation-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/implementation-planner.js"], targetSymbols: ["buildImplementationPlanner"] }
+    },
+    {
+      id: "implementation-planner-repair-evidence",
+      file: "./ash/runtime/implementation-planner-repair-evidence-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/implementation-planner.js"], targetSymbols: ["buildRepairSymbolInferenceText", "buildImplementationPlanner"] }
+    },
+    {
+      id: "implementation-provider-current-target-source",
+      file: "./ash/runtime/implementation-provider-current-target-source-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/implementation-provider.js"], targetSymbols: ["extractCurrentTargetSource", "buildProviderInput"] }
+    },
+    {
+      id: "implementation-provider-progress",
+      file: "./ash/runtime/implementation-provider-progress-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/implementation-provider-command.js"], targetSymbols: ["createCommandProvider"] }
+    },
+    {
+      id: "patch-validator-contract-retention",
+      file: "./ash/runtime/patch-validator-contract-retention-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/patch-validator.js"], targetSymbols: ["evaluateDestructiveReplace", "extractLocalDeclarationNames"] }
+    },
+    {
+      id: "openai-provider-invented-runtime-semantic",
+      file: "./ash/providers/openai-implementation-provider.mjs",
+      args: ["--semantic-self-check"],
+      coverage: { kind: "symbol", targetFiles: ["ash/providers/openai-implementation-provider.mjs"], targetSymbols: ["classifyReturnPropertyExpression", "findInventedRuntimeDependencyViolation", "runReturnContractShapeSemanticSmoke", "runInventedRuntimeDependencySemanticSmoke"] }
+    },
+    {
+      id: "openai-provider-enforcement-contract",
+      file: "./ash/runtime/openai-provider-enforcement-contract-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/providers/openai-implementation-provider.mjs"], targetSymbols: ["normalizeProviderInput", "findImmediateGenerationViolation", "buildViolationCorrectionGuidance", "runEnforcementContractSelfCheck"] }
+    },
+    {
+      id: "openai-provider-retry-evidence-integration",
+      file: "./ash/runtime/openai-provider-retry-evidence-integration-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/providers/openai-implementation-provider.mjs"], targetSymbols: ["buildRetryEvidenceRegressionClient", "main"] }
+    },
+    {
+      id: "existing-repair-completion-evidence",
+      file: "./ash/runtime/existing-repair-completion-evidence-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/completion-evidence.js"], targetSymbols: ["evaluateExistingRepairEligibility", "buildExistingRepairCompletionEvidence"] }
+    },
+    {
+      id: "completion-coverage-kind",
+      file: "./ash/runtime/completion-coverage-kind-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/completion-evidence.js"], targetSymbols: ["normalizeRepositoryPath", "parseChangedLineRanges", "findRegressionRegistration", "evaluateExistingRepairEligibility"] }
+    },
+    {
+      id: "existing-repair-cli-integration",
+      file: "./ash/runtime/existing-repair-cli-integration-regression-test.js",
+      args: [],
+      coverage: { kind: "file", targetFiles: ["ash-auto-dev.js"] }
+    },
+    {
+      id: "completion-corecheck-integration",
+      file: "./ash/runtime/completion-corecheck-integration-regression-test.js",
+      args: [],
+      coverage: {
+        kind: "symbol",
+        targets: [
+          { targetFile: "ash/runtime/autonomous-development-manager.js", targetSymbols: ["runExistingRepairVerification"] },
+          { targetFile: "ash/runtime/corecheck-runtime.js", targetSymbols: ["getPermanentRegressionChecks", "runPermanentRegressionChecks", "runCoreCheck"] }
+        ]
+      }
+    },
+    {
+      id: "development-completion-contract",
+      file: "./ash/runtime/development-completion-contract-regression-test.js",
+      args: [],
+      coverage: { kind: "file", targetFiles: ["AGENTS.md", "ash/DEVELOPMENT-RULES.md", "ash-dev-verify.js"] }
+    }
+  ];
+}
+
+function runPermanentRegressionChecks({
+  projectPath = process.cwd(),
+  checks = getPermanentRegressionChecks()
+} = {}) {
+  const results = checks.map((check) => {
+    const execution = spawnSync(
+      "node",
+      [
+        check.file,
+        ...(Array.isArray(check.args)
+          ? check.args
+          : [])
+      ],
+      {
+        cwd: projectPath,
+        encoding: "utf8",
+        shell: false
+      }
+    );
+
+    return {
+      id: check.id,
+      file: check.file,
+      coverage: check.coverage,
+      args:
+        Array.isArray(check.args)
+          ? check.args
+          : [],
+      success: execution.status === 0,
+      status: execution.status,
+      stdout: execution.stdout || "",
+      stderr: execution.stderr || "",
+      error:
+        execution.error
+          ? execution.error.message
+          : null
+    };
+  });
+
+  return {
+    mode: "permanent-regression-checks",
+    success:
+      results.length > 0 &&
+      results.every((result) => result.success),
+    results
+  };
+}
+
 function runCoreCheck({
   developmentPipeline = null,
   files = [],
   projectPath = process.cwd(),
-  providerBoundaryRequired = true
+  providerBoundaryRequired = true,
+  permanentRegressionChecksRunner = runPermanentRegressionChecks
 } = {}) {
   const nodeCheckFiles =
     Array.isArray(files) &&
@@ -715,6 +896,11 @@ function runCoreCheck({
             "Implementation Provider Boundary validation was disabled."
         };
 
+  const permanentRegressionChecks =
+    permanentRegressionChecksRunner({
+      projectPath
+    });
+
   const developmentPipelineOk =
     developmentPipeline == null ||
     developmentPipeline.success === true;
@@ -722,6 +908,7 @@ function runCoreCheck({
   const success =
     nodeCheck.success &&
     gitDiffCheck.success &&
+    permanentRegressionChecks.success &&
     developmentPipelineOk &&
     providerBoundary.success;
 
@@ -733,6 +920,9 @@ function runCoreCheck({
     developmentPipelineOk,
     nodeCheck,
     gitDiffCheck,
+    permanentRegressionChecks,
+    permanentRegressionChecksOk:
+      permanentRegressionChecks.success,
     repositoryClean:
       gitDiffCheck.clean,
     providerBoundary,
@@ -755,5 +945,7 @@ module.exports = {
   runNodeCheck,
   runGitDiffCheck,
   runProviderBoundaryCheck,
-  findForbiddenProviderExecution
+  findForbiddenProviderExecution,
+  runPermanentRegressionChecks,
+  getPermanentRegressionChecks
 };

@@ -74,7 +74,15 @@ function extractExplicitTargetFile(task = "") {
 const { observeRepository } = require("./repository-observation-runtime");
 const { discoverTaskFromRepository } = require("./task-discovery-runtime");
 const { runCapabilityLoop } = require("./capability-loop");
-const { runCoreCheck } = require("./corecheck-runtime");
+const {
+  runCoreCheck,
+  getPermanentRegressionChecks
+} = require("./corecheck-runtime");
+const { rollbackAppliedPatch } = require("./patch-apply-engine");
+const {
+  evaluateExistingRepairEligibility,
+  buildExistingRepairCompletionEvidence
+} = require("./completion-evidence");
 
 function extractCapabilityFailure(capabilityLoop = null) {
   const failedStep = [...(capabilityLoop?.steps || [])]
@@ -111,7 +119,18 @@ function extractCapabilityFailure(capabilityLoop = null) {
     targetFile:
       pipelineResult?.patchValidator?.validatedOperations?.[0]?.file ||
       pipelineResult?.editPlanner?.edits?.[0]?.file ||
-      null
+      null,
+    providerFailure:
+      pipelineResult?.implementationProvider?.success === false
+        ? (
+            pipelineResult.implementationProvider.providerResult ||
+            {
+              reason:
+                pipelineResult.implementationProvider.reason ||
+                null
+            }
+          )
+        : null
   };
 }
 
@@ -142,6 +161,10 @@ function buildRepairTask({
       previousTask?.targetFile ||
       previousTask?.file ||
       null,
+    targetSymbol:
+      failure?.targetSymbol ||
+      previousTask?.targetSymbol ||
+      null,
     work: [
       "repair",
       "self-evolution",
@@ -152,6 +175,10 @@ function buildRepairTask({
     failedAction: failure?.failedAction || null,
     issues,
     validatedOperations,
+    providerFailure:
+      failure?.providerFailure || null,
+    rollbackEvidence:
+      failure?.rollbackEvidence || null,
     previousTask: previousTask || null,
     repairAction: "repair_patch",
     cycleIndex,
@@ -162,6 +189,76 @@ function buildRepairTask({
     ].filter(Boolean).join(" ")
   };
 }
+
+function runExistingRepairVerification({
+  projectPath = process.cwd(),
+  targetFile = null,
+  targetSymbol = null,
+  coverageKind = null,
+  regressionId = null,
+  previousPipelineResult = null,
+  permanentRegressionChecks = null,
+  coreCheckRunner = runCoreCheck
+} = {}) {
+  const eligibility = evaluateExistingRepairEligibility({
+    projectPath,
+    targetFile,
+    targetSymbol,
+    coverageKind,
+    regressionId,
+    permanentRegressionChecks:
+      permanentRegressionChecks || getPermanentRegressionChecks(),
+    previousPipelineResult
+  });
+
+  if (eligibility.eligible !== true) {
+    return {
+      mode: "autonomous-existing-repair-verification",
+      version: "ash-local-runtime-v0.1-repository-evidence",
+      success: false,
+      completionKind: "existing-repair-verification",
+      completionEligible: false,
+      completionSuccess: false,
+      effectiveDryRun: true,
+      applied: false,
+      coreCheck: null,
+      eligibility,
+      reason: eligibility.reason,
+      ranAt: new Date().toISOString()
+    };
+  }
+
+  const coreCheck = coreCheckRunner({
+    projectPath
+  });
+  const completionEvidence =
+    buildExistingRepairCompletionEvidence({
+      eligibility,
+      coreCheck
+    });
+
+  return {
+    mode: "autonomous-existing-repair-verification",
+    version: "ash-local-runtime-v0.1-repository-evidence",
+    success: completionEvidence.completionSuccess,
+    completionKind: completionEvidence.completionKind,
+    completionEligible: completionEvidence.completionEligible,
+    completionSuccess: completionEvidence.completionSuccess,
+    executionSuccess: completionEvidence.executionSuccess,
+    verificationSuccess: completionEvidence.verificationSuccess,
+    effectiveDryRun: true,
+    applied: false,
+    targetFile,
+    targetSymbol,
+    coverageKind,
+    regressionId,
+    eligibility,
+    completionEvidence,
+    coreCheck,
+    reason: completionEvidence.reason,
+    ranAt: new Date().toISOString()
+  };
+}
 function runAutonomousDevelopmentManager({
   task = "autonomous development",
   context = {},
@@ -169,7 +266,14 @@ function runAutonomousDevelopmentManager({
   dryRun = false
 } = {}) {
   const cycles = [];
-  let pendingRepairTask = null;
+  let pendingRepairTask =
+    context.pendingRepairTask &&
+    typeof context.pendingRepairTask === "object" &&
+    !Array.isArray(context.pendingRepairTask) &&
+    typeof context.pendingRepairTask.task === "string" &&
+    context.pendingRepairTask.task.trim()
+      ? context.pendingRepairTask
+      : null;
   let explicitUserTaskConsumed = false;
   const persistedCompletion =
     readAutonomousCompletedTasks({
@@ -311,18 +415,69 @@ function runAutonomousDevelopmentManager({
         : null;
 
       if (!coreCheck.success) {
-        return {
-          mode: "autonomous-development-manager-runtime",
-          version: "ash-local-runtime-v0.2-repair-carryover",
-          success: false,
-          stopped: true,
-          stopReason: "corecheck_failed",
-          failureStage: null,
+        const developmentStep = [...(capabilityLoop?.steps || [])].reverse().find((step) => step?.action === "development_pipeline") || null;
+        const pipelineResult = developmentStep?.dispatchResult?.result?.result || null;
+        const rollbackEvidence = pipelineResult?.patchApplyEngine?.applied === true
+          ? rollbackAppliedPatch({ patchApplyEngine: pipelineResult.patchApplyEngine, projectPath: context.projectPath || process.cwd() })
+          : { mode: "patch-apply-rollback", success: true, attempted: false, results: [], reason: "CoreCheck failed without an applied patch requiring rollback.", rolledBackAt: new Date().toISOString() };
+        const coreCheckFailure = {
+          failureStage: "corecheck",
           errorMessage: coreCheck.reason || "CoreCheck failed.",
-          failedAction: null,
-          cycles,
-          ranAt: new Date().toISOString()
+          failedAction: "corecheck",
+          issues: [],
+          validatedOperations: Array.isArray(pipelineResult?.patchValidator?.validatedOperations) ? pipelineResult.patchValidator.validatedOperations : [],
+          targetFile: pipelineResult?.patchValidator?.validatedOperations?.[0]?.file || discoveredTask?.targetFile || discoveredTask?.file || null,
+          targetSymbol: discoveredTask?.targetSymbol || null,
+          providerFailure: pipelineResult?.implementationProvider?.success === false ? (pipelineResult.implementationProvider.providerResult || { reason: pipelineResult.implementationProvider.reason || null }) : null,
+          rollbackEvidence
         };
+        const repairTask = buildRepairTask({ failure: coreCheckFailure, previousTask: discoveredTask, cycleIndex: i });
+        cycles[cycles.length - 1].repairTask = repairTask;
+        pendingRepairTask = repairTask;
+        if (rollbackEvidence.attempted === true && rollbackEvidence.success !== true) {
+          return { mode: "autonomous-development-manager-runtime", version: "ash-local-runtime-v0.4-corecheck-rollback-verification", success: false, stopped: true, stopReason: "corecheck_failed_rollback_failed", failureStage: "corecheck", errorMessage: coreCheckFailure.errorMessage, failedAction: "corecheck", pendingRepairTask: repairTask, rollbackEvidence, cycles, ranAt: new Date().toISOString() };
+        }
+
+        const rollbackCoreCheck =
+          rollbackEvidence.attempted === true
+            ? runCoreCheck({
+                files: [
+                  "./ash/runtime/autonomous-development-manager.js",
+                  "./ash/runtime/development-pipeline-runtime.js",
+                  "./ash/runtime/capability-loop.js",
+                  "./ash/capabilities/development-pipeline.js"
+                ]
+              })
+            : null;
+
+        cycles[cycles.length - 1].rollbackCoreCheck =
+          rollbackCoreCheck;
+
+        if (
+          rollbackCoreCheck &&
+          rollbackCoreCheck.success !== true
+        ) {
+          return {
+            mode: "autonomous-development-manager-runtime",
+            version: "ash-local-runtime-v0.4-corecheck-rollback-verification",
+            success: false,
+            stopped: true,
+            stopReason: "corecheck_failed_post_rollback_verification_failed",
+            failureStage: "corecheck",
+            errorMessage:
+              rollbackCoreCheck.reason ||
+              "CoreCheck still failed after rollback.",
+            failedAction: "corecheck",
+            pendingRepairTask: repairTask,
+            rollbackEvidence,
+            rollbackCoreCheck,
+            cycles,
+            ranAt: new Date().toISOString()
+          };
+        }
+
+        if (i < maxCycles - 1) continue;
+        return { mode: "autonomous-development-manager-runtime", version: "ash-local-runtime-v0.4-corecheck-rollback-verification", success: false, stopped: true, stopReason: "max_cycles_reached_with_pending_repair", failureStage: "corecheck", errorMessage: coreCheckFailure.errorMessage, failedAction: "corecheck", pendingRepairTask: repairTask, rollbackEvidence, rollbackCoreCheck, cycles, ranAt: new Date().toISOString() };
       }
 
       const repairTask = buildRepairTask({
@@ -427,6 +582,8 @@ function runAutonomousDevelopmentManager({
 }
 
 module.exports = {
-  runAutonomousDevelopmentManager
+  runAutonomousDevelopmentManager,
+  runExistingRepairVerification,
+  extractCapabilityFailure,
+  buildRepairTask
 };
-

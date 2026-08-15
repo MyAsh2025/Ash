@@ -228,6 +228,31 @@ function findMissingExportedDeclarations({
       )
   );
 }
+function extractLocalDeclarationNames(
+  source = ""
+) {
+  if (typeof source !== "string") {
+    return [];
+  }
+
+  const names = new Set();
+
+  const patterns = [
+    /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)/g,
+    /\bfunction\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g,
+    /\bclass\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/g
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      if (match[1]) {
+        names.add(match[1]);
+      }
+    }
+  }
+
+  return Array.from(names);
+}
 function evaluateDestructiveReplace({
   operation = null,
   anchorPattern = "",
@@ -288,10 +313,47 @@ function evaluateDestructiveReplace({
   const severeLineReduction =
     lineRatio < 0.4;
 
-  const destructive =
+  const originalLocalDeclarations =
+    extractLocalDeclarationNames(
+      original
+    );
+
+  const replacementLocalDeclarations =
+    new Set(
+      extractLocalDeclarationNames(
+        replacement
+      )
+    );
+
+  const retainedLocalDeclarations =
+    originalLocalDeclarations.filter(
+      (name) =>
+        replacementLocalDeclarations.has(
+          name
+        )
+    );
+
+  const localDeclarationRetentionRatio =
+    originalLocalDeclarations.length > 0
+      ? retainedLocalDeclarations.length /
+        originalLocalDeclarations.length
+      : 1;
+
+  const substantialLocalContract =
+    originalLocalDeclarations.length >= 8;
+
+  const severeLocalContractLoss =
+    substantialLocalContract &&
+    localDeclarationRetentionRatio < 0.5;
+
+  const destructiveBySize =
     substantialOriginal &&
     severeCharacterReduction &&
     severeLineReduction;
+
+  const destructive =
+    destructiveBySize ||
+    severeLocalContractLoss;
 
   return {
     destructive,
@@ -305,10 +367,18 @@ function evaluateDestructiveReplace({
     originalLines,
     replacementLines,
     lineRatio,
+    originalLocalDeclarationCount:
+      originalLocalDeclarations.length,
+    retainedLocalDeclarationCount:
+      retainedLocalDeclarations.length,
+    localDeclarationRetentionRatio,
+    severeLocalContractLoss,
     reason:
-      destructive
+      destructiveBySize
         ? "Large replace operation would remove most of the existing implementation."
-        : "Replace size remains within the structural safety threshold."
+        : severeLocalContractLoss
+          ? "Full-symbol replacement would remove substantial verified local behavioral structure."
+          : "Replace preserves the structural safety threshold and local declaration contract."
   };
 }
 
@@ -1063,6 +1133,7 @@ module.exports = {
   extractCommonJsExportNames,
   findMissingCommonJsExports,
   findMissingExportedDeclarations,
+  extractLocalDeclarationNames,
   evaluateDestructiveReplace,
   isDiagnosticOnlyGeneratedCode,
   isCommentOnlyGeneratedCode,

@@ -278,6 +278,14 @@ function createCommandProvider({
       });
     }
 
+    const startedAt =
+      Date.now();
+
+    process.stderr.write(
+      `[Ash] implementation-provider start command=${normalizedCommand} ` +
+      `timeout=${normalizedTimeoutMs}ms at=${new Date(startedAt).toISOString()}\n`
+    );
+
     const result = spawnSync(
       normalizedCommand,
       normalizedArgs,
@@ -292,6 +300,17 @@ function createCommandProvider({
         maxBuffer:
           normalizedMaxBufferBytes
       }
+    );
+
+    const elapsedMs =
+      Date.now() - startedAt;
+
+    process.stderr.write(
+      `[Ash] implementation-provider complete status=${
+        Number.isInteger(result.status)
+          ? result.status
+          : "none"
+      } signal=${result.signal || "none"} elapsed=${elapsedMs}ms\n`
     );
 
     if (result.error) {

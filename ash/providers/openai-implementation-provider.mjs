@@ -88,6 +88,10 @@ function normalizeProviderInput(rawInput) {
       : {};
 
   return {
+    completeTargetSource:
+      safeString(
+        rawInput?.completeTargetSource
+      ),
     currentTargetSource:
       safeString(
         rawInput?.currentTargetSource
@@ -570,6 +574,21 @@ function classifyReturnPropertyExpression(
   if (
     normalized === "true" ||
     normalized === "false"
+  ) {
+    return "boolean";
+  }
+
+  if (
+    /^(?:!\s*)+/.test(normalized) ||
+    /\b(?:===|!==|==|!=|<=|>=|<|>)\b/.test(
+      normalized
+    ) ||
+    /(?:===|!==|==|!=|<=|>=|<|>)/.test(
+      normalized
+    ) ||
+    /(?:^|[^\w$])(?:in|instanceof)(?:[^\w$]|$)/.test(
+      normalized
+    )
   ) {
     return "boolean";
   }
@@ -1514,9 +1533,10 @@ function findIllustrativeImplementationViolation(
   };
 }
 
-function findInventedRuntimeDependencyViolation(
+function findInventedRuntimeDependencyViolation({
+  input = null,
   executableCodeTemplate = ""
-) {
+} = {}) {
   if (
     typeof executableCodeTemplate !==
       "string" ||
@@ -1549,7 +1569,7 @@ function findInventedRuntimeDependencyViolation(
       name:
         "synthetic-provider-result",
       pattern:
-        /Implementation generated for \$\{/i
+        /Implementation generated for \${/i
     },
     {
       name:
@@ -1590,20 +1610,1004 @@ function findInventedRuntimeDependencyViolation(
           indicator.name
       );
 
+  if (matchedIndicators.length > 0) {
+    return (
+      "The generated implementation introduced invented " +
+      "runtime dependencies or stub helper behavior. " +
+      "Detected indicators: " +
+      matchedIndicators.join(", ") +
+      ". Use only identifiers and dependencies that already " +
+      "exist in currentTargetSource or are explicitly provided " +
+      "by the task."
+    );
+  }
+
+  const completeTargetSource =
+    safeString(
+      input?.completeTargetSource
+    );
+
+  const currentTargetSource =
+    safeString(
+      input?.currentTargetSource
+    );
+
+  const existingLocalDeclarations =
+    Array.isArray(
+      input?.existingLocalDeclarations
+    )
+      ? input.existingLocalDeclarations
+          .filter(
+            (value) =>
+              typeof value === "string" &&
+              value.trim().length > 0
+          )
+          .map(
+            (value) =>
+              value.trim()
+          )
+      : [];
+
+  const declaredIdentifiers =
+    new Set(
+      existingLocalDeclarations
+    );
+
+  const reservedWords =
+    new Set([
+      "await",
+      "break",
+      "case",
+      "catch",
+      "class",
+      "const",
+      "continue",
+      "debugger",
+      "default",
+      "delete",
+      "do",
+      "else",
+      "export",
+      "extends",
+      "false",
+      "finally",
+      "for",
+      "function",
+      "if",
+      "import",
+      "in",
+      "instanceof",
+      "let",
+      "new",
+      "null",
+      "of",
+      "return",
+      "static",
+      "super",
+      "switch",
+      "this",
+      "throw",
+      "true",
+      "try",
+      "typeof",
+      "undefined",
+      "var",
+      "void",
+      "while",
+      "with",
+      "yield",
+      "async"
+    ]);
+
+  const knownGlobals =
+    new Set([
+      "Array",
+      "ArrayBuffer",
+      "BigInt",
+      "Boolean",
+      "Buffer",
+      "Date",
+      "Error",
+      "EvalError",
+      "Function",
+      "Infinity",
+      "Intl",
+      "JSON",
+      "Map",
+      "Math",
+      "NaN",
+      "Number",
+      "Object",
+      "Promise",
+      "RangeError",
+      "ReferenceError",
+      "Reflect",
+      "RegExp",
+      "Set",
+      "String",
+      "Symbol",
+      "SyntaxError",
+      "TypeError",
+      "URIError",
+      "URL",
+      "URLSearchParams",
+      "WeakMap",
+      "WeakSet",
+      "clearImmediate",
+      "clearInterval",
+      "clearTimeout",
+      "console",
+      "decodeURI",
+      "decodeURIComponent",
+      "encodeURI",
+      "encodeURIComponent",
+      "global",
+      "globalThis",
+      "isFinite",
+      "isNaN",
+      "parseFloat",
+      "parseInt",
+      "process",
+      "queueMicrotask",
+      "require",
+      "setImmediate",
+      "setInterval",
+      "setTimeout"
+    ]);
+
+  const declarationSources =
+    [
+      completeTargetSource,
+      currentTargetSource,
+      executableCodeTemplate
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+  const simpleDeclarationPattern =
+    /\b(?:const|let|var|class|function)\s+([A-Za-z_$][\w$]*)/g;
+
+  let declarationMatch = null;
+
+  while (
+    (
+      declarationMatch =
+        simpleDeclarationPattern.exec(
+          declarationSources
+        )
+    ) !== null
+  ) {
+    declaredIdentifiers.add(
+      declarationMatch[1]
+    );
+  }
+
+  const importDefaultPattern =
+    /(?:^|\n)\s*import\s+([A-Za-z_$][\w$]*)\s+from\s+["']/g;
+
+  while (
+    (
+      declarationMatch =
+        importDefaultPattern.exec(
+          completeTargetSource
+        )
+    ) !== null
+  ) {
+    declaredIdentifiers.add(
+      declarationMatch[1]
+    );
+  }
+
+  const importNamespacePattern =
+    /(?:^|\n)\s*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+["']/g;
+
+  while (
+    (
+      declarationMatch =
+        importNamespacePattern.exec(
+          completeTargetSource
+        )
+    ) !== null
+  ) {
+    declaredIdentifiers.add(
+      declarationMatch[1]
+    );
+  }
+
+  const importNamedPattern =
+    /(?:^|\n)\s*import\s*\{([^}]*)\}\s*from\s*["']/g;
+
+  while (
+    (
+      declarationMatch =
+        importNamedPattern.exec(
+          completeTargetSource
+        )
+    ) !== null
+  ) {
+    const importedItems =
+      declarationMatch[1].split(",");
+
+    for (const importedItem of importedItems) {
+      const normalized =
+        importedItem.trim();
+
+      if (!normalized) {
+        continue;
+      }
+
+      const aliasMatch =
+        /^(?:[A-Za-z_$][\w$]*\s+as\s+)?([A-Za-z_$][\w$]*)$/.exec(
+          normalized
+        );
+
+      if (aliasMatch) {
+        declaredIdentifiers.add(
+          aliasMatch[1]
+        );
+      }
+    }
+  }
+
+  const parameterPatterns = [
+    /\b(?:async\s+)?function(?:\s*\*)?\s*[A-Za-z_$]*[\w$]*\s*\(([^)]*)\)/g,
+    /\(([^)]*)\)\s*=>/g
+  ];
+
+  for (
+    const parameterPattern
+    of parameterPatterns
+  ) {
+    let parameterMatch = null;
+
+    while (
+      (
+        parameterMatch =
+          parameterPattern.exec(
+            declarationSources
+          )
+      ) !== null
+    ) {
+      const identifiers =
+        parameterMatch[1]
+          .match(
+            /[A-Za-z_$][\w$]*/g
+          ) || [];
+
+      for (const identifier of identifiers) {
+        if (
+          !reservedWords.has(identifier) &&
+          !knownGlobals.has(identifier)
+        ) {
+          declaredIdentifiers.add(
+            identifier
+          );
+        }
+      }
+    }
+  }
+
+  const sanitized = [];
+
+  let mode =
+    "code";
+
+  let templateExpressionDepth =
+    0;
+
+  let regexCharacterClass =
+    false;
+
+  const isLikelyRegexStart =
+    (source, slashIndex) => {
+      let previousIndex =
+        slashIndex - 1;
+
+      while (
+        previousIndex >= 0 &&
+        /\s/.test(source[previousIndex])
+      ) {
+        previousIndex -= 1;
+      }
+
+      if (previousIndex < 0) {
+        return true;
+      }
+
+      const previousCharacter =
+        source[previousIndex];
+
+      if (
+        "([{:;,=!?&|+-*%^~<>".includes(
+          previousCharacter
+        )
+      ) {
+        return true;
+      }
+
+      const prefix =
+        source.slice(
+          0,
+          previousIndex + 1
+        );
+
+      const previousWord =
+        /([A-Za-z_$][\w$]*)\s*$/.exec(
+          prefix
+        )?.[1] || "";
+
+      return [
+        "return",
+        "case",
+        "throw",
+        "else",
+        "do",
+        "typeof",
+        "instanceof",
+        "in",
+        "of",
+        "yield",
+        "await"
+      ].includes(previousWord);
+    };
+
+  for (
+    let index = 0;
+    index < executableCodeTemplate.length;
+    index += 1
+  ) {
+    const character =
+      executableCodeTemplate[index];
+
+    const next =
+      executableCodeTemplate[
+        index + 1
+      ] || "";
+
+    if (mode === "line-comment") {
+      if (character === "\n") {
+        sanitized.push("\n");
+        mode = "code";
+      } else {
+        sanitized.push(" ");
+      }
+
+      continue;
+    }
+
+    if (mode === "block-comment") {
+      if (
+        character === "*" &&
+        next === "/"
+      ) {
+        sanitized.push(
+          " ",
+          " "
+        );
+
+        index += 1;
+        mode = "code";
+      } else {
+        sanitized.push(
+          character === "\n"
+            ? "\n"
+            : " "
+        );
+      }
+
+      continue;
+    }
+
+    if (
+      mode === "single-string" ||
+      mode === "double-string"
+    ) {
+      const quote =
+        mode === "single-string"
+          ? "'"
+          : '"';
+
+      if (character === "\\") {
+        sanitized.push(" ");
+
+        if (
+          index + 1 <
+          executableCodeTemplate.length
+        ) {
+          sanitized.push(" ");
+          index += 1;
+        }
+      } else if (
+        character === quote
+      ) {
+        sanitized.push(" ");
+
+        mode =
+          templateExpressionDepth > 0
+            ? "template-expression"
+            : "code";
+      } else {
+        sanitized.push(
+          character === "\n"
+            ? "\n"
+            : " "
+        );
+      }
+
+      continue;
+    }
+
+    if (mode === "regex") {
+      if (character === "\\") {
+        sanitized.push(" ");
+
+        if (
+          index + 1 <
+          executableCodeTemplate.length
+        ) {
+          sanitized.push(" ");
+          index += 1;
+        }
+      } else if (character === "[") {
+        regexCharacterClass =
+          true;
+        sanitized.push(" ");
+      } else if (
+        character === "]" &&
+        regexCharacterClass
+      ) {
+        regexCharacterClass =
+          false;
+        sanitized.push(" ");
+      } else if (
+        character === "/" &&
+        !regexCharacterClass
+      ) {
+        sanitized.push(" ");
+        mode =
+          templateExpressionDepth > 0
+            ? "template-expression"
+            : "code";
+      } else {
+        sanitized.push(
+          character === "\n"
+            ? "\n"
+            : " "
+        );
+      }
+
+      continue;
+    }
+
+    if (mode === "template") {
+      if (character === "\\") {
+        sanitized.push(" ");
+
+        if (
+          index + 1 <
+          executableCodeTemplate.length
+        ) {
+          sanitized.push(" ");
+          index += 1;
+        }
+      } else if (
+        character === "`"
+      ) {
+        sanitized.push(" ");
+        mode = "code";
+      } else if (
+        character === "$" &&
+        next === "{"
+      ) {
+        sanitized.push(
+          " ",
+          "{"
+        );
+
+        index += 1;
+
+        templateExpressionDepth =
+          1;
+
+        mode =
+          "template-expression";
+      } else {
+        sanitized.push(
+          character === "\n"
+            ? "\n"
+            : " "
+        );
+      }
+
+      continue;
+    }
+
+    const inTemplateExpression =
+      mode ===
+      "template-expression";
+
+    if (
+      character === "/" &&
+      next !== "/" &&
+      next !== "*" &&
+      isLikelyRegexStart(
+        executableCodeTemplate,
+        index
+      )
+    ) {
+      sanitized.push(" ");
+      regexCharacterClass =
+        false;
+      mode = "regex";
+      continue;
+    }
+
+    if (
+      character === "/" &&
+      next === "/"
+    ) {
+      sanitized.push(
+        " ",
+        " "
+      );
+
+      index += 1;
+      mode = "line-comment";
+
+      continue;
+    }
+
+    if (
+      character === "/" &&
+      next === "*"
+    ) {
+      sanitized.push(
+        " ",
+        " "
+      );
+
+      index += 1;
+      mode = "block-comment";
+
+      continue;
+    }
+
+    if (character === "'") {
+      sanitized.push(" ");
+      mode = "single-string";
+      continue;
+    }
+
+    if (character === '"') {
+      sanitized.push(" ");
+      mode = "double-string";
+      continue;
+    }
+
+    if (
+      character === "`" &&
+      !inTemplateExpression
+    ) {
+      sanitized.push(" ");
+      mode = "template";
+      continue;
+    }
+
+    if (inTemplateExpression) {
+      if (character === "{") {
+        templateExpressionDepth +=
+          1;
+      }
+
+      if (character === "}") {
+        templateExpressionDepth -=
+          1;
+
+        if (
+          templateExpressionDepth ===
+          0
+        ) {
+          sanitized.push(" ");
+
+          mode =
+            "template";
+
+          continue;
+        }
+      }
+    }
+
+    sanitized.push(
+      character
+    );
+  }
+
+  const executableSource =
+    sanitized.join("");
+
+  const unresolvedCalls =
+    new Set();
+
+  const callPattern =
+    /\b([A-Za-z_$][\w$]*)\s*\(/g;
+
+  let callMatch = null;
+
+  while (
+    (
+      callMatch =
+        callPattern.exec(
+          executableSource
+        )
+    ) !== null
+  ) {
+    const identifier =
+      callMatch[1];
+
+    let previousIndex =
+      callMatch.index - 1;
+
+    while (
+      previousIndex >= 0 &&
+      /\s/.test(
+        executableSource[
+          previousIndex
+        ]
+      )
+    ) {
+      previousIndex -= 1;
+    }
+
+    if (
+      previousIndex >= 0 &&
+      executableSource[
+        previousIndex
+      ] === "."
+    ) {
+      continue;
+    }
+
+    if (
+      reservedWords.has(
+        identifier
+      ) ||
+      knownGlobals.has(
+        identifier
+      ) ||
+      declaredIdentifiers.has(
+        identifier
+      )
+    ) {
+      continue;
+    }
+
+    unresolvedCalls.add(
+      identifier
+    );
+  }
+
   if (
-    matchedIndicators.length === 0
+    unresolvedCalls.size === 0
   ) {
     return null;
   }
 
   return (
-    "The generated implementation introduced invented " +
-    "runtime dependencies or stub helper behavior. " +
-    "Detected indicators: " +
-    matchedIndicators.join(", ") +
-    ". Use only identifiers and dependencies that already " +
-    "exist in currentTargetSource or are explicitly provided " +
-    "by the task."
+    "The generated implementation introduced invented runtime " +
+    "dependencies or stub helper behavior. " +
+    "Detected undeclared runtime calls: " +
+    [...unresolvedCalls].join(", ") +
+    ". Use verified currentTargetSource, completeTargetSource, " +
+    "and existingLocalDeclarations instead of inventing " +
+    "runtime dependencies."
+  );
+}
+
+function runReturnContractShapeSemanticSmoke() {
+  const currentTargetSource = [
+    "function resolveImplementationProvider() {",
+    "  return {",
+    "    providerConfigured: true",
+    "  };",
+    "}"
+  ].join("\n");
+
+  const acceptedBooleanExpressions = [
+    [
+      "function resolveImplementationProvider() {",
+      "  const provider = () => null;",
+      "  return {",
+      "    providerConfigured:",
+      '      provider !== null && typeof provider === "function"',
+      "  };",
+      "}"
+    ].join("\n"),
+    [
+      "function resolveImplementationProvider() {",
+      "  const provider = () => null;",
+      "  return {",
+      "    providerConfigured:",
+      "      provider instanceof Function",
+      "  };",
+      "}"
+    ].join("\n")
+  ];
+
+  for (
+    const executableCodeTemplate
+    of acceptedBooleanExpressions
+  ) {
+    const violation =
+      findReturnContractShapeViolation({
+        input: {
+          currentTargetSource
+        },
+        executableCodeTemplate
+      });
+
+    if (violation !== null) {
+      return (
+        "Boolean return-expression semantic smoke failed: " +
+        violation
+      );
+    }
+  }
+
+  const rejectedTypeChange =
+    findReturnContractShapeViolation({
+      input: {
+        currentTargetSource
+      },
+      executableCodeTemplate: [
+        "function resolveImplementationProvider() {",
+        "  return {",
+        '    providerConfigured: "yes"',
+        "  };",
+        "}"
+      ].join("\n")
+    });
+
+  if (
+    typeof rejectedTypeChange !== "string" ||
+    !rejectedTypeChange.includes(
+      "providerConfigured expected boolean but received string"
+    )
+  ) {
+    return (
+      "Return-shape semantic smoke failed to reject " +
+      "a real boolean-to-string contract change."
+    );
+  }
+
+  return null;
+}
+function runInventedRuntimeDependencySemanticSmoke() {
+  const makeInput = ({
+    moduleSource =
+      "function target() {}",
+    targetSource =
+      "function target() {}",
+    locals = []
+  } = {}) => ({
+    completeTargetSource:
+      moduleSource,
+    currentTargetSource:
+      targetSource,
+    existingLocalDeclarations:
+      locals
+  });
+
+  const cases = [
+    {
+      name:
+        "accept existing local call",
+      input:
+        makeInput({
+          targetSource:
+            "function target() {\n  const helper = () => null;\n}"
+        }),
+      code:
+        "helper();",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "accept explicit existing local",
+      input:
+        makeInput({
+          locals:
+            ["helper"]
+        }),
+      code:
+        "helper();",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "accept module function declaration",
+      input:
+        makeInput({
+          moduleSource:
+            "function helper() { return null; }\nfunction target() {}"
+        }),
+      code:
+        "helper();",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "accept esm import",
+      input:
+        makeInput({
+          moduleSource:
+            "import path from \"node:path\";\nfunction target() {}"
+        }),
+      code:
+        "path.resolve(\"a\");",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "accept module const",
+      input:
+        makeInput({
+          moduleSource:
+            "const helper = () => null;\nfunction target() {}"
+        }),
+      code:
+        "helper();",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "accept member property",
+      input:
+        makeInput({
+          locals:
+            ["input"]
+        }),
+      code:
+        "input.value;",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "reject truly missing helper",
+      input:
+        makeInput(),
+      code:
+        "inventedHelper();",
+      shouldReject:
+        true
+    },
+    {
+      name:
+        "ignore identifier in string",
+      input:
+        makeInput(),
+      code:
+        "const value = \"inventedHelper()\";",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "ignore identifier in comment",
+      input:
+        makeInput(),
+      code:
+        "// inventedHelper();\nreturn null;",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "ignore call-shaped text in regex literal",
+      input:
+        makeInput(),
+      code:
+        "const pattern = /stub representing (?:the )?delegation/i;",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "ignore escaped call-shaped text in regex literal",
+      input:
+        makeInput(),
+      code:
+        "const pattern = /\\bactual\\s*\\(/g;",
+      shouldReject:
+        false
+    },
+    {
+      name:
+        "still reject missing call after regex literal",
+      input:
+        makeInput(),
+      code:
+        "const pattern = /inventedHelper\\(\\)/; inventedHelper();",
+      shouldReject:
+        true
+    },
+    {
+      name:
+        "do not confuse division with regex literal",
+      input:
+        makeInput({
+          locals:
+            ["total"]
+        }),
+      code:
+        "const ratio = total / inventedHelper();",
+      shouldReject:
+        true
+    },
+    {
+      name:
+        "detect template interpolation dependency",
+      input:
+        makeInput(),
+      code:
+        "const value = `${inventedHelper()}`;",
+      shouldReject:
+        true
+    },
+    {
+      name:
+        "accept declared template interpolation",
+      input:
+        makeInput({
+          locals:
+            ["helper"]
+        }),
+      code:
+        "const value = `${helper()}`;",
+      shouldReject:
+        false
+    }
+  ];
+
+  const failures = [];
+
+  for (const testCase of cases) {
+    const violation =
+      findInventedRuntimeDependencyViolation({
+        input:
+          testCase.input,
+        executableCodeTemplate:
+          testCase.code
+      });
+
+    const rejected =
+      typeof violation ===
+        "string" &&
+      violation.length > 0;
+
+    if (
+      rejected !==
+      testCase.shouldReject
+    ) {
+      failures.push(
+        `${testCase.name}: expected reject=${testCase.shouldReject} ` +
+        `but received reject=${rejected}`
+      );
+    }
+  }
+
+  if (failures.length === 0) {
+    return null;
+  }
+
+  return (
+    "Invented-runtime dependency semantic smoke failed: " +
+    failures.join(" | ")
   );
 }
 
@@ -1761,10 +2765,192 @@ function findImmediateGenerationViolation({
     return requiredPropertyViolation;
   }
 
-  const inventedRuntimeDependency =
-    findInventedRuntimeDependencyViolation(
-      executableCodeTemplate
+  const inventedDependencyContractRequired =
+    completeFunctionContractRequired &&
+    safeString(input?.targetSymbol) ===
+      "findInventedRuntimeDependencyViolation";
+
+  if (inventedDependencyContractRequired) {
+    const requiredExistingIndicators = [
+      "assumed-runtime-helper",
+      "delegation-stub",
+      "placeholder-resolution-logic",
+      "synthetic-provider-result",
+      "invented-provider-helper",
+      "invented-symbol-resolver",
+      "invented-symbol-describer",
+      "invented-validator-requirements-helper"
+    ];
+
+    const missingExistingIndicators =
+      requiredExistingIndicators.filter(
+        (indicator) =>
+          !executableCodeTemplate.includes(
+            indicator
+          )
+      );
+
+    if (missingExistingIndicators.length > 0) {
+      return (
+        "The generated complete-function implementation removed " +
+        "required existing invented-runtime safety indicators: " +
+        missingExistingIndicators.join(", ") +
+        ". Preserve the existing validator contract and extend it narrowly."
+      );
+    }
+
+    if (/\breturn\s*\{/.test(executableCodeTemplate)) {
+      return (
+        "The generated invented-runtime dependency validator changed " +
+        "its null-or-human-readable-string return contract. " +
+        "Preserve the existing return contract."
+      );
+    }
+
+    const requiredVerifiedContextProperties = [
+      "completeTargetSource",
+      "currentTargetSource",
+      "existingLocalDeclarations"
+    ];
+
+    const hasVerifiedInputPropertyAccess =
+      (propertyName) => {
+        const escapedPropertyName =
+          propertyName.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&"
+          );
+
+        const propertyAccessPattern =
+          new RegExp(
+            `\\binput\\s*\\?*\\.\\s*${escapedPropertyName}\\b`
+          );
+
+        return propertyAccessPattern.test(
+          executableCodeTemplate
+        );
+      };
+
+    const missingVerifiedContextReferences =
+      requiredVerifiedContextProperties.filter(
+        (propertyName) =>
+          !hasVerifiedInputPropertyAccess(
+            propertyName
+          )
+      );
+
+    if (missingVerifiedContextReferences.length > 0) {
+      return (
+        "The generated invented-runtime dependency validator did not " +
+        "use required verified provider input references: " +
+        missingVerifiedContextReferences.join(", ") +
+        ". Read verified repository evidence through input rather than " +
+        "inventing additional function parameters."
+      );
+    }
+
+    const generatedFunctionSignature =
+      executableCodeTemplate.match(
+        /function\s+findInventedRuntimeDependencyViolation\s*\(\s*\{([\s\S]*?)\}\s*=\s*\{\}\s*\)/
+      )?.[1] ||
+      "";
+
+    const inventedContextParameters = [
+      "completeTargetSource",
+      "currentTargetSource",
+      "existingLocalDeclarations"
+    ].filter(
+      (name) =>
+        new RegExp(
+          `(?:^|,|\\n)\\s*${name}\\s*(?:=|,|$)`
+        ).test(
+          generatedFunctionSignature
+        )
     );
+
+    if (inventedContextParameters.length > 0) {
+      return (
+        "The generated invented-runtime dependency validator invented " +
+        "provider-context function parameters: " +
+        inventedContextParameters.join(", ") +
+        ". Keep only the existing input and executableCodeTemplate " +
+        "function arguments and read context from input."
+      );
+    }
+
+    const changedIndicatorMatchSemantics =
+      /matchedIndicators\.length\s*(?:<|<=|>|>=|===|==|!==|!=)\s*[2-9]\d*/.test(
+        executableCodeTemplate
+      );
+
+    if (changedIndicatorMatchSemantics) {
+      return (
+        "The generated invented-runtime dependency validator changed " +
+        "existing invented-runtime indicator match semantics. " +
+        "Preserve the existing behavior where any matched safety " +
+        "indicator produces a violation."
+      );
+    }
+
+    const requiredIndicatorPatternFragments = [
+      "Implementation generated for",
+      "generateImplementationFromProvider",
+      "resolveConcreteSymbol",
+      "describeSymbol",
+      "getPatchValidatorRequirements"
+    ];
+
+    const missingIndicatorPatternFragments =
+      requiredIndicatorPatternFragments.filter(
+        (fragment) =>
+          !executableCodeTemplate.includes(
+            fragment
+          )
+      );
+
+    if (missingIndicatorPatternFragments.length > 0) {
+      return (
+        "The generated invented-runtime dependency validator changed " +
+        "existing invented-runtime indicator detection behavior. " +
+        "Preserve the existing indicator patterns. Missing pattern " +
+        "fragments: " +
+        missingIndicatorPatternFragments.join(", ") +
+        "."
+      );
+    }
+
+    const templateLiteralRemovingRegex =
+      executableCodeTemplate.match(
+        /const\s+([A-Za-z_$][\w$]*)\s*=\s*\/[^;\n]*`[^;\n]*`[^;\n]*\/[a-z]*;/
+      );
+
+    const removesWholeTemplateLiteral =
+      Boolean(
+        templateLiteralRemovingRegex &&
+        new RegExp(
+          "\\.replace\\(\\s*" +
+            templateLiteralRemovingRegex[1] +
+            "\\s*,"
+        ).test(
+          executableCodeTemplate
+        )
+      );
+
+    if (removesWholeTemplateLiteral) {
+      return (
+        "The generated invented-runtime dependency validator removes " +
+        "whole template literals while scanning executable identifiers. " +
+        "Preserve executable identifiers inside template-literal " +
+        "interpolation expressions."
+      );
+    }
+  }
+
+  const inventedRuntimeDependency =
+    findInventedRuntimeDependencyViolation({
+      input,
+      executableCodeTemplate
+    });
 
   if (inventedRuntimeDependency) {
     return inventedRuntimeDependency;
@@ -1879,6 +3065,23 @@ function buildViolationCorrectionGuidance(
   violation = "",
   input = null
 ) {
+  const normalizedOperation =
+    safeString(
+      input?.recommendedOperation
+    ).toLowerCase();
+
+  const normalizedOutputShape =
+    safeString(
+      input?.requiredOutputShape
+    ).toLowerCase();
+
+  const localInsertOperation =
+    normalizedOperation === "insert-before" ||
+    normalizedOperation === "insert-after";
+
+  const statementsOnlyOutput =
+    normalizedOutputShape === "statements-only";
+
   const normalizedViolation =
     safeString(violation).toLowerCase();
 
@@ -2039,7 +3242,67 @@ function buildViolationCorrectionGuidance(
       "Specific correction for local declaration reuse:",
       "- Do not redeclare identifiers already present in currentTargetSource.",
       "- Reuse existing local declarations when appropriate.",
-      "- Introduce a new identifier only when genuinely necessary and use a unique name."
+      "- Introduce a new identifier only when genuinely necessary and use a unique name.",
+      localInsertOperation
+        ? "- The requested operation is a local insert. Do not return or redeclare the complete target function."
+        : "",
+      localInsertOperation
+        ? "- Return only the smallest executable augmentation valid at the requested insertion point."
+        : "",
+      statementsOnlyOutput
+        ? "- The required output shape is statements-only. Do not return a function declaration, class declaration, or replacement symbol."
+        : "",
+      localInsertOperation && statementsOnlyOutput
+        ? "- Prefer direct statements that use verified existing identifiers. Do not create a wrapper or duplicate the target declaration."
+        : ""
+    ].join("\n");
+  }
+
+  if (
+    normalizedViolation.includes(
+      "required existing invented-runtime safety indicators"
+    ) ||
+    normalizedViolation.includes(
+      "null-or-human-readable-string return contract"
+    ) ||
+    normalizedViolation.includes(
+      "required verified provider input references"
+    ) ||
+    normalizedViolation.includes(
+      "invented provider-context function parameters"
+    )
+  ) {
+    return [
+      "Specific correction for invented dependency validator contract:",
+      "- Start from currentTargetSource and preserve the existing function structure.",
+      "- Return exactly the complete findInventedRuntimeDependencyViolation function.",
+      "- Keep exactly the existing function arguments: input and executableCodeTemplate.",
+      "- Do not add completeTargetSource, currentTargetSource, or existingLocalDeclarations as function parameters.",
+      "- Read verified module source through input?.completeTargetSource.",
+      "- Read verified target-function source through input?.currentTargetSource.",
+      "- Read verified existing locals through input?.existingLocalDeclarations.",
+      "- Preserve all eight existing invented-runtime safety indicators and their current detection behavior.",
+      "- Copy the existing indicators block from currentTargetSource unchanged before adding new unresolved-identifier validation.",
+      "- Preserve these exact existing indicator names and regex semantics:",
+      "- assumed-runtime-helper => /assumed to be available in (?:the )?runtime context/i",
+      "- delegation-stub => /stub representing (?:the )?delegation/i",
+      "- placeholder-resolution-logic => /placeholder for actual (?:resolution )?logic/i",
+      "- synthetic-provider-result => /Implementation generated for \\\$\\\{/i",
+      "- invented-provider-helper => /function\\s+generateImplementationFromProvider\\s*\\(/i",
+      "- invented-symbol-resolver => /function\\s+resolveConcreteSymbol\\s*\\(/i",
+      "- invented-symbol-describer => /function\\s+describeSymbol\\s*\\(/i",
+      "- invented-validator-requirements-helper => /function\\s+getPatchValidatorRequirements\\s*\\(/i",
+      "- Do not rename, paraphrase, simplify, replace, or reinterpret any of those eight existing regex patterns.",
+      "- Preserve the existing any-match semantics: one matched existing indicator is sufficient to return a violation.",
+      "- Preserve the existing return contract: return null when no violation exists; otherwise return a human-readable violation string.",
+      "- Never return an object such as { score, indicators }.",
+      "- Extend the existing validator narrowly to detect unresolved executable identifiers using verified repository evidence.",
+      "- Do not invent helpers, providers, parsers, imports, runtime APIs, or new architectural layers.",
+      "- Preserve valid identifiers that are already declared in the target function, generated function, or target module.",
+      "- Ignore identifiers that occur only inside comments or ordinary string text.",
+      "- Preserve executable identifiers inside template-literal interpolation expressions.",
+      "- For member access, validate the base identifier and do not treat the property after a dot as a separate dependency.",
+      "- Return production JavaScript only, with the exact existing target function name."
     ].join("\n");
   }
 
@@ -2122,7 +3385,154 @@ function buildImmediateRetryPrompt({
   ].join("\n");
 }
 
-async function main() {
+function buildRetryEvidenceRegressionClient() {
+  const rejectedImplementations = [
+    '"assumed to be available in runtime context"; const attemptZero = 0;',
+    '"assumed to be available in runtime context"; const attemptOne = 1;',
+    '"assumed to be available in runtime context"; const attemptTwo = 2;',
+    '"assumed to be available in runtime context"; const attemptThree = 3;'
+  ];
+
+  let completionIndex = 0;
+
+  return {
+    chat: {
+      completions: {
+        create: async () => {
+          const index = completionIndex;
+          completionIndex += 1;
+
+          return {
+            _request_id:
+              `retry-regression-${index}`,
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    executableCodeTemplate:
+                      rejectedImplementations[index] ||
+                      rejectedImplementations.at(-1),
+                    summary:
+                      `Injected retry regression response ${index}.`
+                  })
+                }
+              }
+            ]
+          };
+        }
+      }
+    }
+  };
+}
+
+function runEnforcementContractSelfCheck() {
+  const completeTargetSource = [
+    "function safeString(value) {",
+    '  return typeof value === "string" ? value.trim() : "";',
+    "}",
+    findInventedRuntimeDependencyViolation.toString()
+  ].join("\n");
+  const validContract =
+    findInventedRuntimeDependencyViolation.toString();
+  const input = {
+    completeTargetSource,
+    currentTargetSource: [
+      "function findInventedRuntimeDependencyViolation({",
+      "  input = null,",
+      '  executableCodeTemplate = ""',
+      "} = {}) {",
+      "  return null;",
+      "}"
+    ].join("\n"),
+    existingLocalDeclarations: [],
+    requiredOutputShape: "complete-function",
+    targetSymbol:
+      "findInventedRuntimeDependencyViolation"
+  };
+  const normalized = normalizeProviderInput({
+    completeTargetSource:
+      "  function verifiedModuleTarget() {}  ",
+    surroundingContext: {
+      text: "verified context"
+    }
+  });
+
+  const accepted = findImmediateGenerationViolation({
+    input,
+    executableCodeTemplate: validContract
+  });
+  const missingIndicator = findImmediateGenerationViolation({
+    input,
+    executableCodeTemplate: validContract.replace(
+      '"assumed-runtime-helper"',
+      '"removed-runtime-helper"'
+    )
+  });
+  const inventedParameters = findImmediateGenerationViolation({
+    input,
+    executableCodeTemplate: validContract.replace(
+      "  input = null,",
+      '  input = null, completeTargetSource = "",'
+    )
+  });
+  const missingVerifiedInput = findImmediateGenerationViolation({
+    input,
+    executableCodeTemplate: validContract.replaceAll(
+      "input?.completeTargetSource",
+      "input?.moduleSource"
+    )
+  });
+  const guidance = buildViolationCorrectionGuidance(
+    "The generated invented-runtime dependency validator did not use required verified provider input references.",
+    input
+  );
+
+  return {
+    mode:
+      "openai-provider-enforcement-contract-self-check",
+    success:
+      normalized.completeTargetSource ===
+        "function verifiedModuleTarget() {}" &&
+      accepted === null &&
+      typeof missingIndicator === "string" &&
+      missingIndicator.includes("removed") &&
+      typeof inventedParameters === "string" &&
+      inventedParameters.includes("function parameters") &&
+      typeof missingVerifiedInput === "string" &&
+      missingVerifiedInput.includes("verified provider input") &&
+      guidance.includes("input and executableCodeTemplate") &&
+      guidance.includes("input?.completeTargetSource") &&
+      guidance.includes("all eight existing invented-runtime safety indicators"),
+    normalizedCompleteTargetSourcePreserved:
+      normalized.completeTargetSource ===
+      "function verifiedModuleTarget() {}",
+    generationGuardAcceptedValidContract:
+      accepted === null,
+    generationGuardRejectedMissingIndicators:
+      typeof missingIndicator === "string" &&
+      missingIndicator.includes("removed"),
+    generationGuardRejectedInventedParameters:
+      typeof inventedParameters === "string" &&
+      inventedParameters.includes("function parameters"),
+    generationGuardRejectedMissingVerifiedInput:
+      typeof missingVerifiedInput === "string" &&
+      missingVerifiedInput.includes("verified provider input"),
+    correctionGuidancePreservesExistingArguments:
+      guidance.includes("input and executableCodeTemplate"),
+    correctionGuidanceRequiresVerifiedInput:
+      guidance.includes("input?.completeTargetSource") &&
+      guidance.includes("input?.currentTargetSource") &&
+      guidance.includes("input?.existingLocalDeclarations"),
+    correctionGuidanceRequiresIndicators:
+      guidance.includes("all eight existing invented-runtime safety indicators")
+  };
+}
+
+async function main({
+  clientOverride = null,
+  apiKeyOverride = null,
+  skipEnvironmentFile = false
+} = {}) {
   const providerDirectory =
     path.dirname(
       fileURLToPath(import.meta.url)
@@ -2142,12 +3552,13 @@ async function main() {
     ) ||
     defaultEnvFile;
 
-  const envResult =
-    dotenv.config({
-      path: envFile,
-      override: false,
-      quiet: true
-    });
+  const envResult = skipEnvironmentFile
+    ? { error: null }
+    : dotenv.config({
+        path: envFile,
+        override: false,
+        quiet: true
+      });
 
   if (envResult.error) {
     fail(
@@ -2162,6 +3573,7 @@ async function main() {
   }
 
   const apiKey =
+    safeString(apiKeyOverride) ||
     safeString(process.env.OPENAI_API_KEY);
 
   const model =
@@ -2209,7 +3621,21 @@ async function main() {
     return;
   }
 
+  const semanticSmokeViolation =
+    runInventedRuntimeDependencySemanticSmoke();
+
+  if (semanticSmokeViolation) {
+    fail(
+      "Invented-runtime dependency semantic validator self-check failed.",
+      {
+        semanticSmokeViolation
+      }
+    );
+    return;
+  }
+
   const client =
+    clientOverride ||
     new OpenAI({
       apiKey,
       maxRetries: 1,
@@ -2430,6 +3856,136 @@ async function main() {
     }
 
     if (generationViolation) {
+      const normalizedRetryDiagnostics =
+        retryDiagnostics
+          .filter(
+            (diagnostic) =>
+              diagnostic &&
+              typeof diagnostic.violation ===
+                "string" &&
+              diagnostic.violation.trim()
+          )
+          .map(
+            (diagnostic) => ({
+              attempt:
+                diagnostic.attempt,
+              violation:
+                diagnostic.violation.trim(),
+              executableCodeTemplate:
+                safeString(
+                  diagnostic.executableCodeTemplate
+                )
+            })
+          );
+
+      const violationCounts =
+        new Map();
+
+      for (
+        const diagnostic
+        of normalizedRetryDiagnostics
+      ) {
+        violationCounts.set(
+          diagnostic.violation,
+          (
+            violationCounts.get(
+              diagnostic.violation
+            ) || 0
+          ) + 1
+        );
+      }
+
+      const repeatedViolationEntry =
+        [...violationCounts.entries()]
+          .find(
+            ([, count]) =>
+              count >= 2
+          ) ||
+        null;
+
+      const repeatedViolation =
+        repeatedViolationEntry?.[0] ||
+        null;
+
+      const repeatedViolationDiagnostics =
+        repeatedViolation
+          ? normalizedRetryDiagnostics.filter(
+              (diagnostic) =>
+                diagnostic.violation ===
+                  repeatedViolation
+            )
+          : [];
+
+      const distinctRejectedImplementations =
+        new Set(
+          repeatedViolationDiagnostics
+            .map(
+              (diagnostic) =>
+                diagnostic
+                  .executableCodeTemplate
+            )
+            .filter(Boolean)
+        );
+
+      const repeatedGenerationViolation =
+        repeatedViolation
+          ? {
+              detected:
+                true,
+              violation:
+                repeatedViolation,
+              occurrenceCount:
+                repeatedViolationDiagnostics.length,
+              attempts:
+                repeatedViolationDiagnostics.map(
+                  (diagnostic) =>
+                    diagnostic.attempt
+                ),
+              distinctRejectedImplementationCount:
+                distinctRejectedImplementations.size,
+              generatedImplementationsChanged:
+                distinctRejectedImplementations.size >
+                  1,
+              suspectedValidationOrGuidanceDefect:
+                repeatedViolationDiagnostics.length >=
+                  2 &&
+                distinctRejectedImplementations.size >
+                  1,
+              reason:
+                repeatedViolationDiagnostics.length >=
+                  2 &&
+                distinctRejectedImplementations.size >
+                  1
+                  ? (
+                      "The same generation violation persisted across " +
+                      "multiple distinct generated implementations. " +
+                      "Inspect validator semantics and retry guidance " +
+                      "before assuming another generation retry is useful."
+                    )
+                  : (
+                      "The same generation violation repeated, but the " +
+                      "rejected implementation did not materially change."
+                    )
+            }
+          : {
+              detected:
+                false,
+              violation:
+                null,
+              occurrenceCount:
+                0,
+              attempts:
+                [],
+              distinctRejectedImplementationCount:
+                0,
+              generatedImplementationsChanged:
+                false,
+              suspectedValidationOrGuidanceDefect:
+                false,
+              reason:
+                null
+            };
+
       fail(
         "OpenAI implementation regeneration did not satisfy the function-body contract.",
         {
@@ -2440,6 +3996,7 @@ async function main() {
             immediateRetryLimit,
           retryViolation:
             generationViolation,
+          repeatedGenerationViolation,
           rejectedExecutableCodeTemplate:
             executableCodeTemplate || null,
           rejectedExecutableCodeLength:
@@ -2503,14 +4060,80 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  fail(
-    "Unexpected Ash OpenAI provider failure.",
-    {
-      errorMessage:
-        error instanceof Error
-          ? error.message
-          : String(error)
-    }
-  );
-});
+if (
+  process.argv.includes(
+    "--enforcement-contract-self-check"
+  )
+) {
+  const result =
+    runEnforcementContractSelfCheck();
+
+  writeResult(result);
+
+  if (!result.success) {
+    process.exitCode = 1;
+  }
+} else if (
+  process.argv.includes(
+    "--retry-evidence-integration-self-check"
+  )
+) {
+  main({
+    clientOverride:
+      buildRetryEvidenceRegressionClient(),
+    apiKeyOverride:
+      "ash-regression-not-a-real-api-key",
+    skipEnvironmentFile:
+      true
+  }).catch((error) => {
+    fail(
+      "Unexpected Ash retry-evidence regression failure.",
+      {
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : String(error)
+      }
+    );
+    process.exitCode = 1;
+  });
+} else if (
+  process.argv.includes(
+    "--semantic-self-check"
+  )
+) {
+  const semanticSmokeViolation =
+    runInventedRuntimeDependencySemanticSmoke();
+
+  const returnShapeSmokeViolation =
+    runReturnContractShapeSemanticSmoke();
+
+  writeResult({
+    mode:
+      "openai-implementation-provider-semantic-self-check",
+    success:
+      semanticSmokeViolation === null &&
+      returnShapeSmokeViolation === null,
+    semanticSmokeViolation,
+    returnShapeSmokeViolation
+  });
+
+  if (
+    semanticSmokeViolation ||
+    returnShapeSmokeViolation
+  ) {
+    process.exitCode = 1;
+  }
+} else {
+  main().catch((error) => {
+    fail(
+      "Unexpected Ash OpenAI provider failure.",
+      {
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : String(error)
+      }
+    );
+  });
+}

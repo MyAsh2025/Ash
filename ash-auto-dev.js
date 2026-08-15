@@ -3,7 +3,10 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
-const { runAutonomousDevelopmentManager } = require("./ash/runtime/autonomous-development-manager");
+const {
+  runAutonomousDevelopmentManager,
+  runExistingRepairVerification
+} = require("./ash/runtime/autonomous-development-manager");
 const { classifyIntent } = require("./ash/runtime/intent-runtime");
 const { routeCommand } = require("./ash/runtime/command-router");
 const { executeCommandRoute } = require("./ash/runtime/command-route-executor");
@@ -22,6 +25,46 @@ const maxCycles = Number(getArg("--cycles", "1"));
 const requestedTask = getArg("--task", "run fully autonomous Ash development");
 const dryRun = process.argv.includes("--dry-run");
 const allowApply = process.argv.includes("--apply");
+const verifyExistingRepair =
+  process.argv.includes("--verify-existing-repair");
+
+if (verifyExistingRepair) {
+  const targetFile = getArg("--target-file");
+  const targetSymbol = getArg("--target-symbol");
+  const coverageKind = getArg("--coverage-kind");
+  const regressionId = getArg("--regression-id");
+  const verification = runExistingRepairVerification({
+    projectPath: process.cwd(),
+    targetFile,
+    targetSymbol,
+    coverageKind,
+    regressionId
+  });
+
+  console.log(JSON.stringify({
+    mode: "ash-auto-dev-runner",
+    route: "existing-repair-verification",
+    success: verification.success,
+    completionKind: verification.completionKind,
+    completionEligible: verification.completionEligible,
+    completionSuccess: verification.completionSuccess,
+    executionSuccess: verification.executionSuccess ?? false,
+    pipelineSuccess: verification.verificationSuccess ?? false,
+    effectiveDryRun: verification.effectiveDryRun,
+    applied: verification.applied,
+    coreCheck: verification.coreCheck?.success ?? false,
+    targetFile,
+    targetSymbol,
+    coverageKind,
+    regressionId,
+    eligibility: verification.eligibility,
+    completionEvidence: verification.completionEvidence || null,
+    reason: verification.reason,
+    ranAt: verification.ranAt
+  }, null, 2));
+
+  process.exit(verification.success ? 0 : 1);
+}
 
 const intentResult = classifyIntent(requestedTask);
 const commandRoute = routeCommand(intentResult);

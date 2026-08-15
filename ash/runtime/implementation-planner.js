@@ -799,6 +799,112 @@ function findInheritedRepairTargetSymbol(
   };
 }
 
+function buildRepairSymbolInferenceText({
+  task = "",
+  originalTask = null,
+  previousTask = null,
+  errorMessage = null,
+  issues = [],
+  validatedOperations = []
+} = {}) {
+  const evidence = [];
+  const visitedTasks = new Set();
+
+  function add(value) {
+    if (
+      typeof value === "string" &&
+      value.trim().length > 0
+    ) {
+      evidence.push(value.trim());
+    }
+  }
+
+  function addIssue(issue) {
+    if (typeof issue === "string") {
+      add(issue);
+      return;
+    }
+
+    if (!issue || typeof issue !== "object") {
+      return;
+    }
+
+    add(issue.message);
+    add(issue.reason);
+    add(issue.code);
+    add(issue.targetSymbol);
+  }
+
+  function addOperation(operation) {
+    if (!operation || typeof operation !== "object") {
+      return;
+    }
+
+    add(operation.targetSymbol);
+    add(operation.anchorPattern);
+    add(operation.reason);
+
+    if (Array.isArray(operation.reasons)) {
+      operation.reasons.forEach(add);
+    }
+  }
+
+  function visitTask(candidateTask) {
+    let currentTask = candidateTask;
+
+    while (
+      currentTask &&
+      typeof currentTask === "object" &&
+      !visitedTasks.has(currentTask)
+    ) {
+      visitedTasks.add(currentTask);
+
+      add(currentTask.task);
+      add(currentTask.reason);
+      add(currentTask.errorMessage);
+      add(currentTask.failureReason);
+      add(currentTask.targetSymbol);
+
+      if (Array.isArray(currentTask.issues)) {
+        currentTask.issues.forEach(addIssue);
+      }
+
+      if (
+        Array.isArray(
+          currentTask.validatedOperations
+        )
+      ) {
+        currentTask
+          .validatedOperations
+          .forEach(addOperation);
+      }
+
+      currentTask =
+        currentTask.previousTask &&
+        typeof currentTask.previousTask === "object"
+          ? currentTask.previousTask
+          : null;
+    }
+  }
+
+  add(task);
+  add(errorMessage);
+
+  if (Array.isArray(issues)) {
+    issues.forEach(addIssue);
+  }
+
+  if (Array.isArray(validatedOperations)) {
+    validatedOperations.forEach(addOperation);
+  }
+
+  visitTask(previousTask);
+  visitTask(originalTask);
+
+  return Array.from(
+    new Set(evidence)
+  ).join("\n");
+}
 function buildImplementationPlanner({
   task = "",
   targetFile = null,
@@ -951,10 +1057,22 @@ function buildImplementationPlanner({
           source: null
         };
 
+  const repairSymbolInferenceText =
+    repairing
+      ? buildRepairSymbolInferenceText({
+          task,
+          originalTask,
+          previousTask,
+          errorMessage,
+          issues,
+          validatedOperations
+        })
+      : originalTask?.task || task;
+
   const inferredTargetSymbol =
     inferExportedFunctionSymbol({
       targetFile: resolvedTargetFile,
-      task: originalTask?.task || task
+      task: repairSymbolInferenceText
     });
 
   const resolvedTargetSymbol =
@@ -1056,8 +1174,13 @@ function buildImplementationPlanner({
       })
     );
 
+  const minimalVerifiedRuntimeExtension =
+    resolvedStrategy ===
+    "add_minimal_verified_runtime_extension";
+
   const requestedRecommendedOperation =
-    verifiedExistingTarget
+    verifiedExistingTarget &&
+    !minimalVerifiedRuntimeExtension
       ? "replace"
       : recommendedOperation ||
         originalTask?.recommendedOperation ||

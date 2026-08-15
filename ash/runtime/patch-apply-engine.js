@@ -240,8 +240,44 @@ function applyValidatedPatch({
   };
 }
 
+
+function rollbackAppliedPatch({
+  patchApplyEngine,
+  projectPath = process.cwd()
+} = {}) {
+  const applyResults = Array.isArray(patchApplyEngine?.results) ? patchApplyEngine.results : [];
+  const candidates = applyResults.filter((result) =>
+    result?.success === true && result?.dryRun !== true && result?.changed === true &&
+    typeof result?.backupPath === "string" && result.backupPath.length > 0
+  );
+  const results = [];
+  for (const result of candidates) {
+    const targetFile = result.file || "";
+    const absolutePath = path.resolve(projectPath, targetFile);
+    const backupPath = path.resolve(result.backupPath);
+    if (!fs.existsSync(backupPath)) {
+      results.push({ file: targetFile, success: false, restored: false, backupPath, reason: "Patch backup does not exist." });
+      continue;
+    }
+    try {
+      const backupText = fs.readFileSync(backupPath, "utf8");
+      fs.writeFileSync(absolutePath, backupText, "utf8");
+      const restored = fs.readFileSync(absolutePath, "utf8") === backupText;
+      results.push({ file: targetFile, success: restored, restored, backupPath, reason: restored ? "Applied patch was rolled back from verified backup." : "Rollback verification failed." });
+    } catch (error) {
+      results.push({ file: targetFile, success: false, restored: false, backupPath, reason: error?.message || "Patch rollback failed." });
+    }
+  }
+  const success = candidates.length > 0 && results.length === candidates.length && results.every((result) => result.success === true && result.restored === true);
+  return {
+    mode: "patch-apply-rollback", success, attempted: candidates.length > 0, results,
+    reason: candidates.length === 0 ? "No applied patch with a verified backup was available for rollback." : success ? "Applied patch was rolled back successfully." : "One or more applied patch rollbacks failed.",
+    rolledBackAt: new Date().toISOString()
+  };
+}
+
 module.exports = {
   applyValidatedPatch,
-  applyOperationToText
+  applyOperationToText,
+  rollbackAppliedPatch
 };
-
