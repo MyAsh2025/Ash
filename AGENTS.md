@@ -46,6 +46,18 @@ Use safe editing and verification paths available in this environment directly. 
 
 Using PowerShell as the current shell is allowed. Do not create a temporary PowerShell script or disposable probe as an authoritative pass/fail gate. Temporary instrumentation may only observe unknown structure and must not replace the permanent repository regression path.
 
+## Approval policy
+
+Treat ordinary safe, in-scope operations as normal development work when repository state, the current task, this entry contract, and available verification make their safety clear. This includes normal reading, inspection, tests, verification, dry-runs, temporary network access, edits to confirmed target files, staging, and a sufficiently verified checkpoint commit. Do not return a routine safety decision to the user merely by asking whether to proceed. If a tool UI requires one-time system approval for a non-destructive, reversible, non-publishing operation, use that required UI without adding a separate procedural user decision.
+
+Stop before operations that could discard existing changes or are destructive, irreversible, or based on an unverified overwrite. Require explicit user confirmation before actions such as `git reset --hard`, broad `git restore`, bulk deletion, history rewriting, or a forced overwrite that has not been verified safe.
+
+Require explicit user confirmation before publishing or materially changing external state, including `git push`, release, public publication, or another consequential external change.
+
+Do not proceed automatically with an unexpected large change. If its targets, scale, or reason cannot be justified by the current task and this development contract, stop and ask the user for direction.
+
+Never bypass, suppress, or disable an approval UI that Codex or an underlying tool requires at the system level. Use the required approval UI as presented.
+
 ## Completion gate
 
 Do not claim a real defect is complete, and do not commit or release, unless every gate required by `ash/DEVELOPMENT-RULES.md` has passed. Report the permanent regression check used, canonical CoreCheck result, relevant autonomous dry-run result, and any remaining unverified condition.
