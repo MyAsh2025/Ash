@@ -468,7 +468,7 @@ Also verify the Provider credential without printing it, confirm Provider Bounda
 - Controller: not running; no supervisor lock or stop request
 - Scheduled Task: registered, enabled, `Ready`; manual lifecycle and logon-trigger startup verified
 - Release: not performed
-- Controller lifecycle commits `a2fcc6f` and `475b7c6` are present on `origin/master`. **CURRENTLY PENDING:** checkpoint the verified runtime-evidence repair; push is not authorized for this checkpoint.
+- Controller lifecycle commits `a2fcc6f` and `475b7c6` are present on `origin/master`. Runtime-evidence repair checkpoint `6b92641` is local. **CURRENTLY PENDING:** push is not authorized for this checkpoint.
 
 ## Maintenance rule
 
