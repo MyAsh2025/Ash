@@ -226,6 +226,9 @@ Current Controller contract:
 - approval, safety, ambiguity, dirty, and lock blocks do not loop automatically;
 - current child is allowed to finish during graceful stop;
 - accepted stop waits for apply/CoreCheck/evidence/result completion before lock release.
+- a repeated cooperative stop returns `cooperative_stop_already_requested` while the current-owner request remains unconsumed; after the Controller has consumed it, another request for the same verified live owner may safely return `cooperative_stop_requested`;
+- Controller shutdown requesting is idempotent even when cooperative stop is requested repeatedly;
+- Controller lifecycle regressions reproduce the production `ash/logs/*.json` ignore contract and impose finite deadlines on spawned Controllers so a fixture failure cannot hang CoreCheck indefinitely.
 
 ## Repository lock and cooperative stop
 
@@ -275,6 +278,14 @@ Audited registered Task (read from Windows; it had never run at audit time):
 - Start on battery: allowed (`DisallowStartIfOnBatteries = false`)
 - Stop on battery transition: disabled (`StopIfGoingOnBatteries = false`)
 - Failure restart: 3 attempts, 5-minute interval
+
+Subsequent operational verification on 2026-08-18, without changing the registered Task definition, established these distinct results:
+
+- Scheduled Task manual lifecycle: **VERIFIED**.
+- Windows logon trigger automatic startup: **VERIFIED** (`Windows logon -> Scheduled Task -> ash-controller.js --auto -> ash-auto-dev.js --apply`).
+- Cooperative shutdown: **VERIFIED**; the real run ended with the Task `Ready`, no Controller or `ash-auto-dev` process, no supervisor lock, and no cooperative stop request.
+- The logon-trigger run's first CoreCheck: **FAILED because of defects in `controller-lifecycle-regression-test.js`**, not because logon startup or cooperative shutdown failed. The fixture omitted the production runtime-log ignore rule and could block itself as `dirty_repository`; its repeated-stop assertion also depended on whether the 250 ms Controller poll had already consumed the first request. Both regression defects are now repaired and permanently covered.
+- The production dirty-repository safety gate remains unchanged. No Windows Task Scheduler setting was changed, and the Task was not rerun as part of the regression repair.
 
 Recreate on a new PC only after cloning, dependencies, secrets, canonical verification, and Controller lifecycle verification. Adjust paths and account name for the new PC:
 
@@ -326,7 +337,7 @@ PC power on
 
 Expected shutdown is cooperative `node ash-controller.js --stop`. It requests stop without a signal, prevents another cycle, waits for the active child and its evidence/result write, releases the owner lock, removes the request, and exits normally.
 
-**CURRENTLY PENDING:** the cooperative stop path has passed permanent fixture/integration regression and formal existing-repair verification, but the registered Scheduled Task has not yet been started and stopped in a real Task Scheduler lifecycle. Do not describe logon autostart or real scheduled graceful shutdown as operationally proven until that one-run lifecycle succeeds.
+The registered Scheduled Task manual lifecycle, Windows logon-triggered automatic startup, and cooperative shutdown have now been verified on the real machine. The first CoreCheck reached by the logon-triggered run did not report final success because the Controller lifecycle regression itself was defective; that result must not be rewritten as a successful CoreCheck. The fixture defect and scheduling-dependent assertion were subsequently repaired and the canonical verification passed. A repeat Windows logon test is not required for this fixture-only repair unless the Task definition, production Controller startup/shutdown implementation, or operating environment changes.
 
 For physical PC shutdown, first request cooperative stop and verify Task/process/lock termination. Do not rely on Windows process termination to deliver Node SIGINT/SIGTERM handlers.
 
@@ -443,19 +454,18 @@ node .\ash-dev-verify.js
 
 Also verify the Provider credential without printing it, confirm Provider Boundary in canonical output, inspect Task Scheduler settings, and perform the bounded scheduled lifecycle described above. A real defect additionally requires the completion evidence specified by `ash/DEVELOPMENT-RULES.md`.
 
-## Current status at document creation
+## Current status
 
-- Audit baseline HEAD: `13a6b9792f1ae892277836d909a68db782c9959b`
-- `origin/master`: `850ccf67ad15cf084d2d327dc650932087563e2f`
+- Regression-repair baseline HEAD and `origin/master`: `e43a3cb526f780ff72c005d012bc5f228309de5b`
 - Branch: `master`
-- Working tree before this document change: clean
-- Ahead/behind before this document change: ahead 1 / behind 0
-- Canonical verification: successful for cooperative Controller shutdown checkpoint
+- Working tree before the regression repair: clean
+- Ahead/behind before the regression repair: ahead 0 / behind 0
+- Canonical verification: successful after the Controller lifecycle regression repair
 - CoreCheck/all permanent regressions/Provider Boundary: successful
 - Controller: not running; no supervisor lock or stop request
-- Scheduled Task: registered, enabled, `Ready`, never run
+- Scheduled Task: registered, enabled, `Ready`; manual lifecycle and logon-trigger startup verified
 - Release: not performed
-- Pending development/operations: commit/preserve this migration contract; push remains unapproved; perform the first real Scheduled Task start/observe/cooperative-stop lifecycle after the relevant checkpoint is available locally and preflight is clean.
+- **CURRENTLY PENDING:** preserve the regression repair and this factual migration update in a checkpoint commit; push remains unapproved.
 
 ## Maintenance rule
 
