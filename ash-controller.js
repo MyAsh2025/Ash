@@ -30,7 +30,9 @@ const state = {
   lockPath: null,
   lockRecord: null,
   exitWhenStopped: false,
-  readline: null
+  readline: null,
+  exitCallback: null,
+  controllerExitCompleted: false
 };
 
 function createOwnerToken() {
@@ -513,6 +515,55 @@ function shouldScheduleNextCycle({ running, stopping, retryAutomatically } = {})
   return running === true && stopping !== true && retryAutomatically === true;
 }
 
+function createGracefulShutdownRequester({ requestStop } = {}) {
+  let shutdownRequested = false;
+
+  return (signal = "shutdown") => {
+    if (shutdownRequested) return false;
+    shutdownRequested = true;
+    if (typeof requestStop === "function") requestStop(signal);
+    return true;
+  };
+}
+
+function installGracefulSignalHandlers({
+  processTarget = process,
+  requestShutdown
+} = {}) {
+  if (!processTarget || typeof processTarget.on !== "function") return false;
+  if (typeof requestShutdown !== "function") return false;
+
+  processTarget.on("SIGINT", () => requestShutdown("SIGINT"));
+  processTarget.on("SIGTERM", () => requestShutdown("SIGTERM"));
+  return true;
+}
+
+function completeControllerExit() {
+  if (state.controllerExitCompleted || state.currentProcess) return false;
+
+  if (state.lockRecord) {
+    releaseRepositoryLock({
+      lockPath: state.lockPath,
+      ownerToken: state.lockRecord.ownerToken
+    });
+    state.lockPath = null;
+    state.lockRecord = null;
+  }
+
+  if (state.readline) {
+    const rl = state.readline;
+    state.readline = null;
+    rl.close();
+    return true;
+  }
+
+  state.controllerExitCompleted = true;
+  console.log("");
+  console.log("PC Ash Controller closed.");
+  if (typeof state.exitCallback === "function") state.exitCallback();
+  return true;
+}
+
 function scheduleNextCycle(outcome = { classification: "success", retryAutomatically: true }) {
   if (!shouldScheduleNextCycle({
     running: state.running,
@@ -533,8 +584,8 @@ function scheduleNextCycle(outcome = { classification: "success", retryAutomatic
       state.lockPath = null;
       state.lockRecord = null;
     }
-    if ((wasStopping || state.exitWhenStopped) && state.exitWhenStopped && state.readline) {
-      state.readline.close();
+    if ((wasStopping || state.exitWhenStopped) && state.exitWhenStopped) {
+      completeControllerExit();
     }
     return;
   }
@@ -711,7 +762,7 @@ function runAutonomousCycle() {
 function startAutonomousAgent() {
   if (state.running) {
     console.log("PC Ash autonomous agent is already running.");
-    return;
+    return false;
   }
 
   const lockPath = resolveRepositoryLockPath(PROJECT_ROOT);
@@ -728,7 +779,7 @@ function startAutonomousAgent() {
     };
     recordControllerEvent({ event: "startup-blocked", ...state.lastResult, lock: lock.record });
     console.log(`PC Ash did not start: ${lock.reason}.`);
-    return;
+    return false;
   }
 
   const git = gitStatus();
@@ -743,7 +794,7 @@ function startAutonomousAgent() {
     };
     recordControllerEvent({ event: "startup-blocked", ...state.lastResult, repository: git });
     console.log(`PC Ash did not start: ${startup.reason}.`);
-    return;
+    return false;
   }
 
   state.lockPath = lockPath;
@@ -760,6 +811,7 @@ function startAutonomousAgent() {
   console.log("");
 
   runAutonomousCycle();
+  return true;
 }
 
 function stopAutonomousAgent() {
@@ -787,7 +839,7 @@ function stopAutonomousAgent() {
       state.lockRecord = null;
     }
     console.log("PC Ash autonomous agent stopped.");
-    if (state.exitWhenStopped && state.readline) state.readline.close();
+    if (state.exitWhenStopped) completeControllerExit();
     return;
   }
 
@@ -820,8 +872,25 @@ function runOnce(args = ["--cycles", "1", "--apply"]) {
   });
 }
 
-function main() {
+function main({ args = process.argv.slice(2) } = {}) {
   printHeader();
+
+  state.exitCallback = () => process.exit(0);
+  const requestShutdown = createGracefulShutdownRequester({
+    requestStop: (signal) => {
+      console.log(`Graceful shutdown requested by ${signal}.`);
+      state.exitWhenStopped = true;
+      stopAutonomousAgent();
+      if (!state.currentProcess && !state.running) completeControllerExit();
+    }
+  });
+  installGracefulSignalHandlers({ processTarget: process, requestShutdown });
+
+  if (args.includes("--auto")) {
+    const started = startAutonomousAgent();
+    if (!started) completeControllerExit();
+    return;
+  }
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -867,13 +936,10 @@ function main() {
 
       case "exit":
       case "quit":
-        state.exitWhenStopped = true;
-        stopAutonomousAgent();
+        requestShutdown("interactive-exit");
 
         if (state.currentProcess) {
           console.log("Exit requested. Close after the current cycle completes.");
-        } else {
-          rl.close();
         }
         break;
 
@@ -887,17 +953,8 @@ function main() {
 
   rl.on("close", () => {
     if (state.currentProcess) return;
-    if (state.lockRecord) {
-      releaseRepositoryLock({
-        lockPath: state.lockPath,
-        ownerToken: state.lockRecord.ownerToken
-      });
-      state.lockPath = null;
-      state.lockRecord = null;
-    }
-    console.log("");
-    console.log("PC Ash Controller closed.");
-    process.exit(0);
+    state.readline = null;
+    completeControllerExit();
   });
 }
 
@@ -914,6 +971,8 @@ module.exports = {
   classifyCycleOutcome,
   calculateDelay,
   shouldScheduleNextCycle,
+  createGracefulShutdownRequester,
+  installGracefulSignalHandlers,
   resolveRepositoryLockPath,
   isProcessAlive
 };

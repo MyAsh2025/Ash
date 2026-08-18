@@ -17,7 +17,9 @@ const {
   identifyRunResult,
   classifyCycleOutcome,
   calculateDelay,
-  shouldScheduleNextCycle
+  shouldScheduleNextCycle,
+  createGracefulShutdownRequester,
+  installGracefulSignalHandlers
 } = controller;
 
 for (const [name, value] of Object.entries({
@@ -27,7 +29,9 @@ for (const [name, value] of Object.entries({
   identifyRunResult,
   classifyCycleOutcome,
   calculateDelay,
-  shouldScheduleNextCycle
+  shouldScheduleNextCycle,
+  createGracefulShutdownRequester,
+  installGracefulSignalHandlers
 })) {
   assert.strictEqual(typeof value, "function", `${name} must be exported.`);
 }
@@ -205,6 +209,21 @@ async function main() {
   assert.strictEqual(shouldScheduleNextCycle({ running: true, stopping: true, retryAutomatically: true }), false);
   assert.strictEqual(shouldScheduleNextCycle({ running: true, stopping: false, retryAutomatically: true }), true);
 
+  const requestedSignals = [];
+  const shutdownRequester = createGracefulShutdownRequester({
+    requestStop: (signal) => requestedSignals.push(signal)
+  });
+  const fakeProcess = new (require("events").EventEmitter)();
+  installGracefulSignalHandlers({ processTarget: fakeProcess, requestShutdown: shutdownRequester });
+  fakeProcess.emit("SIGTERM");
+  fakeProcess.emit("SIGTERM");
+  fakeProcess.emit("SIGINT");
+  assert.deepStrictEqual(
+    requestedSignals,
+    ["SIGTERM"],
+    "SIGINT/SIGTERM must share one idempotent graceful shutdown request."
+  );
+
   const controllerFixture = fs.mkdtempSync(path.join(os.tmpdir(), "ash-controller-process-"));
   assert.strictEqual(
     spawnSync("git", ["init", "--quiet"], { cwd: controllerFixture }).status,
@@ -238,6 +257,48 @@ async function main() {
   ], { cwd: controllerFixture }).status, 0);
 
   const controllerPath = path.join(process.cwd(), "ash-controller.js");
+  const headlessProcess = spawn(process.execPath, [controllerPath, "--auto"], {
+    cwd: controllerFixture,
+    env: {
+      ...process.env,
+      ASH_CONTROLLER_MODULE_ONLY: "0",
+      ASH_CONTROLLER_PROJECT_ROOT: controllerFixture,
+      ASH_CONTROLLER_AUTO_DEV_PATH: fakeAutoDev
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  let headlessOutput = "";
+  headlessProcess.stdout.on("data", (chunk) => { headlessOutput += chunk; });
+  headlessProcess.stderr.on("data", (chunk) => { headlessOutput += chunk; });
+  headlessProcess.stdin.end();
+
+  await new Promise((resolve, reject) => {
+    const deadline = Date.now() + 2000;
+    const poll = () => {
+      if (fs.existsSync(startedPath)) return resolve();
+      if (headlessProcess.exitCode != null) return reject(new Error(headlessOutput));
+      if (Date.now() >= deadline) return reject(new Error("--auto did not start autonomously."));
+      setTimeout(poll, 10);
+    };
+    poll();
+  });
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.strictEqual(headlessProcess.exitCode, null, "stdin EOF must not stop a headless Controller.");
+  assert.strictEqual(
+    fs.readFileSync(invocationPath, "utf8").trim().split(/\r?\n/).length,
+    1,
+    "--auto must start autonomous mode exactly once."
+  );
+  headlessProcess.kill();
+  await new Promise((resolve) => headlessProcess.once("close", resolve));
+  assert.strictEqual(spawnSync("git", ["add", "-A"], { cwd: controllerFixture }).status, 0);
+  assert.strictEqual(spawnSync("git", [
+    "-c", "user.name=Ash Regression",
+    "-c", "user.email=ash-regression@example.invalid",
+    "commit", "--quiet", "-m", "headless result fixture"
+  ], { cwd: controllerFixture }).status, 0);
+  if (fs.existsSync(startedPath)) fs.unlinkSync(startedPath);
+
   const controllerProcess = spawn(process.execPath, [controllerPath], {
     cwd: controllerFixture,
     env: {
@@ -269,9 +330,9 @@ async function main() {
   assert.strictEqual(gracefulExitCode, 0, controllerOutput);
   const producedLogs = fs.readdirSync(path.join(controllerFixture, "ash", "logs"))
     .filter((file) => file.startsWith("ash-auto-dev-"));
-  assert.strictEqual(producedLogs.length, 1);
+  assert.strictEqual(producedLogs.length, 2);
   const producedResult = JSON.parse(fs.readFileSync(
-    path.join(controllerFixture, "ash", "logs", producedLogs[0]),
+    path.join(controllerFixture, "ash", "logs", producedLogs[producedLogs.length - 1]),
     "utf8"
   ));
   assert.strictEqual(producedResult.evidenceSaved, true);
@@ -298,7 +359,7 @@ async function main() {
   assert.match(dirtyOutput, /dirty_repository/);
   assert.strictEqual(
     fs.readFileSync(invocationPath, "utf8").trim().split(/\r?\n/).length,
-    1,
+    2,
     "Dirty startup must not spawn another autonomous child."
   );
 
@@ -321,6 +382,9 @@ async function main() {
     idleBackoff: true,
     transientBackoffBounded: true,
     gracefulStopScheduling: true,
+    headlessAutoStart: true,
+    stdinEofPreserved: true,
+    signalShutdownIdempotent: true,
     verifiedRuntimeEvidenceDiscoveryPreserved: true
   }, null, 2));
 }
