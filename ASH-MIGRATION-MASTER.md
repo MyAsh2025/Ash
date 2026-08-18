@@ -465,7 +465,7 @@ Also verify the Provider credential without printing it, confirm Provider Bounda
 - Controller: not running; no supervisor lock or stop request
 - Scheduled Task: registered, enabled, `Ready`; manual lifecycle and logon-trigger startup verified
 - Release: not performed
-- **CURRENTLY PENDING:** preserve the regression repair and this factual migration update in a checkpoint commit; push remains unapproved.
+- **CURRENTLY PENDING:** push remains unapproved.
 
 ## Maintenance rule
 
