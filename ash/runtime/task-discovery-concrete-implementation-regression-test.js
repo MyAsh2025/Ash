@@ -2,7 +2,9 @@
 
 const assert = require("assert");
 const {
-  buildConcreteImplementationPlanningTask
+  buildConcreteImplementationPlanningTask,
+  isConcreteImplementationPlanningSatisfied,
+  discoverTaskFromRepository
 } = require("./task-discovery-runtime");
 
 const task = buildConcreteImplementationPlanningTask();
@@ -57,6 +59,28 @@ assert.strictEqual(
 );
 assert.strictEqual(task.implementationTemplate.confidence, "verified");
 
+const completedPlanningTask =
+  buildConcreteImplementationPlanningTask();
+
+assert.strictEqual(
+  isConcreteImplementationPlanningSatisfied(completedPlanningTask),
+  true,
+  "A concrete planning task with a verified executable-generation function must not be rediscovered as incomplete."
+);
+
+const completedPlanningDiscovery =
+  discoverTaskFromRepository({
+    observation: {
+      nextTask: null,
+      repositoryHealth: {
+        attentionReasons: []
+      }
+    }
+  });
+
+assert.strictEqual(completedPlanningDiscovery.discovered, false);
+assert.strictEqual(completedPlanningDiscovery.task, null);
+
 assert.throws(
   () => buildConcreteImplementationPlanningTask()
     .generateExecutableImplementation({
@@ -91,5 +115,7 @@ console.log(JSON.stringify({
   patchValidated: validatedImplementation !== null,
   executableTemplateStored:
     task.implementationTemplate.executableCodeTemplate ===
-    executableCodeTemplate
+    executableCodeTemplate,
+  completedPlanningSuppressed:
+    completedPlanningDiscovery.discovered === false
 }, null, 2));

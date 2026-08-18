@@ -724,7 +724,7 @@ function getPermanentRegressionChecks() {
       id: "task-discovery-concrete-implementation",
       file: "./ash/runtime/task-discovery-concrete-implementation-regression-test.js",
       args: [],
-      coverage: { kind: "symbol", targetFiles: ["ash/runtime/task-discovery-runtime.js"], targetSymbols: ["buildConcreteImplementationPlanningTask"] }
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/task-discovery-runtime.js"], targetSymbols: ["buildConcreteImplementationPlanningTask", "isConcreteImplementationPlanningSatisfied", "discoverTaskFromRepository"] }
     },
     {
       id: "corecheck-apply-rollback",

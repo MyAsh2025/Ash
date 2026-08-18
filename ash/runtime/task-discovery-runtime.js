@@ -94,7 +94,10 @@ function isConcreteImplementationPlanningSatisfied(
     implementationTemplate
       .implementationTemplate === null &&
     implementationTemplate
-      .executableCodeTemplate === null;
+      .executableCodeTemplate === null &&
+    typeof task
+      .generateExecutableImplementation !==
+      "function";
 
   return (
     hasConcreteTarget &&
