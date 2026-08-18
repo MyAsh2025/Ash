@@ -461,6 +461,22 @@ function buildAutonomousRuntimeEvidenceSignature({
     .digest("hex");
 }
 
+function collectFailedPermanentCheckIds(result = null) {
+  const coreChecks = [
+    result?.rollbackCoreCheck,
+    ...(Array.isArray(result?.cycles)
+      ? result.cycles.flatMap((cycle) => [cycle?.rollbackCoreCheck, cycle?.coreCheck])
+      : [])
+  ].filter(Boolean);
+  return [...new Set(coreChecks.flatMap((coreCheck) =>
+    Array.isArray(coreCheck?.permanentRegressionChecks?.results)
+      ? coreCheck.permanentRegressionChecks.results
+          .filter((check) => check?.success !== true && typeof check?.id === "string" && check.id)
+          .map((check) => check.id)
+      : []
+  ))];
+}
+
 function recordAutonomousDevelopmentResult({
   projectPath = process.cwd(),
   result = null
@@ -516,6 +532,8 @@ function recordAutonomousDevelopmentResult({
       failureStage,
       failureCode,
       evidenceSignature: signature,
+      failedCheckIds:
+        collectFailedPermanentCheckIds(result),
       targetFingerprint:
         resolveAutonomousTargetFingerprint({
           task: { targetFile },
@@ -615,14 +633,16 @@ function recordFormalCompletionEvidence({
   projectPath = process.cwd(),
   targetFile = null,
   targetSymbol = null,
-  completedAt = null
+  completedAt = null,
+  resolution = null,
+  coreCheck = null,
+  completionEvidence = null
 } = {}) {
   if (!targetFile || !targetSymbol) {
     return { success: false, recorded: false };
   }
 
-  return {
-    ...writeAutonomousRuntimeEvidenceRecord({
+  const completion = writeAutonomousRuntimeEvidenceRecord({
       projectPath,
       record: {
         recordKind: "formal-completion",
@@ -638,8 +658,113 @@ function recordFormalCompletionEvidence({
           completedAt ||
           new Date().toISOString()
       }
-    }),
-    recorded: true
+    });
+  let resolutionRecorded = false;
+  let resolutionRecord = null;
+  const records = readAutonomousRuntimeEvidence({ projectPath }).records;
+  const candidate = [...records].reverse().find((record) =>
+    record?.recordKind === "terminal-failure" &&
+    record.evidenceSignature === resolution?.evidenceSignature &&
+    record.failureStage === resolution?.failureStage
+  );
+  const checkResults = Array.isArray(coreCheck?.permanentRegressionChecks?.results)
+    ? coreCheck.permanentRegressionChecks.results
+    : [];
+  const checkPassed = (id) =>
+    typeof id === "string" && id.length > 0 &&
+    checkResults.some((check) => check?.id === id && check?.success === true);
+  const normalizedRootCauseFile = String(resolution?.rootCauseTargetFile || "").trim();
+  const normalizedRootCauseSymbol = String(resolution?.rootCauseTargetSymbol || "").trim();
+  const rootCausePath = normalizedRootCauseFile
+    ? path.resolve(projectPath, normalizedRootCauseFile)
+    : null;
+  const rootCauseRange = rootCausePath && normalizedRootCauseSymbol
+    ? locateFullSymbolRange({
+        filePath: rootCausePath,
+        targetSymbol: normalizedRootCauseSymbol,
+        root: projectPath
+      })
+    : null;
+  const repairFingerprint = resolveAutonomousTargetFingerprint({
+    task: { targetFile },
+    projectPath
+  });
+  const rootCauseFingerprint = resolveAutonomousTargetFingerprint({
+    task: { targetFile: normalizedRootCauseFile },
+    projectPath
+  });
+  const candidateFailedCheckIds = Array.isArray(candidate?.failedCheckIds)
+    ? candidate.failedCheckIds
+    : [];
+  const failureAttributionMatches =
+    candidateFailedCheckIds.length === 0 ||
+    candidateFailedCheckIds.includes(resolution?.failedCheckId);
+  const failedCheckResult = checkResults.find(
+    (check) => check?.id === resolution?.failedCheckId && check?.success === true
+  );
+  const failedCheckFileMatches =
+    String(failedCheckResult?.file || "")
+      .replace(/\\/g, "/")
+      .replace(/^\.\//, "") ===
+    normalizedRootCauseFile.replace(/\\/g, "/").replace(/^\.\//, "");
+  const validResolution = Boolean(
+    resolution &&
+    candidate &&
+    candidate.terminal === true &&
+    candidate.unresolved === true &&
+    typeof resolution.evidenceSignature === "string" &&
+    resolution.evidenceSignature.length > 0 &&
+    typeof resolution.failureStage === "string" &&
+    resolution.failureStage.length > 0 &&
+    typeof resolution.failedCheckId === "string" &&
+    resolution.failedCheckId.length > 0 &&
+    normalizedRootCauseFile &&
+    normalizedRootCauseSymbol &&
+    rootCauseRange?.verified === true &&
+    typeof resolution.repairRegressionId === "string" &&
+    resolution.repairRegressionId.length > 0 &&
+    resolution.verificationSet === "canonical-corecheck" &&
+    failureAttributionMatches &&
+    failedCheckFileMatches &&
+    checkPassed(resolution.failedCheckId) &&
+    checkPassed(resolution.repairRegressionId) &&
+    coreCheck?.success === true &&
+    completionEvidence?.completionKind === "existing-repair-verification" &&
+    completionEvidence?.completionEligible === true &&
+    completionEvidence?.completionSuccess === true &&
+    completionEvidence?.verificationSuccess === true &&
+    completionEvidence?.coreCheckSuccess === true &&
+    completionEvidence?.applied === false &&
+    repairFingerprint &&
+    rootCauseFingerprint
+  );
+  if (validResolution) {
+    resolutionRecord = {
+      recordKind: "verified-resolution",
+      evidenceSignature: resolution.evidenceSignature,
+      failureStage: resolution.failureStage,
+      failedCheckId: resolution.failedCheckId,
+      rootCauseTargetFile: normalizedRootCauseFile,
+      rootCauseTargetSymbol: normalizedRootCauseSymbol,
+      rootCauseTargetFingerprint: rootCauseFingerprint,
+      repairTargetFile: targetFile,
+      repairTargetSymbol: targetSymbol,
+      repairTargetFingerprint: repairFingerprint,
+      repairRegressionId: resolution.repairRegressionId,
+      verificationSet: resolution.verificationSet,
+      verificationSuccess: true,
+      completionKind: completionEvidence.completionKind,
+      recordedAt: completedAt || new Date().toISOString()
+    };
+    writeAutonomousRuntimeEvidenceRecord({ projectPath, record: resolutionRecord });
+    resolutionRecorded = true;
+  }
+
+  return {
+    ...completion,
+    recorded: true,
+    resolutionRecorded,
+    resolutionRecord
   };
 }
 
@@ -663,7 +788,8 @@ function selectVerifiedRuntimeEvidence({
   const resolutions = structuredRecords.filter(
     (record) =>
       record.recordKind === "successful-apply" ||
-      record.recordKind === "formal-completion"
+      record.recordKind === "formal-completion" ||
+      record.recordKind === "verified-resolution"
   );
   const candidates = structuredRecords.filter(
     (record) => record.recordKind === "terminal-failure"
@@ -717,16 +843,67 @@ function selectVerifiedRuntimeEvidence({
         sameTarget(candidate, record?.task) &&
         record.targetFingerprint === currentFingerprint
       );
-    const newerResolution = resolutions.some(
-      (record) =>
-        sameTarget(candidate, record) &&
-        timestamp(record) > timestamp(candidate) &&
-        (
+    const newerResolution = resolutions.some((record) => {
+      if (timestamp(record) <= timestamp(candidate)) return false;
+      if (record.recordKind !== "verified-resolution") {
+        return sameTarget(candidate, record) && (
           record.recordKind === "formal-completion" ||
-          record.evidenceSignature ===
-            candidate.evidenceSignature
-        )
-    );
+          record.evidenceSignature === candidate.evidenceSignature
+        );
+      }
+      const rootCauseFingerprint = resolveAutonomousTargetFingerprint({
+        task: { targetFile: record.rootCauseTargetFile },
+        projectPath
+      });
+      const repairFingerprint = resolveAutonomousTargetFingerprint({
+        task: { targetFile: record.repairTargetFile },
+        projectPath
+      });
+      const rootCauseRange =
+        typeof record.rootCauseTargetFile === "string" &&
+        record.rootCauseTargetFile.length > 0 &&
+        typeof record.rootCauseTargetSymbol === "string" &&
+        record.rootCauseTargetSymbol.length > 0
+          ? locateFullSymbolRange({
+              filePath: path.resolve(projectPath, record.rootCauseTargetFile),
+              targetSymbol: record.rootCauseTargetSymbol,
+              root: projectPath
+            })
+          : null;
+      const repairRange =
+        typeof record.repairTargetFile === "string" &&
+        record.repairTargetFile.length > 0 &&
+        typeof record.repairTargetSymbol === "string" &&
+        record.repairTargetSymbol.length > 0
+          ? locateFullSymbolRange({
+              filePath: path.resolve(projectPath, record.repairTargetFile),
+              targetSymbol: record.repairTargetSymbol,
+              root: projectPath
+            })
+          : null;
+      const candidateFailedCheckIds = Array.isArray(candidate.failedCheckIds)
+        ? candidate.failedCheckIds
+        : [];
+      return (
+        record.evidenceSignature === candidate.evidenceSignature &&
+        record.failureStage === candidate.failureStage &&
+        typeof record.failedCheckId === "string" &&
+        record.failedCheckId.length > 0 &&
+        typeof record.rootCauseTargetFile === "string" &&
+        record.rootCauseTargetFile.length > 0 &&
+        typeof record.rootCauseTargetSymbol === "string" &&
+        record.rootCauseTargetSymbol.length > 0 &&
+        record.verificationSet === "canonical-corecheck" &&
+        record.verificationSuccess === true &&
+        record.completionKind === "existing-repair-verification" &&
+        (candidateFailedCheckIds.length === 0 ||
+          candidateFailedCheckIds.includes(record.failedCheckId)) &&
+        rootCauseRange?.verified === true &&
+        repairRange?.verified === true &&
+        rootCauseFingerprint === record.rootCauseTargetFingerprint &&
+        repairFingerprint === record.repairTargetFingerprint
+      );
+    });
     const valid =
       candidate.terminal === true &&
       candidate.unresolved === true &&

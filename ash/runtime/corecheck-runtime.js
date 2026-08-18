@@ -746,6 +746,16 @@ function getPermanentRegressionChecks() {
       }
     },
     {
+      id: "runtime-evidence-root-cause-resolution",
+      file: "./ash/runtime/runtime-evidence-root-cause-resolution-regression-test.js",
+      args: [],
+      coverage: {
+        kind: "symbol",
+        targetFiles: ["ash/runtime/runtime-state.js"],
+        targetSymbols: ["recordAutonomousDevelopmentResult", "recordFormalCompletionEvidence", "selectVerifiedRuntimeEvidence"]
+      }
+    },
+    {
       id: "runtime-evidence-integrity",
       file: "./ash/runtime/runtime-evidence-integrity-regression-test.js",
       args: [],

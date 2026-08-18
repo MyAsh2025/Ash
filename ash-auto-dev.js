@@ -119,6 +119,17 @@ if (verifyExistingRepair) {
   const targetSymbol = getArg("--target-symbol");
   const coverageKind = getArg("--coverage-kind");
   const regressionId = getArg("--regression-id");
+  const resolutionRequest = getArg("--resolve-evidence-signature")
+    ? {
+        evidenceSignature: getArg("--resolve-evidence-signature"),
+        failureStage: getArg("--resolve-failure-stage"),
+        failedCheckId: getArg("--resolve-failed-check-id"),
+        rootCauseTargetFile: getArg("--root-cause-target-file"),
+        rootCauseTargetSymbol: getArg("--root-cause-target-symbol"),
+        repairRegressionId: regressionId,
+        verificationSet: "canonical-corecheck"
+      }
+    : null;
   const verification = runExistingRepairVerification({
     projectPath: process.cwd(),
     targetFile,
@@ -127,19 +138,25 @@ if (verifyExistingRepair) {
     regressionId
   });
 
+  let formalCompletion = null;
   if (verification.success === true) {
-    recordFormalCompletionEvidence({
+    formalCompletion = recordFormalCompletionEvidence({
       projectPath: process.cwd(),
       targetFile,
       targetSymbol,
-      completedAt: verification.ranAt
+      completedAt: verification.ranAt,
+      resolution: resolutionRequest,
+      coreCheck: verification.coreCheck,
+      completionEvidence: verification.completionEvidence
     });
   }
+  const resolutionSuccess = !resolutionRequest || formalCompletion?.resolutionRecorded === true;
+  const routeSuccess = verification.success === true && resolutionSuccess;
 
   console.log(JSON.stringify({
     mode: "ash-auto-dev-runner",
     route: "existing-repair-verification",
-    success: verification.success,
+    success: routeSuccess,
     completionKind: verification.completionKind,
     completionEligible: verification.completionEligible,
     completionSuccess: verification.completionSuccess,
@@ -154,11 +171,16 @@ if (verifyExistingRepair) {
     regressionId,
     eligibility: verification.eligibility,
     completionEvidence: verification.completionEvidence || null,
-    reason: verification.reason,
+    resolutionRequested: Boolean(resolutionRequest),
+    resolutionRecorded: formalCompletion?.resolutionRecorded === true,
+    resolutionRecord: formalCompletion?.resolutionRecord || null,
+    reason: resolutionSuccess
+      ? verification.reason
+      : "Existing repair verification succeeded, but the requested runtime evidence resolution was not verified.",
     ranAt: verification.ranAt
   }, null, 2));
 
-  process.exit(verification.success ? 0 : 1);
+  process.exit(routeSuccess ? 0 : 1);
 }
 
 const intentResult = classifyIntent(requestedTask);

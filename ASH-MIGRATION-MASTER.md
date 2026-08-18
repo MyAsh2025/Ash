@@ -189,14 +189,17 @@ Evidence concepts:
 - `terminal-failure`: unresolved structured failure evidence associated with a concrete verified target.
 - `successful-apply`: recorded only for real apply plus pipeline success, CoreCheck success, and matching active completion identity. Dry-run and `applied:false` do not resolve a failure.
 - `formal-completion`: written by successful formal existing-repair verification.
+- `verified-resolution`: an exact terminal failure signature and failure stage resolved by a successful formal existing-repair completion whose canonical CoreCheck passed both the failed check identity and the repair regression; it preserves the failure record rather than deleting it.
 - target fingerprint: hash-derived identity of the target content used to invalidate stale completion records after content changes.
 - evidence signature: structured failure identity used for deduplication and matching newer resolution evidence.
-- suppression: newer matching successful apply/formal completion or an active completion prevents an old failure from being rediscovered.
+- suppression: newer matching successful apply/formal completion, an active completion, or a fingerprint-valid `verified-resolution` prevents an old failure from being rediscovered.
 - deduplication: duplicate failure signatures are reduced to the newest relevant record.
+
+Cross-target root-cause resolution is deliberately narrower than “a later CoreCheck passed.” It requires the exact original failure signature, failure stage, failed permanent-check identity, verified root-cause file/symbol fingerprint, formal repair target fingerprint, repair regression identity, and successful canonical verification set. Timestamp ordering alone, unrelated apply, dry-run or `applied:false` ordinary execution, failed verification, invalidated fingerprints, and ambiguous/null root-cause identity do not resolve a terminal failure.
 
 On the next process start, repository observation reads this state, validates file existence/fingerprint/symbol and resolution status, and exposes only eligible unresolved evidence to task discovery. A pending in-process repair is preferred; otherwise an explicit user task precedes repository-discovered evidence.
 
-Audited state summary: `latest-runtime.json` exists with 6 completed-task records and 6 runtime-evidence records, all currently `formal-completion`.
+Audited state summary after the runtime-evidence resolution repair: `latest-runtime.json` retains the original terminal failure and contains a separate formal `verified-resolution` for it. On restart-equivalent reread, eligible terminal evidence and runtime-evidence repair findings are both zero; the remaining repository-health cleanup review is report-only and cannot delete automatically.
 
 Migration classification:
 
@@ -456,16 +459,16 @@ Also verify the Provider credential without printing it, confirm Provider Bounda
 
 ## Current status
 
-- Regression-repair baseline HEAD and `origin/master`: `e43a3cb526f780ff72c005d012bc5f228309de5b`
+- Runtime-evidence-repair baseline HEAD and `origin/master`: `475b7c61e4612d4a20b30b2dde5a4c2718c8c76d`
 - Branch: `master`
-- Working tree before the regression repair: clean
-- Ahead/behind before the regression repair: ahead 0 / behind 0
-- Canonical verification: successful after the Controller lifecycle regression repair
+- Working tree before the runtime-evidence repair: clean
+- Ahead/behind before the runtime-evidence repair: ahead 0 / behind 0
+- Canonical verification: successful after the Controller lifecycle regression repair and runtime-evidence root-cause resolution repair
 - CoreCheck/all permanent regressions/Provider Boundary: successful
 - Controller: not running; no supervisor lock or stop request
 - Scheduled Task: registered, enabled, `Ready`; manual lifecycle and logon-trigger startup verified
 - Release: not performed
-- **CURRENTLY PENDING:** push remains unapproved.
+- Controller lifecycle commits `a2fcc6f` and `475b7c6` are present on `origin/master`. **CURRENTLY PENDING:** checkpoint the verified runtime-evidence repair; push is not authorized for this checkpoint.
 
 ## Maintenance rule
 

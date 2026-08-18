@@ -17,7 +17,17 @@ const execution = spawnSync(
     "--target-symbol",
     "evaluateExistingRepairEligibility",
     "--regression-id",
-    "unregistered-cli-integration-regression"
+    "unregistered-cli-integration-regression",
+    "--resolve-evidence-signature",
+    "fixture-resolution-signature",
+    "--resolve-failure-stage",
+    "corecheck",
+    "--resolve-failed-check-id",
+    "fixture-failed-check",
+    "--root-cause-target-file",
+    "ash/runtime/fixture-regression-test.js",
+    "--root-cause-target-symbol",
+    "main"
   ],
   {
     cwd: projectPath,
@@ -36,6 +46,8 @@ assert.strictEqual(output.effectiveDryRun, true);
 assert.strictEqual(output.applied, false);
 assert.strictEqual(output.eligibility.coverageEvidence.requestedCoverageKind, "symbol");
 assert.strictEqual(output.eligibility.fallbackAllowed, false);
+assert.strictEqual(output.resolutionRequested, true);
+assert.strictEqual(output.resolutionRecorded, false);
 
 console.log(JSON.stringify({
   mode: "existing-repair-cli-integration-regression-test",
@@ -43,5 +55,6 @@ console.log(JSON.stringify({
   cliArgumentsParsed: true,
   formalRouteExecuted: true,
   structuredCompletionReturned: true,
-  ineligibleRequestRejected: true
+  ineligibleRequestRejected: true,
+  resolutionArgumentsParsed: true
 }, null, 2));
