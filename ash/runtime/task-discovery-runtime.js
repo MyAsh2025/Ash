@@ -239,6 +239,73 @@ function discoverTaskFromRepository({
     );
 
   if (
+    finding?.type === "runtime-evidence" &&
+    finding?.source ===
+      "verified-runtime-evidence"
+  ) {
+    const eligible =
+      finding.terminal === true &&
+      finding.unresolved === true &&
+      finding.targetSymbolVerified === true &&
+      finding.safetyRejectionOnly !== true &&
+      finding.targetResolutionStatus !==
+        "ambiguous" &&
+      finding.targetResolutionStatus !==
+        "unresolved" &&
+      typeof finding.targetFile === "string" &&
+      finding.targetFile.length > 0 &&
+      typeof finding.targetSymbol === "string" &&
+      finding.targetSymbol.length > 0 &&
+      typeof finding.failureStage === "string" &&
+      finding.failureStage.length > 0 &&
+      typeof finding.evidenceSignature ===
+        "string" &&
+      finding.evidenceSignature.length > 0;
+
+    if (!eligible) {
+      return {
+        mode: "task-discovery-runtime",
+        version: "ash-local-runtime-v0.4-verified-runtime-evidence",
+        success: true,
+        discovered: false,
+        task: null,
+        reason:
+          "Runtime evidence did not satisfy development eligibility.",
+        discoveredAt: new Date().toISOString()
+      };
+    }
+
+    return {
+      mode: "task-discovery-runtime",
+      version: "ash-local-runtime-v0.4-verified-runtime-evidence",
+      success: true,
+      discovered: true,
+      task: {
+        task:
+          `Repair verified runtime failure at ${finding.failureStage} for ${finding.targetFile}`,
+        priority: finding.priority || "high",
+        source: "verified-runtime-evidence",
+        file: finding.targetFile,
+        targetFile: finding.targetFile,
+        targetSymbol: finding.targetSymbol,
+        failureStage: finding.failureStage,
+        evidenceSignature:
+          finding.evidenceSignature,
+        terminal: true,
+        unresolved: true,
+        work: Array.isArray(finding.work)
+          ? finding.work
+          : ["repair", "runtime-evidence"],
+        runtimeEvidence:
+          finding.runtimeEvidence,
+        reason:
+          "A structured unresolved terminal runtime failure remains valid for the current verified target."
+      },
+      discoveredAt: new Date().toISOString()
+    };
+  }
+
+  if (
     !finding &&
     repositoryHealth?.attentionReasons?.includes(
       "large-cleanup-candidate-groups-detected"

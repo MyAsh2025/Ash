@@ -14,6 +14,10 @@ const { buildBootstrapContext } = require("./ash/runtime/bootstrap-runtime");
 const {
   resolveImplementationProviderFromContext
 } = require("./ash/runtime/implementation-provider-registry");
+const {
+  recordAutonomousDevelopmentResult,
+  recordFormalCompletionEvidence
+} = require("./ash/runtime/runtime-state");
 
 function getArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -40,6 +44,15 @@ if (verifyExistingRepair) {
     coverageKind,
     regressionId
   });
+
+  if (verification.success === true) {
+    recordFormalCompletionEvidence({
+      projectPath: process.cwd(),
+      targetFile,
+      targetSymbol,
+      completedAt: verification.ranAt
+    });
+  }
 
   console.log(JSON.stringify({
     mode: "ash-auto-dev-runner",
@@ -291,6 +304,11 @@ const result = runAutonomousDevelopmentManager({
   },
   maxCycles,
   dryRun: dryRun || !allowApply
+});
+
+recordAutonomousDevelopmentResult({
+  projectPath: process.cwd(),
+  result
 });
 
 const logDir = path.join(process.cwd(), "ash", "logs");

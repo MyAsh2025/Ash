@@ -10,6 +10,7 @@ const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash/runtime/autonomous-development-manager.js",
   "./ash/runtime/autonomous-development-target-symbol-stop-regression-test.js",
   "./ash/runtime/task-discovery-concrete-implementation-regression-test.js",
+  "./ash/runtime/verified-runtime-evidence-discovery-integration-regression-test.js",
   "./ash/runtime/development-pipeline-runtime.js",
   "./ash/runtime/queue-task-adapter.js",
   "./ash/runtime/implementation-planner.js",
@@ -725,6 +726,19 @@ function getPermanentRegressionChecks() {
       file: "./ash/runtime/task-discovery-concrete-implementation-regression-test.js",
       args: [],
       coverage: { kind: "symbol", targetFiles: ["ash/runtime/task-discovery-runtime.js"], targetSymbols: ["buildConcreteImplementationPlanningTask", "isConcreteImplementationPlanningSatisfied", "discoverTaskFromRepository"] }
+    },
+    {
+      id: "verified-runtime-evidence-discovery-integration",
+      file: "./ash/runtime/verified-runtime-evidence-discovery-integration-regression-test.js",
+      args: [],
+      coverage: {
+        kind: "symbol",
+        targets: [
+          { targetFile: "ash/runtime/runtime-state.js", targetSymbols: ["readAutonomousCompletedTasks", "readAutonomousRuntimeEvidence", "recordAutonomousDevelopmentResult", "recordFormalCompletionEvidence", "selectVerifiedRuntimeEvidence"] },
+          { targetFile: "ash/runtime/repository-observation-runtime.js", targetSymbols: ["observeRepository"] },
+          { targetFile: "ash/runtime/task-discovery-runtime.js", targetSymbols: ["discoverTaskFromRepository"] }
+        ]
+      }
     },
     {
       id: "corecheck-apply-rollback",

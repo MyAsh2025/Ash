@@ -2,6 +2,11 @@
 
 const fs = require("fs");
 const path = require("path");
+const {
+  selectVerifiedRuntimeEvidence,
+  readAutonomousRuntimeEvidence,
+  readAutonomousCompletedTasks
+} = require("./runtime-state");
 
 const DEFAULT_SCAN = [
   "ash/runtime",
@@ -580,10 +585,12 @@ function detectWork(file) {
 
 function observeRepository({
   projectPath = process.cwd(),
-  scanTargets = DEFAULT_SCAN
+  scanTargets = DEFAULT_SCAN,
+  runtimeEvidenceRecords = null,
+  activeCompletionRecords = null
 } = {}) {
 
-  const findings = [];
+  const sourceFindings = [];
   const scannedFiles = [];
 
   for (const dir of scanTargets) {
@@ -599,7 +606,9 @@ function observeRepository({
         continue;
       }
 
-      findings.push({
+      sourceFindings.push({
+        type: "source-signal",
+        source: "repository-source",
         file: path.relative(projectPath, file),
         work,
         priority:
@@ -612,7 +621,7 @@ function observeRepository({
 
   }
 
-  findings.sort((a, b) => {
+  sourceFindings.sort((a, b) => {
 
     if (a.priority === b.priority) return 0;
 
@@ -620,10 +629,62 @@ function observeRepository({
 
   });
 
+  const runtimeEvidenceSelection =
+    selectVerifiedRuntimeEvidence({
+      projectPath,
+      records: Array.isArray(runtimeEvidenceRecords)
+        ? runtimeEvidenceRecords
+        : readAutonomousRuntimeEvidence({
+            projectPath
+          }).records,
+      activeCompletionRecords:
+        Array.isArray(activeCompletionRecords)
+          ? activeCompletionRecords
+          : readAutonomousCompletedTasks({
+              projectPath
+            }).records
+    });
+  const runtimeEvidenceFindings =
+    runtimeEvidenceSelection.eligible.map(
+      (evidence) => ({
+        type: "runtime-evidence",
+        source: "verified-runtime-evidence",
+        file: evidence.targetFile,
+        targetFile: evidence.targetFile,
+        targetSymbol: evidence.targetSymbol,
+        failureStage: evidence.failureStage,
+        evidenceSignature:
+          evidence.evidenceSignature,
+        terminal: evidence.terminal,
+        unresolved: evidence.unresolved,
+        targetSymbolVerified:
+          evidence.targetSymbolVerified,
+        targetResolutionStatus:
+          evidence.targetResolutionStatus ||
+          "verified",
+        safetyRejectionOnly:
+          evidence.safetyRejectionOnly === true,
+        priority: "high",
+        work: [
+          "repair",
+          "runtime-evidence",
+          evidence.failureStage
+        ],
+        runtimeEvidence: evidence
+      })
+    );
+  const findings = [
+    ...runtimeEvidenceFindings,
+    ...sourceFindings
+  ];
+
   const cleanupCandidates = detectCleanupCandidates(scannedFiles, projectPath);
   const cleanupCandidateGroups = groupCleanupCandidates(cleanupCandidates);
   const repositoryHealth = buildRepositoryHealth({
     findings,
+    sourceFindings,
+    runtimeEvidenceFindings,
+    runtimeEvidenceSelection,
     cleanupCandidates,
     cleanupCandidateGroups
   });
@@ -637,6 +698,9 @@ function observeRepository({
     success: true,
 
     findings,
+    sourceFindings,
+    runtimeEvidenceFindings,
+    runtimeEvidenceSelection,
     findingCount: findings.length,
     cleanupCandidateCount: cleanupCandidates.length,
     cleanupCandidateGroupCount: cleanupCandidateGroups.length,
