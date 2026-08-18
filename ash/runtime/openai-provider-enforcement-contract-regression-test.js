@@ -36,6 +36,8 @@ assert.strictEqual(result.generationGuardRejectedInventedParameters, true);
 assert.strictEqual(result.generationGuardRejectedMissingVerifiedInput, true);
 assert.strictEqual(result.generationGuardRejectedInventedParameterMembers, true);
 assert.strictEqual(result.generationGuardRejectedThrowOnlyStub, true);
+assert.strictEqual(result.generationGuardRejectedFunctionPropertyTypeLoss, true);
+assert.strictEqual(result.generationGuardRejectedFunctionPropertySignatureChange, true);
 assert.strictEqual(result.correctionGuidancePreservesExistingArguments, true);
 assert.strictEqual(result.correctionGuidanceRequiresVerifiedInput, true);
 assert.strictEqual(result.correctionGuidanceRequiresIndicators, true);

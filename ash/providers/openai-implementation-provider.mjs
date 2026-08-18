@@ -619,6 +619,14 @@ function classifyReturnPropertyExpression(
     return "object";
   }
 
+  if (
+    /^(?:async\s+)?function\b/.test(normalized) ||
+    /^(?:async\s*)?\([^)]*\)\s*=>/.test(normalized) ||
+    /^(?:async\s+)?[A-Za-z_$][\w$]*\s*=>/.test(normalized)
+  ) {
+    return "function";
+  }
+
   return "identifier";
 }
 
@@ -917,6 +925,21 @@ function findReturnContractShapeViolation({
     extractTopLevelReturnPropertyShapes(
       executableCodeTemplate
     );
+  const extractFunctionPropertyParameters = (sourceText) => {
+    const parametersByProperty = {};
+    const pattern =
+      /^\s{4}([A-Za-z_$][\w$]*)\s*:\s*(?:async\s+)?function\s*\(([^)]*)\)/gm;
+    let match = null;
+
+    while ((match = pattern.exec(sourceText)) !== null) {
+      parametersByProperty[match[1]] = match[2]
+        .split(",")
+        .map((parameter) => parameter.trim())
+        .filter(Boolean);
+    }
+
+    return parametersByProperty;
+  };
 
   const comparableProperties =
     Object.keys(currentShapes).filter(
@@ -954,26 +977,50 @@ function findReturnContractShapeViolation({
         })
       );
 
-  if (mismatches.length === 0) {
-    return null;
+  if (mismatches.length > 0) {
+    return (
+      "The generated complete-function implementation " +
+      "changed required top-level return-property types. " +
+      "Mismatches: " +
+      mismatches
+        .map(
+          ({
+            property,
+            expectedType,
+            actualType
+          }) =>
+            `${property} expected ${expectedType} but received ${actualType}`
+        )
+        .join("; ") +
+      ". Preserve the existing return contract value shapes."
+    );
   }
 
-  return (
-    "The generated complete-function implementation " +
-    "changed required top-level return-property types. " +
-    "Mismatches: " +
-    mismatches
-      .map(
-        ({
-          property,
-          expectedType,
-          actualType
-        }) =>
-          `${property} expected ${expectedType} but received ${actualType}`
-      )
-      .join("; ") +
-    ". Preserve the existing return contract value shapes."
-  );
+  const currentFunctionParameters =
+    extractFunctionPropertyParameters(currentTargetSource);
+  const generatedFunctionParameters =
+    extractFunctionPropertyParameters(executableCodeTemplate);
+  const signatureMismatch = Object.keys(currentFunctionParameters)
+    .find((property) =>
+      Object.prototype.hasOwnProperty.call(
+        generatedFunctionParameters,
+        property
+      ) &&
+      JSON.stringify(generatedFunctionParameters[property]) !==
+        JSON.stringify(currentFunctionParameters[property])
+    );
+
+  if (signatureMismatch) {
+    return (
+      "The generated complete-function implementation changed the " +
+      `parameter contract for return property ${signatureMismatch}. ` +
+      `Expected (${currentFunctionParameters[signatureMismatch].join(", ")}) ` +
+      `but received (${generatedFunctionParameters[signatureMismatch].join(", ")}). ` +
+      "Preserve the verified function-property signature."
+    );
+  }
+
+  return null;
 }
 
 function findRequiredPropertyPreservationViolation({
@@ -3601,8 +3648,51 @@ function runEnforcementContractSelfCheck() {
     executableCodeTemplate: [
       "function target() {",
       "  return {",
-      "    generate: function() {",
+      "    generate: function(context) {",
       '      throw new Error("generate is not implemented in this runtime.");',
+      "    }",
+      "  };",
+      "}"
+    ].join("\n")
+  });
+  const functionPropertyContractSource = [
+    "function target() {",
+    "  return {",
+    "    generateExecutableImplementation: function(context) {",
+    "      return context.resolveTargetSymbol();",
+    "    }",
+    "  };",
+    "}"
+  ].join("\n");
+  const functionPropertyTypeLoss = findImmediateGenerationViolation({
+    input: {
+      completeTargetSource: functionPropertyContractSource,
+      currentTargetSource: functionPropertyContractSource,
+      existingLocalDeclarations: [],
+      requiredOutputShape: "complete-function",
+      targetSymbol: "target"
+    },
+    executableCodeTemplate: [
+      "function target() {",
+      "  return {",
+      "    generateExecutableImplementation: true",
+      "  };",
+      "}"
+    ].join("\n")
+  });
+  const functionPropertySignatureChange = findImmediateGenerationViolation({
+    input: {
+      completeTargetSource: functionPropertyContractSource,
+      currentTargetSource: functionPropertyContractSource,
+      existingLocalDeclarations: [],
+      requiredOutputShape: "complete-function",
+      targetSymbol: "target"
+    },
+    executableCodeTemplate: [
+      "function target() {",
+      "  return {",
+      "    generateExecutableImplementation: function(provider) {",
+      "      return provider();",
       "    }",
       "  };",
       "}"
@@ -3632,6 +3722,10 @@ function runEnforcementContractSelfCheck() {
       inventedParameterMembers.includes("context.validators") &&
       typeof throwOnlyStub === "string" &&
       throwOnlyStub.includes("throw-only-unimplemented-stub") &&
+      typeof functionPropertyTypeLoss === "string" &&
+      functionPropertyTypeLoss.includes("expected function") &&
+      typeof functionPropertySignatureChange === "string" &&
+      functionPropertySignatureChange.includes("parameter contract") &&
       guidance.includes("input and executableCodeTemplate") &&
       guidance.includes("input?.completeTargetSource") &&
       guidance.includes("all eight existing invented-runtime safety indicators"),
@@ -3657,6 +3751,12 @@ function runEnforcementContractSelfCheck() {
     generationGuardRejectedThrowOnlyStub:
       typeof throwOnlyStub === "string" &&
       throwOnlyStub.includes("throw-only-unimplemented-stub"),
+    generationGuardRejectedFunctionPropertyTypeLoss:
+      typeof functionPropertyTypeLoss === "string" &&
+      functionPropertyTypeLoss.includes("expected function"),
+    generationGuardRejectedFunctionPropertySignatureChange:
+      typeof functionPropertySignatureChange === "string" &&
+      functionPropertySignatureChange.includes("parameter contract"),
     correctionGuidancePreservesExistingArguments:
       guidance.includes("input and executableCodeTemplate"),
     correctionGuidanceRequiresVerifiedInput:
