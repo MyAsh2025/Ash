@@ -11,6 +11,8 @@ const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash/runtime/autonomous-development-target-symbol-stop-regression-test.js",
   "./ash/runtime/task-discovery-concrete-implementation-regression-test.js",
   "./ash/runtime/verified-runtime-evidence-discovery-integration-regression-test.js",
+  "./ash/runtime/runtime-evidence-integrity-regression-test.js",
+  "./ash/runtime/runtime-state-autonomous-evidence-retention-regression-test.js",
   "./ash/runtime/development-pipeline-runtime.js",
   "./ash/runtime/queue-task-adapter.js",
   "./ash/runtime/implementation-planner.js",
@@ -738,6 +740,26 @@ function getPermanentRegressionChecks() {
           { targetFile: "ash/runtime/repository-observation-runtime.js", targetSymbols: ["observeRepository"] },
           { targetFile: "ash/runtime/task-discovery-runtime.js", targetSymbols: ["discoverTaskFromRepository"] }
         ]
+      }
+    },
+    {
+      id: "runtime-evidence-integrity",
+      file: "./ash/runtime/runtime-evidence-integrity-regression-test.js",
+      args: [],
+      coverage: {
+        kind: "symbol",
+        targetFiles: ["ash/runtime/runtime-state.js"],
+        targetSymbols: ["writeRuntimeState", "recordAutonomousDevelopmentResult"]
+      }
+    },
+    {
+      id: "runtime-state-autonomous-evidence-retention",
+      file: "./ash/runtime/runtime-state-autonomous-evidence-retention-regression-test.js",
+      args: [],
+      coverage: {
+        kind: "symbol",
+        targetFiles: ["ash/runtime/runtime-state.js"],
+        targetSymbols: ["writeRuntimeState"]
       }
     },
     {

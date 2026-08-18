@@ -32,11 +32,23 @@ function getLatestRuntimeStatePath(
   );
 }
 
-function writeRuntimeState(runtimeResult = {}) {
-  const stateDir = getRuntimeStateDir();
+function writeRuntimeState(
+  runtimeResult = {},
+  { projectPath = process.cwd() } = {}
+) {
+  const stateDir = getRuntimeStateDir(projectPath);
   ensureDir(stateDir);
 
-  const latestPath = getLatestRuntimeStatePath();
+  const latestPath = getLatestRuntimeStatePath(projectPath);
+  const existingState = fs.existsSync(latestPath)
+    ? JSON.parse(fs.readFileSync(latestPath, "utf8"))
+    : null;
+  const autonomousDevelopment =
+    existingState?.autonomousDevelopment &&
+    typeof existingState.autonomousDevelopment === "object" &&
+    !Array.isArray(existingState.autonomousDevelopment)
+      ? existingState.autonomousDevelopment
+      : null;
 
   const state = {
     mode: "persistent-runtime-state",
@@ -85,6 +97,9 @@ function writeRuntimeState(runtimeResult = {}) {
         : null,
       logPath: runtimeResult.logPath || null
     },
+    ...(autonomousDevelopment
+      ? { autonomousDevelopment }
+      : {}),
     savedAt: new Date().toISOString()
   };
 
@@ -527,7 +542,42 @@ function recordAutonomousDevelopmentResult({
     ? result.cycles
     : [];
   const completedCycle = [...cycles].reverse().find(
-    (cycle) => cycle?.selectedTask?.runtimeEvidence
+    (cycle) => {
+      const selectedTask = cycle?.selectedTask;
+      if (
+        !selectedTask?.runtimeEvidence ||
+        selectedTask.reportOnly === true ||
+        cycle?.capabilityLoop?.success !== true ||
+        cycle?.coreCheck?.success !== true
+      ) {
+        return false;
+      }
+
+      const developmentStep = [
+        ...(cycle.capabilityLoop.steps || [])
+      ].reverse().find(
+        (step) => step?.action === "development_pipeline"
+      );
+      const pipelineResult =
+        developmentStep?.dispatchResult?.result?.result;
+      const persistedCompletion =
+        readAutonomousCompletedTasks({ projectPath });
+      const completionActive =
+        persistedCompletion.records.some(
+          (record) =>
+            buildAutonomousTaskIdentity(record?.task) ===
+              buildAutonomousTaskIdentity(selectedTask)
+        );
+
+      return (
+        pipelineResult?.success === true &&
+        pipelineResult?.dryRun === false &&
+        pipelineResult?.effectiveDryRun === false &&
+        pipelineResult?.patchApplyEngine?.success === true &&
+        pipelineResult?.patchApplyEngine?.applied === true &&
+        completionActive
+      );
+    }
   );
   const evidence =
     completedCycle?.selectedTask?.runtimeEvidence;
