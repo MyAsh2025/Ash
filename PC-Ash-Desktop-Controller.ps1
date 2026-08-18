@@ -5,6 +5,8 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Controller = Join-Path $Root 'ash-controller.js'
 $LogDir = Join-Path $Root 'ash\logs'
 $script:Process = $null
+$script:ClosingRequested = $false
+$script:AllowClose = $false
 
 function Get-LatestSummary {
     $file = Get-ChildItem $LogDir -Filter 'ash-auto-dev-*.json' -ErrorAction SilentlyContinue |
@@ -218,26 +220,43 @@ $form.Controls.Add($log)
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 2000
-$timer.Add_Tick({ Refresh-View })
+$timer.Add_Tick({
+    Refresh-View
+
+    if (
+        $script:ClosingRequested -and
+        (-not $script:Process -or $script:Process.HasExited)
+    ) {
+        $script:AllowClose = $true
+        $form.Close()
+    }
+})
 $timer.Start()
 
 $form.Add_Shown({ Refresh-View })
 
 $form.Add_FormClosing({
-    $timer.Stop()
+    param($sender, $eventArgs)
+
+    if ($script:AllowClose) {
+        $timer.Stop()
+        return
+    }
 
     if ($script:Process -and -not $script:Process.HasExited) {
+        $eventArgs.Cancel = $true
+        $script:ClosingRequested = $true
         try {
             $script:Process.StandardInput.WriteLine('exit')
             $script:Process.StandardInput.Flush()
-
-            if (-not $script:Process.WaitForExit(3000)) {
-                $script:Process.Kill()
-            }
         }
         catch {
         }
+        $form.Text = 'PC Ash Controller - stopping safely after current cycle'
+        return
     }
+
+    $timer.Stop()
 })
 
 [void]$form.ShowDialog()

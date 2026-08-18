@@ -6,6 +6,7 @@ const { spawnSync } = require("child_process");
 
 const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash-auto-dev.js",
+  "./ash-controller.js",
   "./ash-dev-verify.js",
   "./ash/runtime/autonomous-development-manager.js",
   "./ash/runtime/autonomous-development-target-symbol-stop-regression-test.js",
@@ -13,6 +14,8 @@ const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash/runtime/verified-runtime-evidence-discovery-integration-regression-test.js",
   "./ash/runtime/runtime-evidence-integrity-regression-test.js",
   "./ash/runtime/runtime-state-autonomous-evidence-retention-regression-test.js",
+  "./ash/runtime/controller-lifecycle-regression-test.js",
+  "./ash/runtime/controller-desktop-shutdown-regression-test.js",
   "./ash/runtime/development-pipeline-runtime.js",
   "./ash/runtime/queue-task-adapter.js",
   "./ash/runtime/implementation-planner.js",
@@ -760,6 +763,24 @@ function getPermanentRegressionChecks() {
         kind: "symbol",
         targetFiles: ["ash/runtime/runtime-state.js"],
         targetSymbols: ["writeRuntimeState"]
+      }
+    },
+    {
+      id: "controller-lifecycle",
+      file: "./ash/runtime/controller-lifecycle-regression-test.js",
+      args: [],
+      coverage: {
+        kind: "file",
+        targetFiles: ["ash-controller.js", "ash-auto-dev.js"]
+      }
+    },
+    {
+      id: "controller-desktop-shutdown",
+      file: "./ash/runtime/controller-desktop-shutdown-regression-test.js",
+      args: [],
+      coverage: {
+        kind: "file",
+        targetFiles: ["PC-Ash-Desktop-Controller.ps1"]
       }
     },
     {

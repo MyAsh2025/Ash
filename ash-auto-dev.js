@@ -18,6 +18,11 @@ const {
   recordAutonomousDevelopmentResult,
   recordFormalCompletionEvidence
 } = require("./ash/runtime/runtime-state");
+const {
+  acquireRepositoryLock,
+  releaseRepositoryLock,
+  resolveRepositoryLockPath
+} = require("./ash-controller");
 
 function getArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -31,6 +36,83 @@ const dryRun = process.argv.includes("--dry-run");
 const allowApply = process.argv.includes("--apply");
 const verifyExistingRepair =
   process.argv.includes("--verify-existing-repair");
+const controllerRunId = getArg("--run-id");
+let applyLock = null;
+
+function writeAutonomousRunLog(result) {
+  const logDir = path.join(process.cwd(), "ash", "logs");
+  fs.mkdirSync(logDir, { recursive: true });
+  const logPath = path.join(
+    logDir,
+    `ash-auto-dev-${new Date().toISOString().replace(/[:.]/g, "-")}.json`
+  );
+  fs.writeFileSync(logPath, JSON.stringify(result, null, 2), "utf8");
+  return logPath;
+}
+
+function acquireApplyLock({ projectPath = process.cwd() } = {}) {
+  if (!allowApply) {
+    return { success: true, required: false, reason: "apply_lock_not_required", lock: null };
+  }
+
+  const lockPath = resolveRepositoryLockPath(projectPath);
+  const lock = acquireRepositoryLock({
+    lockPath,
+    ownerKind: "ash-auto-dev-apply",
+    inheritedOwnerToken: process.env.ASH_AUTONOMOUS_LOCK_TOKEN || null
+  });
+  if (!lock.success) {
+    return { success: false, required: true, reason: lock.reason, lockPath, lock };
+  }
+
+  let statusShort;
+  try {
+    statusShort = execFileSync("git", ["status", "--short"], {
+      cwd: projectPath,
+      encoding: "utf8"
+    });
+  } catch (error) {
+    if (!lock.inherited) {
+      releaseRepositoryLock({ lockPath, ownerToken: lock.record.ownerToken });
+    }
+    return {
+      success: false,
+      required: true,
+      reason: "repository_status_unavailable",
+      errorMessage: error?.message || "Unable to inspect repository state.",
+      lockPath,
+      lock
+    };
+  }
+
+  if (statusShort.trim().length > 0) {
+    if (!lock.inherited) {
+      releaseRepositoryLock({ lockPath, ownerToken: lock.record.ownerToken });
+    }
+    return {
+      success: false,
+      required: true,
+      reason: "dirty_repository",
+      statusShort,
+      lockPath,
+      lock
+    };
+  }
+
+  return { success: true, required: true, reason: lock.reason, lockPath, lock };
+}
+
+function releaseApplyLock() {
+  if (applyLock?.success && applyLock.lock?.inherited !== true) {
+    releaseRepositoryLock({
+      lockPath: applyLock.lockPath,
+      ownerToken: applyLock.lock.record.ownerToken
+    });
+  }
+  applyLock = null;
+}
+
+process.once("exit", releaseApplyLock);
 
 if (verifyExistingRepair) {
   const targetFile = getArg("--target-file");
@@ -243,6 +325,29 @@ if (/repository inventory only/i.test(requestedTask)) {
   process.exit(0);
 }
 
+applyLock = acquireApplyLock({ projectPath: process.cwd() });
+if (!applyLock.success) {
+  const blockedResult = {
+    mode: "ash-auto-dev-runner",
+    success: false,
+    stopReason: applyLock.reason,
+    failureStage: "apply-startup-gate",
+    errorMessage: `Autonomous apply blocked: ${applyLock.reason}.`,
+    requestedTask,
+    controllerRunId: controllerRunId || null,
+    applied: false,
+    startupBlock: {
+      reason: applyLock.reason,
+      statusShort: applyLock.statusShort || null,
+      conflictingLock: applyLock.lock?.record || null
+    },
+    ranAt: new Date().toISOString()
+  };
+  const logPath = writeAutonomousRunLog(blockedResult);
+  console.error(JSON.stringify({ ...blockedResult, logPath }, null, 2));
+  process.exit(1);
+}
+
 const bootstrap = buildBootstrapContext({
   task: requestedTask,
   projectContext: {
@@ -277,14 +382,22 @@ const implementationProviderRegistry =
   });
 
 if (implementationProviderRegistry.success !== true) {
-  console.error(JSON.stringify({
+  const providerResolutionFailure = {
     mode: "ash-auto-dev-provider-resolution",
     success: false,
+    stopReason: "implementation_provider_unavailable",
+    failureStage: "implementation-provider-resolution",
     providerName:
       implementationProviderRegistry.providerName,
     errorMessage:
-      implementationProviderRegistry.reason
-  }, null, 2));
+      implementationProviderRegistry.reason,
+    controllerRunId: controllerRunId || null,
+    applied: false,
+    ranAt: new Date().toISOString()
+  };
+  const logPath = writeAutonomousRunLog(providerResolutionFailure);
+  releaseApplyLock();
+  console.error(JSON.stringify({ ...providerResolutionFailure, logPath }, null, 2));
 
   process.exit(1);
 }
@@ -306,20 +419,15 @@ const result = runAutonomousDevelopmentManager({
   dryRun: dryRun || !allowApply
 });
 
+result.controllerRunId = controllerRunId || null;
+
 recordAutonomousDevelopmentResult({
   projectPath: process.cwd(),
   result
 });
 
-const logDir = path.join(process.cwd(), "ash", "logs");
-fs.mkdirSync(logDir, { recursive: true });
-
-const logPath = path.join(
-  logDir,
-  `ash-auto-dev-${new Date().toISOString().replace(/[:.]/g, "-")}.json`
-);
-
-fs.writeFileSync(logPath, JSON.stringify(result, null, 2), "utf8");
+const logPath = writeAutonomousRunLog(result);
+releaseApplyLock();
 
 const finalCycle =
   Array.isArray(result.cycles) &&
@@ -389,3 +497,7 @@ console.log(JSON.stringify({
 if (!result.success) {
   process.exit(1);
 }
+
+module.exports = {
+  acquireApplyLock
+};
