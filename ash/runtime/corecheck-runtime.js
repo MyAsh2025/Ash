@@ -889,7 +889,7 @@ function getPermanentRegressionChecks() {
       id: "development-completion-contract",
       file: "./ash/runtime/development-completion-contract-regression-test.js",
       args: [],
-      coverage: { kind: "file", targetFiles: ["AGENTS.md", "ash/DEVELOPMENT-RULES.md", "ash-dev-verify.js"] }
+      coverage: { kind: "file", targetFiles: ["AGENTS.md", "ASH-MIGRATION-MASTER.md", "ash/DEVELOPMENT-RULES.md", "ash-dev-verify.js"] }
     }
   ];
 }

@@ -61,3 +61,5 @@ Never bypass, suppress, or disable an approval UI that Codex or an underlying to
 ## Completion gate
 
 Do not claim a real defect is complete, and do not commit or release, unless every gate required by `ash/DEVELOPMENT-RULES.md` has passed. Report the permanent regression check used, canonical CoreCheck result, relevant autonomous dry-run result, and any remaining unverified condition.
+
+For a checkpoint that changes architecture, dependencies, environment requirements, Controller or Task Scheduler behavior, startup/shutdown, runtime evidence ownership, or migration/recovery procedure, explicitly assess whether `ASH-MIGRATION-MASTER.md` must be updated. When migration or recovery behavior changes, update that canonical migration document in the same checkpoint.
