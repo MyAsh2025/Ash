@@ -19,7 +19,9 @@ const {
   calculateDelay,
   shouldScheduleNextCycle,
   createGracefulShutdownRequester,
-  installGracefulSignalHandlers
+  installGracefulSignalHandlers,
+  requestCooperativeStop,
+  evaluateCooperativeStopRequest
 } = controller;
 
 for (const [name, value] of Object.entries({
@@ -31,7 +33,9 @@ for (const [name, value] of Object.entries({
   calculateDelay,
   shouldScheduleNextCycle,
   createGracefulShutdownRequester,
-  installGracefulSignalHandlers
+  installGracefulSignalHandlers,
+  requestCooperativeStop,
+  evaluateCooperativeStopRequest
 })) {
   assert.strictEqual(typeof value, "function", `${name} must be exported.`);
 }
@@ -247,7 +251,7 @@ async function main() {
     ' fs.mkdirSync(logDir,{recursive:true});',
     ' fs.writeFileSync(path.join(logDir,`ash-auto-dev-${runId}.json`),JSON.stringify({success:true,stopReason:"completed",controllerRunId:runId,evidenceSaved:true}),"utf8");',
     ' process.exit(0);',
-    '},350);'
+    '},800);'
   ].join("\n"), "utf8");
   assert.strictEqual(spawnSync("git", ["add", "fake-auto-dev.js"], { cwd: controllerFixture }).status, 0);
   assert.strictEqual(spawnSync("git", [
@@ -257,6 +261,20 @@ async function main() {
   ], { cwd: controllerFixture }).status, 0);
 
   const controllerPath = path.join(process.cwd(), "ash-controller.js");
+  const stopRequestPath = path.join(
+    controllerFixture,
+    ".git",
+    "ash-autonomous-supervisor.stop.json"
+  );
+  fs.writeFileSync(stopRequestPath, JSON.stringify({
+    version: 1,
+    repository: controllerFixture,
+    controllerPid: process.pid,
+    ownerToken: "stale-owner-token",
+    requestType: "graceful-stop",
+    requestedAt: new Date(0).toISOString()
+  }), "utf8");
+
   const headlessProcess = spawn(process.execPath, [controllerPath, "--auto"], {
     cwd: controllerFixture,
     env: {
@@ -282,20 +300,78 @@ async function main() {
     };
     poll();
   });
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 300));
   assert.strictEqual(headlessProcess.exitCode, null, "stdin EOF must not stop a headless Controller.");
   assert.strictEqual(
     fs.readFileSync(invocationPath, "utf8").trim().split(/\r?\n/).length,
     1,
     "--auto must start autonomous mode exactly once."
   );
-  headlessProcess.kill();
-  await new Promise((resolve) => headlessProcess.once("close", resolve));
+  const firstStop = requestCooperativeStop({ projectRoot: controllerFixture });
+  const repeatedStop = requestCooperativeStop({ projectRoot: controllerFixture });
+  assert.strictEqual(firstStop.success, true);
+  assert.strictEqual(firstStop.reason, "cooperative_stop_requested");
+  assert.strictEqual(repeatedStop.success, true);
+  assert.strictEqual(repeatedStop.reason, "cooperative_stop_already_requested");
+  const headlessExitCode = await new Promise((resolve) => headlessProcess.once("close", resolve));
+  assert.strictEqual(headlessExitCode, 0, headlessOutput);
+  assert.match(headlessOutput, /Graceful shutdown requested by cooperative-stop\./);
+  assert.strictEqual(fs.existsSync(stopRequestPath), false);
+  assert.strictEqual(fs.existsSync(path.join(controllerFixture, ".git", "ash-autonomous-supervisor.lock.json")), false);
   assert.strictEqual(spawnSync("git", ["add", "-A"], { cwd: controllerFixture }).status, 0);
   assert.strictEqual(spawnSync("git", [
     "-c", "user.name=Ash Regression",
     "-c", "user.email=ash-regression@example.invalid",
     "commit", "--quiet", "-m", "headless result fixture"
+  ], { cwd: controllerFixture }).status, 0);
+  if (fs.existsSync(startedPath)) fs.unlinkSync(startedPath);
+
+  const idleHeadless = spawn(process.execPath, [controllerPath, "--auto"], {
+    cwd: controllerFixture,
+    env: {
+      ...process.env,
+      ASH_CONTROLLER_MODULE_ONLY: "0",
+      ASH_CONTROLLER_PROJECT_ROOT: controllerFixture,
+      ASH_CONTROLLER_AUTO_DEV_PATH: fakeAutoDev
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let idleOutput = "";
+  idleHeadless.stdout.on("data", (chunk) => { idleOutput += chunk; });
+  idleHeadless.stderr.on("data", (chunk) => { idleOutput += chunk; });
+  await new Promise((resolve, reject) => {
+    const deadline = Date.now() + 2000;
+    const poll = () => {
+      if (fs.existsSync(startedPath)) return resolve();
+      if (idleHeadless.exitCode != null) return reject(new Error(idleOutput));
+      if (Date.now() >= deadline) return reject(new Error("Idle Controller did not start."));
+      setTimeout(poll, 10);
+    };
+    poll();
+  });
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  assert.strictEqual(idleHeadless.exitCode, null, "Controller must remain alive in scheduled idle.");
+  const stopCli = spawnSync(process.execPath, [controllerPath, "--stop"], {
+    cwd: controllerFixture,
+    env: {
+      ...process.env,
+      ASH_CONTROLLER_MODULE_ONLY: "0",
+      ASH_CONTROLLER_PROJECT_ROOT: controllerFixture
+    },
+    encoding: "utf8"
+  });
+  assert.strictEqual(stopCli.status, 0, stopCli.stderr);
+  assert.strictEqual(JSON.parse(stopCli.stdout).reason, "cooperative_stop_requested");
+  const idleExitCode = await new Promise((resolve) => idleHeadless.once("close", resolve));
+  assert.strictEqual(idleExitCode, 0, idleOutput);
+  assert.match(idleOutput, /Graceful shutdown requested by cooperative-stop\./);
+  assert.strictEqual(fs.existsSync(stopRequestPath), false);
+  assert.strictEqual(fs.existsSync(path.join(controllerFixture, ".git", "ash-autonomous-supervisor.lock.json")), false);
+  assert.strictEqual(spawnSync("git", ["add", "-A"], { cwd: controllerFixture }).status, 0);
+  assert.strictEqual(spawnSync("git", [
+    "-c", "user.name=Ash Regression",
+    "-c", "user.email=ash-regression@example.invalid",
+    "commit", "--quiet", "-m", "idle stop fixture"
   ], { cwd: controllerFixture }).status, 0);
   if (fs.existsSync(startedPath)) fs.unlinkSync(startedPath);
 
@@ -330,7 +406,7 @@ async function main() {
   assert.strictEqual(gracefulExitCode, 0, controllerOutput);
   const producedLogs = fs.readdirSync(path.join(controllerFixture, "ash", "logs"))
     .filter((file) => file.startsWith("ash-auto-dev-"));
-  assert.strictEqual(producedLogs.length, 2);
+  assert.strictEqual(producedLogs.length, 3);
   const producedResult = JSON.parse(fs.readFileSync(
     path.join(controllerFixture, "ash", "logs", producedLogs[producedLogs.length - 1]),
     "utf8"
@@ -359,8 +435,25 @@ async function main() {
   assert.match(dirtyOutput, /dirty_repository/);
   assert.strictEqual(
     fs.readFileSync(invocationPath, "utf8").trim().split(/\r?\n/).length,
-    2,
+    3,
     "Dirty startup must not spawn another autonomous child."
+  );
+
+  const noControllerStop = spawnSync(process.execPath, [controllerPath, "--stop"], {
+    cwd: controllerFixture,
+    env: {
+      ...process.env,
+      ASH_CONTROLLER_MODULE_ONLY: "0",
+      ASH_CONTROLLER_PROJECT_ROOT: controllerFixture
+    },
+    encoding: "utf8"
+  });
+  assert.strictEqual(noControllerStop.status, 1);
+  assert.strictEqual(JSON.parse(noControllerStop.stdout).reason, "no_active_controller");
+  assert.doesNotMatch(
+    requestCooperativeStop.toString(),
+    /process\.kill|SIGTERM|SIGINT/,
+    "Cooperative stop must not use process signals or process kill."
   );
 
   const evidenceRegression = spawnSync(process.execPath, [
@@ -385,6 +478,10 @@ async function main() {
     headlessAutoStart: true,
     stdinEofPreserved: true,
     signalShutdownIdempotent: true,
+    cooperativeStop: true,
+    staleStopIgnored: true,
+    repeatedStopSafe: true,
+    idleStopResponsive: true,
     verifiedRuntimeEvidenceDiscoveryPreserved: true
   }, null, 2));
 }

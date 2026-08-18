@@ -13,6 +13,8 @@ const AUTO_DEV_PATH = process.env.ASH_CONTROLLER_AUTO_DEV_PATH
   : path.join(PROJECT_ROOT, "ash-auto-dev.js");
 const LOG_DIR = path.join(PROJECT_ROOT, "ash", "logs");
 const LOCK_NAME = "ash-autonomous-supervisor.lock.json";
+const STOP_REQUEST_NAME = "ash-autonomous-supervisor.stop.json";
+const CONTROL_POLL_INTERVAL_MS = 250;
 const IDLE_DELAY_MS = 5 * 60 * 1000;
 const TRANSIENT_DELAY_BASE_MS = 15000;
 const TRANSIENT_DELAY_MAX_MS = 15 * 60 * 1000;
@@ -32,7 +34,10 @@ const state = {
   exitWhenStopped: false,
   readline: null,
   exitCallback: null,
-  controllerExitCompleted: false
+  controllerExitCompleted: false,
+  controlTimer: null,
+  stopRequestPath: null,
+  requestShutdown: null
 };
 
 function createOwnerToken() {
@@ -61,6 +66,23 @@ function resolveRepositoryLockPath(projectRoot = PROJECT_ROOT) {
     return null;
   }
 
+  const gitPath = String(result.stdout).trim();
+  return path.isAbsolute(gitPath)
+    ? gitPath
+    : path.resolve(projectRoot, gitPath);
+}
+
+function resolveRepositoryControlPath(
+  projectRoot = PROJECT_ROOT,
+  name = STOP_REQUEST_NAME
+) {
+  const result = spawnSync("git", ["rev-parse", "--git-path", name], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    shell: false
+  });
+
+  if (result.status !== 0 || !String(result.stdout || "").trim()) return null;
   const gitPath = String(result.stdout).trim();
   return path.isAbsolute(gitPath)
     ? gitPath
@@ -210,6 +232,124 @@ function releaseRepositoryLock({ lockPath, ownerToken } = {}) {
   if (!current.success || current.record.ownerToken !== ownerToken) return false;
   fs.unlinkSync(lockPath);
   return true;
+}
+
+function evaluateCooperativeStopRequest({
+  request,
+  lockRecord,
+  projectRoot = PROJECT_ROOT,
+  processAlive = isProcessAlive
+} = {}) {
+  const repository = path.resolve(projectRoot);
+  const requestedAt = Date.parse(request?.requestedAt || "");
+  const lockCreatedAt = Date.parse(lockRecord?.createdAt || "");
+  const accepted = Boolean(
+    request &&
+    lockRecord &&
+    request.requestType === "graceful-stop" &&
+    request.repository === repository &&
+    lockRecord.repository === repository &&
+    request.ownerToken === lockRecord.ownerToken &&
+    request.controllerPid === lockRecord.pid &&
+    lockRecord.ownerKind === "ash-controller" &&
+    Number.isFinite(requestedAt) &&
+    Number.isFinite(lockCreatedAt) &&
+    requestedAt >= lockCreatedAt &&
+    processAlive(lockRecord.pid)
+  );
+
+  return {
+    accepted,
+    reason: accepted ? "cooperative_stop_verified" : "cooperative_stop_rejected"
+  };
+}
+
+function writeStopRequest(requestPath, request) {
+  fs.mkdirSync(path.dirname(requestPath), { recursive: true });
+  const temporaryPath = `${requestPath}.write-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(temporaryPath, JSON.stringify(request, null, 2), "utf8");
+  try {
+    fs.renameSync(temporaryPath, requestPath);
+  } catch (error) {
+    if (error?.code !== "EEXIST" && error?.code !== "EPERM") throw error;
+    fs.unlinkSync(requestPath);
+    fs.renameSync(temporaryPath, requestPath);
+  }
+}
+
+function requestCooperativeStop({
+  projectRoot = PROJECT_ROOT,
+  lockPath = resolveRepositoryLockPath(projectRoot),
+  requestPath = resolveRepositoryControlPath(projectRoot),
+  processAlive = isProcessAlive
+} = {}) {
+  if (!lockPath || !requestPath || !fs.existsSync(lockPath)) {
+    return { success: false, requested: false, reason: "no_active_controller" };
+  }
+
+  const lock = readLockRecord(lockPath);
+  const repository = path.resolve(projectRoot);
+  if (
+    !lock.success ||
+    lock.record.ownerKind !== "ash-controller" ||
+    lock.record.repository !== repository ||
+    !processAlive(lock.record.pid)
+  ) {
+    return {
+      success: false,
+      requested: false,
+      reason: lock.success ? "controller_owner_unverifiable" : lock.reason
+    };
+  }
+
+  if (fs.existsSync(requestPath)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(requestPath, "utf8"));
+      const evaluation = evaluateCooperativeStopRequest({
+        request: existing,
+        lockRecord: lock.record,
+        projectRoot,
+        processAlive
+      });
+      if (evaluation.accepted) {
+        return {
+          success: true,
+          requested: true,
+          repeated: true,
+          reason: "cooperative_stop_already_requested",
+          request: existing
+        };
+      }
+    } catch {
+      // A stale or malformed request is replaced only after the live owner is verified.
+    }
+  }
+
+  const request = {
+    version: 1,
+    repository,
+    controllerPid: lock.record.pid,
+    ownerToken: lock.record.ownerToken,
+    requestType: "graceful-stop",
+    requestedAt: new Date().toISOString()
+  };
+  try {
+    writeStopRequest(requestPath, request);
+    return {
+      success: true,
+      requested: true,
+      repeated: false,
+      reason: "cooperative_stop_requested",
+      request
+    };
+  } catch (error) {
+    return {
+      success: false,
+      requested: false,
+      reason: "cooperative_stop_request_failed",
+      errorMessage: error?.message || "Unable to write cooperative stop request."
+    };
+  }
 }
 
 function evaluateSafeStartup({ repositoryClean, lockAuthorized } = {}) {
@@ -538,8 +678,83 @@ function installGracefulSignalHandlers({
   return true;
 }
 
+function consumeOwnedStopRequest({ requestPath, ownerToken } = {}) {
+  if (!requestPath || !fs.existsSync(requestPath)) return false;
+  try {
+    const serialized = fs.readFileSync(requestPath, "utf8");
+    const request = JSON.parse(serialized);
+    if (request?.ownerToken !== ownerToken) return false;
+    if (fs.readFileSync(requestPath, "utf8") !== serialized) return false;
+    fs.unlinkSync(requestPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function pollCooperativeStopRequest() {
+  if (
+    !state.running ||
+    state.stopping ||
+    !state.lockRecord ||
+    !state.stopRequestPath ||
+    !fs.existsSync(state.stopRequestPath)
+  ) {
+    return false;
+  }
+
+  let request;
+  try {
+    request = JSON.parse(fs.readFileSync(state.stopRequestPath, "utf8"));
+  } catch {
+    return false;
+  }
+
+  const evaluation = evaluateCooperativeStopRequest({
+    request,
+    lockRecord: state.lockRecord,
+    projectRoot: PROJECT_ROOT
+  });
+  if (!evaluation.accepted) return false;
+  if (!consumeOwnedStopRequest({
+    requestPath: state.stopRequestPath,
+    ownerToken: state.lockRecord.ownerToken
+  })) {
+    return false;
+  }
+
+  recordControllerEvent({
+    event: "cooperative-stop-accepted",
+    requestType: request.requestType,
+    requestedAt: request.requestedAt,
+    controllerPid: request.controllerPid
+  });
+  if (typeof state.requestShutdown === "function") {
+    state.requestShutdown("cooperative-stop");
+  }
+  return true;
+}
+
+function stopControlMonitor() {
+  if (state.controlTimer) {
+    clearInterval(state.controlTimer);
+    state.controlTimer = null;
+  }
+}
+
+function startControlMonitor() {
+  stopControlMonitor();
+  state.stopRequestPath = resolveRepositoryControlPath(PROJECT_ROOT);
+  state.controlTimer = setInterval(
+    pollCooperativeStopRequest,
+    CONTROL_POLL_INTERVAL_MS
+  );
+}
+
 function completeControllerExit() {
   if (state.controllerExitCompleted || state.currentProcess) return false;
+
+  stopControlMonitor();
 
   if (state.lockRecord) {
     releaseRepositoryLock({
@@ -584,6 +799,7 @@ function scheduleNextCycle(outcome = { classification: "success", retryAutomatic
       state.lockPath = null;
       state.lockRecord = null;
     }
+    stopControlMonitor();
     if ((wasStopping || state.exitWhenStopped) && state.exitWhenStopped) {
       completeControllerExit();
     }
@@ -753,6 +969,8 @@ function runAutonomousCycle() {
       result: summary
     });
 
+    pollCooperativeStopRequest();
+
     if (state.running) {
       scheduleNextCycle(outcome);
     }
@@ -804,6 +1022,7 @@ function startAutonomousAgent() {
   state.startedAt = new Date().toISOString();
   state.cycle = 0;
   state.consecutiveFailures = 0;
+  startControlMonitor();
 
   console.log("");
   console.log("PC Ash autonomous agent started.");
@@ -838,6 +1057,7 @@ function stopAutonomousAgent() {
       state.lockPath = null;
       state.lockRecord = null;
     }
+    stopControlMonitor();
     console.log("PC Ash autonomous agent stopped.");
     if (state.exitWhenStopped) completeControllerExit();
     return;
@@ -873,6 +1093,17 @@ function runOnce(args = ["--cycles", "1", "--apply"]) {
 }
 
 function main({ args = process.argv.slice(2) } = {}) {
+  if (args.includes("--stop")) {
+    const result = requestCooperativeStop({ projectRoot: PROJECT_ROOT });
+    console.log(JSON.stringify({
+      mode: "ash-controller-cooperative-stop",
+      ...result,
+      requestedAt: result.request?.requestedAt || null
+    }, null, 2));
+    process.exitCode = result.success ? 0 : 1;
+    return;
+  }
+
   printHeader();
 
   state.exitCallback = () => process.exit(0);
@@ -884,6 +1115,7 @@ function main({ args = process.argv.slice(2) } = {}) {
       if (!state.currentProcess && !state.running) completeControllerExit();
     }
   });
+  state.requestShutdown = requestShutdown;
   installGracefulSignalHandlers({ processTarget: process, requestShutdown });
 
   if (args.includes("--auto")) {
@@ -973,6 +1205,9 @@ module.exports = {
   shouldScheduleNextCycle,
   createGracefulShutdownRequester,
   installGracefulSignalHandlers,
+  requestCooperativeStop,
+  evaluateCooperativeStopRequest,
+  resolveRepositoryControlPath,
   resolveRepositoryLockPath,
   isProcessAlive
 };
