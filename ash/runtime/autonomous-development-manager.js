@@ -95,13 +95,16 @@ function extractCapabilityFailure(capabilityLoop = null) {
 
   const pipelineResult = failedStep?.dispatchResult?.result?.result || null;
   const classification = failedStep?.classification || failedStep?.dispatchResult?.classification || null;
+  const failureStage =
+    pipelineResult?.failureStage ||
+    pipelineResult?.mode ||
+    failedStep?.action ||
+    "capability-loop";
+  const targetSymbolResolution =
+    pipelineResult?.queueTaskAdapter?.targetSymbolResolution || null;
 
   return {
-    failureStage:
-      pipelineResult?.failureStage ||
-      pipelineResult?.mode ||
-      failedStep?.action ||
-      "capability-loop",
+    failureStage,
     errorMessage:
       pipelineResult?.reason ||
       classification?.reason ||
@@ -119,8 +122,14 @@ function extractCapabilityFailure(capabilityLoop = null) {
     targetFile:
       pipelineResult?.patchValidator?.validatedOperations?.[0]?.file ||
       pipelineResult?.editPlanner?.edits?.[0]?.file ||
+      targetSymbolResolution?.targetFile ||
       null,
+    targetSymbol: targetSymbolResolution?.targetSymbol || null,
+    targetSymbolResolution,
+    targetSymbolInference:
+      targetSymbolResolution?.inference || null,
     providerFailure:
+      failureStage === "implementation-provider" &&
       pipelineResult?.implementationProvider?.success === false
         ? (
             pipelineResult.implementationProvider.providerResult ||
@@ -132,6 +141,18 @@ function extractCapabilityFailure(capabilityLoop = null) {
           )
         : null
   };
+}
+
+function isUnresolvedTargetSymbolFailure(failure = null) {
+  const status = failure?.targetSymbolResolution?.status;
+
+  return (
+    failure?.failureStage === "queue-task-adapter" &&
+    failure?.targetSymbol == null &&
+    (status === "ambiguous" || status === "unresolved") &&
+    failure?.targetSymbolInference &&
+    typeof failure.targetSymbolInference === "object"
+  );
 }
 
 function buildRepairTask({
@@ -478,6 +499,26 @@ function runAutonomousDevelopmentManager({
 
         if (i < maxCycles - 1) continue;
         return { mode: "autonomous-development-manager-runtime", version: "ash-local-runtime-v0.4-corecheck-rollback-verification", success: false, stopped: true, stopReason: "max_cycles_reached_with_pending_repair", failureStage: "corecheck", errorMessage: coreCheckFailure.errorMessage, failedAction: "corecheck", pendingRepairTask: repairTask, rollbackEvidence, rollbackCoreCheck, cycles, ranAt: new Date().toISOString() };
+      }
+
+      if (isUnresolvedTargetSymbolFailure(capabilityFailure)) {
+        return {
+          mode: "autonomous-development-manager-runtime",
+          version: "ash-local-runtime-v0.3-target-symbol-safe-stop",
+          success: false,
+          stopped: true,
+          stopReason: "target_symbol_resolution_unresolved",
+          failureStage: capabilityFailure.failureStage,
+          errorMessage: capabilityFailure.errorMessage,
+          failedAction: capabilityFailure.failedAction,
+          targetSymbolResolution:
+            capabilityFailure.targetSymbolResolution,
+          targetSymbolInference:
+            capabilityFailure.targetSymbolInference,
+          pendingRepairTask: null,
+          cycles,
+          ranAt: new Date().toISOString()
+        };
       }
 
       const repairTask = buildRepairTask({

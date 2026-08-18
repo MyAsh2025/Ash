@@ -8,6 +8,7 @@ const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash-auto-dev.js",
   "./ash-dev-verify.js",
   "./ash/runtime/autonomous-development-manager.js",
+  "./ash/runtime/autonomous-development-target-symbol-stop-regression-test.js",
   "./ash/runtime/development-pipeline-runtime.js",
   "./ash/runtime/queue-task-adapter.js",
   "./ash/runtime/implementation-planner.js",
@@ -711,6 +712,12 @@ function getPermanentRegressionChecks() {
       file: "./ash/runtime/autonomous-development-pending-repair-bootstrap-regression-test.js",
       args: [],
       coverage: { kind: "symbol", targetFiles: ["ash/runtime/autonomous-development-manager.js"], targetSymbols: ["runAutonomousDevelopmentManager"] }
+    },
+    {
+      id: "autonomous-development-target-symbol-stop",
+      file: "./ash/runtime/autonomous-development-target-symbol-stop-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/autonomous-development-manager.js"], targetSymbols: ["extractCapabilityFailure", "runAutonomousDevelopmentManager"] }
     },
     {
       id: "corecheck-apply-rollback",
