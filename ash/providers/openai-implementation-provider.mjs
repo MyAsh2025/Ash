@@ -1648,6 +1648,73 @@ function findInventedRuntimeDependencyViolation({
           )
       : [];
 
+  const currentFunctionParameters = new Set();
+  const functionParameterPattern =
+    /\bfunction(?:\s+[A-Za-z_$][\w$]*)?\s*\(([^)]*)\)/g;
+  let functionParameterMatch = null;
+
+  while (
+    (functionParameterMatch =
+      functionParameterPattern.exec(currentTargetSource)) !== null
+  ) {
+    for (const parameter of functionParameterMatch[1].split(",")) {
+      const normalizedParameter = parameter.trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(normalizedParameter)) {
+        currentFunctionParameters.add(normalizedParameter);
+      }
+    }
+  }
+
+  const inventedParameterMembers = [];
+
+  for (const parameter of currentFunctionParameters) {
+    const escapedParameter = parameter.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+    const memberPattern = new RegExp(
+      `\\b${escapedParameter}\\s*(?:\\?\\.|\\.)\\s*([A-Za-z_$][\\w$]*)`,
+      "g"
+    );
+    const currentMembers = new Set();
+    const generatedMembers = new Set();
+    let memberMatch = null;
+
+    while ((memberMatch = memberPattern.exec(currentTargetSource)) !== null) {
+      currentMembers.add(memberMatch[1]);
+    }
+
+    memberPattern.lastIndex = 0;
+    while ((memberMatch = memberPattern.exec(completeTargetSource)) !== null) {
+      currentMembers.add(memberMatch[1]);
+    }
+
+    if (currentMembers.size === 0) {
+      continue;
+    }
+
+    memberPattern.lastIndex = 0;
+    while ((memberMatch = memberPattern.exec(executableCodeTemplate)) !== null) {
+      generatedMembers.add(memberMatch[1]);
+    }
+
+    for (const member of generatedMembers) {
+      if (!currentMembers.has(member)) {
+        inventedParameterMembers.push(`${parameter}.${member}`);
+      }
+    }
+  }
+
+  if (inventedParameterMembers.length > 0) {
+    return (
+      "The generated implementation introduced unverified member access " +
+      "on an existing function parameter. Detected members: " +
+      inventedParameterMembers.join(", ") +
+      ". Preserve the verified parameter API contract from " +
+      "currentTargetSource or completeTargetSource."
+    );
+  }
+
   const declaredIdentifiers =
     new Set(
       existingLocalDeclarations
@@ -3482,6 +3549,38 @@ function runEnforcementContractSelfCheck() {
       "input?.moduleSource"
     )
   });
+  const parameterContractSource = [
+    "function target() {",
+    "  return {",
+    "    generate: function(context) {",
+    "      const targetSymbol = context.resolveTargetSymbol();",
+    "      const provider = context.getImplementationProvider();",
+    "      return context.validatePatch(provider.generateImplementation(targetSymbol));",
+    "    }",
+    "  };",
+    "}"
+  ].join("\n");
+  const inventedParameterMembers = findImmediateGenerationViolation({
+    input: {
+      completeTargetSource: parameterContractSource,
+      currentTargetSource: parameterContractSource,
+      existingLocalDeclarations: ["targetSymbol", "provider"],
+      requiredOutputShape: "complete-function",
+      targetSymbol: "target"
+    },
+    executableCodeTemplate: [
+      "function target() {",
+      "  return {",
+      "    generate: function(context) {",
+      '      const targetSymbol = context.resolveSymbol("target");',
+      "      const implementation = context.providers.generateImplementation(targetSymbol);",
+      "      context.validators.patchValidator(implementation);",
+      "      return implementation;",
+      "    }",
+      "  };",
+      "}"
+    ].join("\n")
+  });
   const guidance = buildViolationCorrectionGuidance(
     "The generated invented-runtime dependency validator did not use required verified provider input references.",
     input
@@ -3500,6 +3599,10 @@ function runEnforcementContractSelfCheck() {
       inventedParameters.includes("function parameters") &&
       typeof missingVerifiedInput === "string" &&
       missingVerifiedInput.includes("verified provider input") &&
+      typeof inventedParameterMembers === "string" &&
+      inventedParameterMembers.includes("context.resolveSymbol") &&
+      inventedParameterMembers.includes("context.providers") &&
+      inventedParameterMembers.includes("context.validators") &&
       guidance.includes("input and executableCodeTemplate") &&
       guidance.includes("input?.completeTargetSource") &&
       guidance.includes("all eight existing invented-runtime safety indicators"),
@@ -3517,6 +3620,11 @@ function runEnforcementContractSelfCheck() {
     generationGuardRejectedMissingVerifiedInput:
       typeof missingVerifiedInput === "string" &&
       missingVerifiedInput.includes("verified provider input"),
+    generationGuardRejectedInventedParameterMembers:
+      typeof inventedParameterMembers === "string" &&
+      inventedParameterMembers.includes("context.resolveSymbol") &&
+      inventedParameterMembers.includes("context.providers") &&
+      inventedParameterMembers.includes("context.validators"),
     correctionGuidancePreservesExistingArguments:
       guidance.includes("input and executableCodeTemplate"),
     correctionGuidanceRequiresVerifiedInput:

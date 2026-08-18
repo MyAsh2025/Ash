@@ -9,6 +9,7 @@ const DEFAULT_CORECHECK_FILES = Object.freeze([
   "./ash-dev-verify.js",
   "./ash/runtime/autonomous-development-manager.js",
   "./ash/runtime/autonomous-development-target-symbol-stop-regression-test.js",
+  "./ash/runtime/task-discovery-concrete-implementation-regression-test.js",
   "./ash/runtime/development-pipeline-runtime.js",
   "./ash/runtime/queue-task-adapter.js",
   "./ash/runtime/implementation-planner.js",
@@ -720,6 +721,12 @@ function getPermanentRegressionChecks() {
       coverage: { kind: "symbol", targetFiles: ["ash/runtime/autonomous-development-manager.js"], targetSymbols: ["extractCapabilityFailure", "runAutonomousDevelopmentManager"] }
     },
     {
+      id: "task-discovery-concrete-implementation",
+      file: "./ash/runtime/task-discovery-concrete-implementation-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/task-discovery-runtime.js"], targetSymbols: ["buildConcreteImplementationPlanningTask"] }
+    },
+    {
       id: "corecheck-apply-rollback",
       file: "./ash/runtime/corecheck-apply-rollback-regression-test.js",
       args: [],
@@ -783,7 +790,7 @@ function getPermanentRegressionChecks() {
       id: "openai-provider-enforcement-contract",
       file: "./ash/runtime/openai-provider-enforcement-contract-regression-test.js",
       args: [],
-      coverage: { kind: "symbol", targetFiles: ["ash/providers/openai-implementation-provider.mjs"], targetSymbols: ["normalizeProviderInput", "findImmediateGenerationViolation", "buildViolationCorrectionGuidance", "runEnforcementContractSelfCheck"] }
+      coverage: { kind: "symbol", targetFiles: ["ash/providers/openai-implementation-provider.mjs"], targetSymbols: ["normalizeProviderInput", "findInventedRuntimeDependencyViolation", "findImmediateGenerationViolation", "buildViolationCorrectionGuidance", "runEnforcementContractSelfCheck"] }
     },
     {
       id: "openai-provider-retry-evidence-integration",

@@ -34,6 +34,7 @@ assert.strictEqual(result.generationGuardAcceptedValidContract, true);
 assert.strictEqual(result.generationGuardRejectedMissingIndicators, true);
 assert.strictEqual(result.generationGuardRejectedInventedParameters, true);
 assert.strictEqual(result.generationGuardRejectedMissingVerifiedInput, true);
+assert.strictEqual(result.generationGuardRejectedInventedParameterMembers, true);
 assert.strictEqual(result.correctionGuidancePreservesExistingArguments, true);
 assert.strictEqual(result.correctionGuidanceRequiresVerifiedInput, true);
 assert.strictEqual(result.correctionGuidanceRequiresIndicators, true);

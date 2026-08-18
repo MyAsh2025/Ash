@@ -180,7 +180,16 @@ function buildConcreteImplementationPlanningTask() {
         throw new Error("Generated implementation failed patch validation.");
       }
 
-      return implementation;
+      this.implementationTemplate.executableCodeTemplate =
+        implementation.executableCodeTemplate;
+      this.implementationTemplate.implementationTemplate =
+        implementation.implementationTemplate || null;
+      this.implementationTemplate.confidence =
+        implementation.confidence || this.implementationTemplate.confidence;
+      this.implementationTemplate.reason =
+        implementation.reason || this.implementationTemplate.reason;
+
+      return this;
     }
   };
 }
