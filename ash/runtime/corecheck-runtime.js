@@ -737,6 +737,12 @@ function getPermanentRegressionChecks() {
       coverage: { kind: "symbol", targetFiles: ["ash/runtime/implementation-planner.js"], targetSymbols: ["buildRepairSymbolInferenceText", "buildImplementationPlanner"] }
     },
     {
+      id: "queue-task-adapter-target-symbol-readiness",
+      file: "./ash/runtime/queue-task-adapter-target-symbol-readiness-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/queue-task-adapter.js"], targetSymbols: ["adaptQueueItemForExecution"] }
+    },
+    {
       id: "implementation-provider-current-target-source",
       file: "./ash/runtime/implementation-provider-current-target-source-regression-test.js",
       args: [],

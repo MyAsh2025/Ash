@@ -135,17 +135,70 @@ function adaptQueueItemForExecution({
     bootstrap
   });
 
+  const targetSymbolInference =
+    implementationPlanner?.targetSymbolInference &&
+    typeof implementationPlanner.targetSymbolInference === "object"
+      ? implementationPlanner.targetSymbolInference
+      : null;
+
+  const javascriptTargetFile =
+    typeof resolvedTargetFile === "string" &&
+    /\.m?js$/i.test(resolvedTargetFile.trim());
+
+  const targetSymbolUnresolved =
+    patchPlanner.needsPatchPlanning === true &&
+    javascriptTargetFile &&
+    !implementationPlanner.targetSymbol &&
+    targetSymbolInference &&
+    !targetSymbolInference.targetSymbol;
+
+  const targetSymbolResolutionStatus =
+    patchPlanner.needsPatchPlanning !== true ||
+    !javascriptTargetFile
+      ? "not-required"
+      : targetSymbolUnresolved &&
+    typeof targetSymbolInference.source === "string" &&
+    targetSymbolInference.source.startsWith("ambiguous-")
+        ? "ambiguous"
+        : targetSymbolUnresolved
+          ? "unresolved"
+          : "resolved";
+
+  const targetSymbolResolution = {
+    status: targetSymbolResolutionStatus,
+    targetFile: resolvedTargetFile,
+    targetSymbol:
+      implementationPlanner.targetSymbol || null,
+    inference: targetSymbolInference
+      ? {
+          ...targetSymbolInference
+        }
+      : null
+  };
+
+  const success =
+    targetSymbolUnresolved !== true;
+
+  const reason =
+    targetSymbolUnresolved
+      ? `Target symbol resolution is ${targetSymbolResolutionStatus} for ${resolvedTargetFile}; Queue Task Adapter stopped before Provider generation.`
+      : "Queue item adapted for patch planning.";
+
   return {
     mode: "queue-task-adapter-runtime",
     version: "ash-local-runtime-v0.1",
-    success: true,
+    success,
     item,
     step,
     adapter,
     targetResolution,
+    targetSymbolResolution,
     implementationPlanner,
     patchPlanner,
-    readyForPatchPlanning: Boolean(patchPlanner.planReady),
+    readyForPatchPlanning:
+      success &&
+      Boolean(patchPlanner.planReady),
+    reason,
     adaptedAt: new Date().toISOString()
   };
 }
