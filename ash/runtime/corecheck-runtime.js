@@ -790,7 +790,7 @@ function getPermanentRegressionChecks() {
       id: "openai-provider-enforcement-contract",
       file: "./ash/runtime/openai-provider-enforcement-contract-regression-test.js",
       args: [],
-      coverage: { kind: "symbol", targetFiles: ["ash/providers/openai-implementation-provider.mjs"], targetSymbols: ["normalizeProviderInput", "findInventedRuntimeDependencyViolation", "findImmediateGenerationViolation", "buildViolationCorrectionGuidance", "runEnforcementContractSelfCheck"] }
+      coverage: { kind: "symbol", targetFiles: ["ash/providers/openai-implementation-provider.mjs"], targetSymbols: ["normalizeProviderInput", "findIllustrativeImplementationViolation", "findInventedRuntimeDependencyViolation", "findImmediateGenerationViolation", "buildViolationCorrectionGuidance", "runEnforcementContractSelfCheck"] }
     },
     {
       id: "openai-provider-retry-evidence-integration",

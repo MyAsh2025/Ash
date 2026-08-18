@@ -1503,6 +1503,15 @@ function findIllustrativeImplementationViolation(
           executableCodeTemplate
         ),
       weight: 2
+    },
+    {
+      name:
+        "throw-only-unimplemented-stub",
+      matched:
+        /throw\s+new\s+Error\s*\(\s*["'`][^"'`]*\bnot implemented\b[^"'`]*["'`]\s*\)/i.test(
+          executableCodeTemplate
+        ),
+      weight: 5
     }
   ];
 
@@ -3581,6 +3590,24 @@ function runEnforcementContractSelfCheck() {
       "}"
     ].join("\n")
   });
+  const throwOnlyStub = findImmediateGenerationViolation({
+    input: {
+      completeTargetSource: parameterContractSource,
+      currentTargetSource: parameterContractSource,
+      existingLocalDeclarations: ["targetSymbol", "provider"],
+      requiredOutputShape: "complete-function",
+      targetSymbol: "target"
+    },
+    executableCodeTemplate: [
+      "function target() {",
+      "  return {",
+      "    generate: function() {",
+      '      throw new Error("generate is not implemented in this runtime.");',
+      "    }",
+      "  };",
+      "}"
+    ].join("\n")
+  });
   const guidance = buildViolationCorrectionGuidance(
     "The generated invented-runtime dependency validator did not use required verified provider input references.",
     input
@@ -3603,6 +3630,8 @@ function runEnforcementContractSelfCheck() {
       inventedParameterMembers.includes("context.resolveSymbol") &&
       inventedParameterMembers.includes("context.providers") &&
       inventedParameterMembers.includes("context.validators") &&
+      typeof throwOnlyStub === "string" &&
+      throwOnlyStub.includes("throw-only-unimplemented-stub") &&
       guidance.includes("input and executableCodeTemplate") &&
       guidance.includes("input?.completeTargetSource") &&
       guidance.includes("all eight existing invented-runtime safety indicators"),
@@ -3625,6 +3654,9 @@ function runEnforcementContractSelfCheck() {
       inventedParameterMembers.includes("context.resolveSymbol") &&
       inventedParameterMembers.includes("context.providers") &&
       inventedParameterMembers.includes("context.validators"),
+    generationGuardRejectedThrowOnlyStub:
+      typeof throwOnlyStub === "string" &&
+      throwOnlyStub.includes("throw-only-unimplemented-stub"),
     correctionGuidancePreservesExistingArguments:
       guidance.includes("input and executableCodeTemplate"),
     correctionGuidanceRequiresVerifiedInput:
