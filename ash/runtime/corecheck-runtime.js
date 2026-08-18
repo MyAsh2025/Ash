@@ -743,6 +743,12 @@ function getPermanentRegressionChecks() {
       coverage: { kind: "symbol", targetFiles: ["ash/runtime/implementation-provider.js"], targetSymbols: ["extractCurrentTargetSource", "buildProviderInput"] }
     },
     {
+      id: "implementation-provider-local-repair-anchor",
+      file: "./ash/runtime/implementation-provider-local-repair-anchor-regression-test.js",
+      args: [],
+      coverage: { kind: "symbol", targetFiles: ["ash/runtime/implementation-provider.js"], targetSymbols: ["buildProviderInput"] }
+    },
+    {
       id: "implementation-provider-progress",
       file: "./ash/runtime/implementation-provider-progress-regression-test.js",
       args: [],

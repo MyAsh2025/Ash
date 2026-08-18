@@ -914,6 +914,27 @@ function buildProviderInput({
       targetLocator
     });
 
+  const functionBodyRepairRequested =
+    implementationPlanner?.localRepairIntent
+      ?.preserveExistingTarget === true &&
+    implementationPlanner?.localRepairIntent
+      ?.requireVerifiedLocalAnchor === true &&
+    targetLocator?.functionBodyAnchor
+      ?.verified === true &&
+    targetLocator?.functionBodyAnchor
+      ?.anchorType === "function-body-opening";
+
+  const providerAnchor =
+    functionBodyRepairRequested
+      ? targetLocator.functionBodyAnchor
+      : targetLocator?.verifiedLocalAnchor &&
+          typeof targetLocator.verifiedLocalAnchor === "object"
+        ? targetLocator.verifiedLocalAnchor
+        : targetLocator?.functionBodyAnchor &&
+            typeof targetLocator.functionBodyAnchor === "object"
+          ? targetLocator.functionBodyAnchor
+          : null;
+
   return {
     completeTargetSource,
     currentTargetSource:
@@ -964,13 +985,7 @@ function buildProviderInput({
           targetLocator?.symbolType ||
           null,
         verifiedLocalAnchor:
-          targetLocator?.verifiedLocalAnchor &&
-          typeof targetLocator.verifiedLocalAnchor === "object"
-            ? targetLocator.verifiedLocalAnchor
-            : targetLocator?.functionBodyAnchor &&
-                typeof targetLocator.functionBodyAnchor === "object"
-              ? targetLocator.functionBodyAnchor
-              : null
+          providerAnchor
       }),
     localRepairIntent:
       implementationPlanner?.localRepairIntent &&
@@ -1015,17 +1030,11 @@ function buildProviderInput({
     surroundingContext:
       targetLocator?.surroundingContext || null,
     verifiedLocalAnchor:
-      targetLocator?.verifiedLocalAnchor &&
-      typeof targetLocator.verifiedLocalAnchor === "object"
+      providerAnchor
         ? {
-            ...targetLocator.verifiedLocalAnchor
+            ...providerAnchor
           }
-        : targetLocator?.functionBodyAnchor &&
-            typeof targetLocator.functionBodyAnchor === "object"
-          ? {
-              ...targetLocator.functionBodyAnchor
-            }
-          : null,
+        : null,
     existingLocalDeclarations:
       Array.isArray(
         targetLocator?.functionBodyAnchor
